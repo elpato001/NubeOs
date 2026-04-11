@@ -36,6 +36,14 @@ Puedes instalar todo el ecosistema de NubeOS con un solo comando (vía Terminal)
 curl -fsSL https://raw.githubusercontent.com/elpato001/NubeOs/main/install.sh | sudo bash
 ```
 
+### Desinstalar NubeOS (Linux)
+
+Si deseas eliminar NubeOS por completo de tu sistema Linux:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/elpato001/NubeOs/main/uninstall.sh | sudo bash
+```
+
 ### Opción Rápida (Windows)
 
 Si estás en Windows, puedes usar el script automatizado que se encuentra en la raíz del proyecto:
