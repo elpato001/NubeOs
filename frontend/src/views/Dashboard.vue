@@ -9,8 +9,6 @@ import {
   Settings, 
   Activity, 
   User, 
-  LogOut, 
-  LayoutDashboard,
   Bell,
   Search,
   Grid

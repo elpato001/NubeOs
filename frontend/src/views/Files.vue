@@ -9,7 +9,6 @@ import {
   Plus, 
   Trash2, 
   ChevronLeft,
-  Search,
   Grid,
   List
 } from 'lucide-vue-next';

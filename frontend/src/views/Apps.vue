@@ -6,28 +6,11 @@ import {
   Square, 
   Download, 
   ExternalLink, 
-  LayoutGrid, 
-  ShoppingBag,
   RefreshCw
 } from 'lucide-vue-next';
 
-interface AppContainer {
-  id: string;
-  name: string;
-  image: string;
-  status: string;
-  state: string;
-}
-
-interface StoreApp {
-  id: string;
-  name: string;
-  description: string;
-  image: string;
-  icon: string;
-}
-
 const allApps = ref<any[]>([]);
+const loading = ref(false);
 
 const fetchData = async () => {
   loading.value = true;
@@ -84,7 +67,6 @@ const installApp = async (id: string) => {
   try {
     const res = await axios.post(`/api/apps/install/${id}`);
     alert(res.data.message);
-    activeTab.value = 'installed';
     fetchData();
   } catch (err: any) {
     alert(err.response?.data?.error || 'Error al instalar app');
