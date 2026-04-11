@@ -64,6 +64,11 @@ const wallpapers = [
   { name: 'Dark Nature', url: '/wallpapers/wp2.png' },
   { name: 'Fluid Waves', url: '/wallpapers/wp3.png' },
   { name: 'Cosmic Night', url: '/wallpapers/wp0.png' },
+  { name: 'Cyberpunk City', url: '/wallpapers/wp4.png' },
+  { name: 'Minimalist Dawn', url: '/wallpapers/wp5.png' },
+  { name: 'Geometric Sun', url: '/wallpapers/wp6.png' },
+  { name: 'Forest Mist', url: '/wallpapers/wp7.png' },
+  { name: 'Oceanic Deep', url: '/wallpapers/wp8.png' },
 ];
 
 const categories = [
