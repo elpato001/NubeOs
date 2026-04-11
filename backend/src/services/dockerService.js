@@ -14,15 +14,17 @@ const getContainers = async () => {
       state: c.Status
     }));
   } catch (error) {
-    if (process.env.NODE_ENV === 'development') {
+    console.warn('⚠️ Docker no accesible:', error.message);
+    // If permission denied or dev mode, return mock data to keep UI functional
+    if (process.env.NODE_ENV === 'development' || error.message.includes('permission denied') || error.code === 'ENOENT') {
       isMockMode = true;
       return [
-        { id: '1', name: 'Nextcloud', image: 'nextcloud:latest', status: 'running', state: 'Up 2 hours' },
-        { id: '2', name: 'Pi-hole', image: 'pihole/pihole:latest', status: 'exited', state: 'Exited (0) 5 days ago' },
-        { id: '3', name: 'Plex', image: 'plexinc/pms-docker', status: 'running', state: 'Up 10 minutes' }
+        { id: '1', name: 'Nextcloud (Modo Demo)', image: 'nextcloud:latest', status: 'running', state: 'Up 2 horas' },
+        { id: '2', name: 'Pi-hole (Modo Demo)', image: 'pihole/pihole:latest', status: 'exited', state: 'Exited (0) 5 days ago' },
+        { id: '3', name: 'Plex (Modo Demo)', image: 'plexinc/pms-docker', status: 'running', state: 'Up 10 minutos' }
       ];
     }
-    throw error;
+    return [];
   }
 };
 

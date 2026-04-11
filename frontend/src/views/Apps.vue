@@ -35,14 +35,22 @@ const loading = ref(false);
 const fetchData = async () => {
   loading.value = true;
   try {
-    const [inst, store] = await Promise.all([
-      axios.get('/api/apps/installed'),
-      axios.get('/api/apps/store')
-    ]);
-    installedApps.value = inst.data;
-    storeApps.value = store.data;
-  } catch (err) {
-    console.error('Error fetching apps:', err);
+    // Fetch installed apps
+    try {
+      const inst = await axios.get('/api/apps/installed');
+      installedApps.value = inst.data;
+    } catch (err) {
+      console.error('Error fetching installed apps:', err);
+      installedApps.value = [];
+    }
+
+    // Fetch store apps
+    try {
+      const store = await axios.get('/api/apps/store');
+      storeApps.value = store.data;
+    } catch (err) {
+      console.error('Error fetching store apps:', err);
+    }
   } finally {
     loading.value = false;
   }
