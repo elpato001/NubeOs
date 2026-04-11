@@ -38,7 +38,8 @@ import {
   UserPlus,
   Trash2,
   Shield,
-  Clock
+  Clock,
+  RefreshCw
 } from 'lucide-vue-next';
 
 interface AppUser {
@@ -109,6 +110,7 @@ const categories = [
       { id: 'security', name: 'Seguridad', icon: Lock, color: '#ef4444' },
       { id: 'personalization', name: 'Personalización', icon: Palette, color: '#ec4899' },
       { id: 'system', name: 'Sistema', icon: Settings, color: '#3b82f6' },
+      { id: 'update', name: 'Actualización', icon: RefreshCw, color: '#0ea5e9' },
     ]
   },
   {
@@ -160,12 +162,34 @@ const deleteUser = async (id: number) => {
   }
 };
 
+const isUpdating = ref(false);
+
+const performUpdate = async () => {
+  if (!confirm('¿Deseas buscar actualizaciones en GitHub y aplicarlas ahora?')) return;
+  
+  isUpdating.value = true;
+  try {
+    const res = await axios.post('/api/system/update');
+    alert(res.data.message + '\n\n' + res.data.output);
+    // Optionally reload the page if needed
+    if (res.data.output.includes('Updating')) {
+       window.location.reload();
+    }
+  } catch (err: any) {
+    alert(err.response?.data?.error || 'Error al actualizar');
+  } finally {
+    isUpdating.value = false;
+  }
+};
+
 const handleItemClick = (id: string) => {
   if (id === 'personalization') {
     activeSubView.value = 'personalization';
   } else if (id === 'user') {
     activeSubView.value = 'user';
     fetchUsers();
+  } else if (id === 'update') {
+    performUpdate();
   }
 };
 </script>
@@ -326,6 +350,16 @@ const handleItemClick = (id: string) => {
         </div>
       </div>
     </div>
+
+    <!-- Updating Overlay -->
+    <div v-if="isUpdating" class="modal-overlay">
+      <div class="modal glass align-center">
+        <RefreshCw :size="48" class="spin icon-primary" />
+        <h3>Actualizando NubeOS</h3>
+        <p>Buscando cambios en GitHub y sincronizando archivos...</p>
+        <span class="loader-subtext">Por favor, no cierres esta ventana.</span>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -471,4 +505,9 @@ td { padding: 1rem; font-size: 0.85rem; border-top: 1px solid #e2e8f0; }
 /* Custom Scrollbar */
 .cp-content::-webkit-scrollbar { width: 4px; }
 .cp-content::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 2px; }
+
+.align-center { align-items: center; text-align: center; }
+.spin { animation: spin 2s linear infinite; }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.loader-subtext { font-size: 0.75rem; color: #94a3b8; margin-top: -0.5rem; }
 </style>
