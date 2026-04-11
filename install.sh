@@ -29,10 +29,14 @@ apt update && apt install -y curl git build-essential ca-certificates gnupg lsb-
 # 3. Instalar Docker si no existe
 if ! command -v docker &> /dev/null; then
     echo -e "${GREEN}[2/6] Instalando Docker Engine...${NC}"
+    # Detectar si es Ubuntu o Debian
+    OS_ID=$(grep -oP '^ID=\K\w+' /etc/os-release)
+    [ "$OS_ID" == "ubuntu" ] || OS_ID="debian"
+    
     mkdir -p /etc/apt/keyrings
-    curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+    curl -fsSL https://download.docker.com/linux/$OS_ID/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
     echo \
-      "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian \
+      "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/$OS_ID \
       $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
     apt update && apt install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
     systemctl enable docker
