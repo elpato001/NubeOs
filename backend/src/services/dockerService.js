@@ -1,5 +1,8 @@
 const Docker = require('dockerode');
-const docker = new Docker(); // Defaults to /var/run/docker.sock or Win local pipe
+const isLinux = process.platform === 'linux';
+
+// Initialize Docker with default settings or specific Linux socket
+const docker = new Docker(isLinux ? { socketPath: '/var/run/docker.sock' } : {}); 
 
 let isMockMode = false;
 
