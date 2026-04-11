@@ -2,7 +2,7 @@
 
 NubeOS es un sistema de gestión de archivos y aplicaciones en la nube para uso personal (NAS casero). Proporciona una interfaz de escritorio intuitiva basada en la web para gestionar archivos, instalar aplicaciones y monitorear el sistema desde cualquier lugar de tu red local.
 
-![NubeOS Desktop Preview](https://raw.githubusercontent.com/elpato001/NubeOs/main/screenshots/desktop_preview.png)
+![NubeOS Dashboard](https://raw.githubusercontent.com/elpato001/NubeOs/main/frontend/src/assets/hero.png)
 
 ## 🚀 Características
 
@@ -26,6 +26,14 @@ Antes de comenzar, asegúrate de tener instalado:
 - [NPM](https://www.npmjs.com/) (Viene incluido con Node.js)
 
 ## ⚙️ Instalación y Ejecución
+
+### Opción Rápida (Linux - Debian/Ubuntu)
+
+Puedes instalar todo el ecosistema de NubeOS con un solo comando (vía Terminal):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/elpato001/NubeOs/main/install.sh | sudo bash
+```
 
 ### Opción Rápida (Windows)
 

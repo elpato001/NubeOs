@@ -1,0 +1,115 @@
+#!/bin/bash
+
+# NubeOS One-Line Installer for Debian/Ubuntu
+# Inspirado en CasaOS
+
+set -e
+
+# Colores para la terminal
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+echo -e "${BLUE}======================================================"
+echo -e "           INSTALADOR OFICIAL DE NubeOS"
+echo -e "======================================================${NC}"
+echo.
+
+# 1. Verificar si es root
+if [ "$EUID" -ne 0 ]; then 
+  echo -e "${RED}[ERROR] Por favor, ejecuta el instalador como root o con sudo.${NC}"
+  exit 1
+fi
+
+# 2. Actualizar sistema e instalar dependencias básicas
+echo -e "${GREEN}[1/6] Actualizando sistema e instalando dependencias básicas...${NC}"
+apt update && apt install -y curl git build-essential
+
+# 3. Instalar Node.js si no existe (usando NodeSource para versión reciente)
+if ! command -v node &> /dev/null; then
+    echo -e "${GREEN}[2/6] Instalando Node.js (v18)...${NC}"
+    curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+    apt install -y nodejs
+else
+    echo -e "${GREEN}[2/6] Node.js ya está instalado ($(node -v)).${NC}"
+fi
+
+# 4. Clonar el repositorio
+INSTALL_DIR="/opt/nubeos"
+echo -e "${GREEN}[3/6] Clonando NubeOS en $INSTALL_DIR...${NC}"
+if [ -d "$INSTALL_DIR" ]; then
+    echo -e "${BLUE}Ya existe una instalación previa. Actualizando...${NC}"
+    cd $INSTALL_DIR && git pull origin main
+else
+    git clone https://github.com/elpato001/NubeOs.git $INSTALL_DIR
+fi
+
+# 5. Instalar dependencias del proyecto
+echo -e "${GREEN}[4/6] Instalando dependencias de Backend y Frontend...${NC}"
+cd $INSTALL_DIR/backend && npm install
+cd $INSTALL_DIR/frontend && npm install
+npm run build # Construir el frontend para producción
+
+# 6. Configurar servicios Systemd
+echo -e "${GREEN}[5/6] Configurando servicios del sistema...${NC}"
+
+# Servicio para el Backend
+cat <<EOF > /etc/systemd/system/nubeos-backend.service
+[Unit]
+Description=NubeOS Backend Manager
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=$INSTALL_DIR/backend
+ExecStart=/usr/bin/node src/index.js
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Servicio para el Frontend (usando un servidor estático o preview para simplificar)
+# NOTA: En producción lo ideal es servirlo con Nginx, pero para el instalador rápido
+# usaremos 'npm run dev' o un servidor simple para que funcione de inmediato.
+cat <<EOF > /etc/systemd/system/nubeos-frontend.service
+[Unit]
+Description=NubeOS Frontend Interface
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=$INSTALL_DIR/frontend
+ExecStart=/usr/bin/npm run dev -- --host
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Habilitar e iniciar servicios
+systemctl daemon-reload
+systemctl enable nubeos-backend
+systemctl enable nubeos-frontend
+systemctl restart nubeos-backend
+systemctl restart nubeos-frontend
+
+# 7. Finalización
+echo.
+echo -e "${BLUE}======================================================"
+echo -e "           ¡INSTALACIÓN COMPLETADA! "
+echo -e "======================================================${NC}"
+echo.
+echo -e "NubeOS ahora está funcionando como un servicio."
+echo.
+echo -e "NubeOS Dashboard: ${GREEN}http://$(hostname -I | awk '{print $1}'):5173${NC}"
+echo -e "NubeOS API:       ${GREEN}http://$(hostname -I | awk '{print $1}'):3000${NC}"
+echo.
+echo -e "Puedes gestionar los servicios con:"
+echo -e "  systemctl status nubeos-backend"
+echo -e "  systemctl status nubeos-frontend"
+echo.
+echo -e "${BLUE}¡Gracias por usar NubeOS!${NC}"
