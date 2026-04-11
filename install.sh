@@ -14,7 +14,7 @@ NC='\033[0m' # No Color
 echo -e "${BLUE}======================================================"
 echo -e "           INSTALADOR OFICIAL DE NubeOS"
 echo -e "======================================================${NC}"
-echo.
+echo
 
 # 1. Verificar si es root
 if [ "$EUID" -ne 0 ]; then 
@@ -113,16 +113,16 @@ systemctl restart nubeos-backend
 systemctl restart nubeos-frontend
 
 # 7. Finalización
-echo.
+echo
 echo -e "${BLUE}======================================================"
 echo -e "           ¡INSTALACIÓN COMPLETADA! "
 echo -e "======================================================${NC}"
-echo.
+echo
 echo -e "NubeOS ahora está funcionando como un servicio."
-echo.
+echo
 echo -e "NubeOS Dashboard: ${GREEN}http://$(hostname -I | awk '{print $1}'):5173${NC}"
 echo -e "NubeOS API:       ${GREEN}http://$(hostname -I | awk '{print $1}'):3000${NC}"
-echo.
+echo
 echo -e "Puedes gestionar los servicios con:"
 echo -e "  systemctl status nubeos-backend"
 echo -e "  systemctl status nubeos-frontend"
