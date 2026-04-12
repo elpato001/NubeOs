@@ -58,7 +58,8 @@ router.post('/upload', authMiddleware, upload.array('files'), (req, res) => {
 });
 
 // 2b. Chunked Upload (for large files)
-router.post('/upload/chunk', authMiddleware, multer().single('chunk'), async (req, res) => {
+router.post('/upload/chunk', authMiddleware, multer({ storage: multer.memoryStorage() }).single('chunk'), async (req, res) => {
+  let tempDir = '';
   try {
     const { 
       chunkIndex, 
@@ -68,40 +69,59 @@ router.post('/upload/chunk', authMiddleware, multer().single('chunk'), async (re
       uploadId 
     } = req.body;
 
-    const chunk = req.file;
-    const tempDir = path.join(__dirname, '../../../data/temp', uploadId);
+    if (!req.file) throw new Error('No se recibió el fragmento (chunk)');
+
+    const dataDir = path.resolve(__dirname, '../../../data');
+    tempDir = path.join(dataDir, 'temp', uploadId);
     
     if (!fs.existsSync(tempDir)) {
       fs.mkdirSync(tempDir, { recursive: true });
     }
 
     const chunkPath = path.join(tempDir, `chunk-${chunkIndex}`);
-    fs.writeFileSync(chunkPath, chunk.buffer);
+    fs.writeFileSync(chunkPath, req.file.buffer);
 
     // Check if all chunks are uploaded
-    const uploadedChunks = fs.readdirSync(tempDir).length;
+    const uploadedChunks = fs.readdirSync(tempDir).filter(f => f.startsWith('chunk-')).length;
     
     if (uploadedChunks === parseInt(totalChunks)) {
       const finalPath = getSafePath(req.user.username, path.join(relPath || '', fileName));
       const writeStream = fs.createWriteStream(finalPath);
 
+      console.log(`📦 Ensamblando ${totalChunks} fragmentos para: ${fileName}`);
+
       for (let i = 0; i < totalChunks; i++) {
         const partPath = path.join(tempDir, `chunk-${i}`);
+        if (!fs.existsSync(partPath)) {
+          throw new Error(`Falta el fragmento ${i} para reensamblar el archivo.`);
+        }
         const partBuffer = fs.readFileSync(partPath);
         writeStream.write(partBuffer);
-        fs.unlinkSync(partPath); // Delete chunk after writing
       }
 
       writeStream.end();
-      fs.rmdirSync(tempDir); // Delete temp dir
       
-      console.log(`✅ Archivo reensamblado: ${fileName}`);
-      return res.json({ message: 'Archivo subido y reensamblado correctamente', completed: true });
+      // Wait for stream to finish before cleaning up
+      writeStream.on('finish', () => {
+        try {
+          // Cleanup chunks
+          for (let i = 0; i < totalChunks; i++) {
+            const partPath = path.join(tempDir, `chunk-${i}`);
+            if (fs.existsSync(partPath)) fs.unlinkSync(partPath);
+          }
+          if (fs.existsSync(tempDir)) fs.rmdirSync(tempDir);
+          console.log(`✅ Archivo reensamblado con éxito: ${fileName}`);
+        } catch (e) {
+          console.warn('Error limpiando temporales:', e.message);
+        }
+      });
+
+      return res.json({ message: 'Archivo recibido, procesando ensamblado...', completed: true });
     }
 
-    res.json({ message: `Chunk ${chunkIndex} recibido`, completed: false });
+    res.json({ message: `Fragmento ${chunkIndex} recibido`, completed: false });
   } catch (error) {
-    console.error('Error en chunked upload:', error);
+    console.error('❌ Error en chunked upload:', error.message);
     res.status(500).json({ error: error.message });
   }
 });

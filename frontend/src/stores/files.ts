@@ -97,12 +97,13 @@ export const useFileStore = defineStore('files', {
             const chunk = file.slice(start, end);
 
             const formData = new FormData();
-            formData.append('chunk', chunk);
+            // Appending primitive fields BEFORE the file chunk helps backend parsers
             formData.append('chunkIndex', chunkIndex.toString());
             formData.append('totalChunks', totalChunks.toString());
             formData.append('fileName', file.name);
             formData.append('path', this.currentPath);
             formData.append('uploadId', uploadId);
+            formData.append('chunk', chunk); 
 
             try {
               await axios.post('/api/files/upload/chunk', formData, {
