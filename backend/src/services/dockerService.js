@@ -1,8 +1,7 @@
 const Docker = require('dockerode');
 const isLinux = process.platform === 'linux';
 
-// Initialize Docker with default settings or specific Linux socket
-const docker = new Docker(isLinux ? { socketPath: '/var/run/docker.sock' } : {}); 
+const docker = new Docker(isLinux ? { socketPath: '/var/run/docker.sock' } : {});
 
 let isMockMode = false;
 
@@ -14,56 +13,295 @@ const getContainers = async () => {
       name: c.Names[0].replace('/', ''),
       image: c.Image,
       status: c.State,
-      state: c.Status
+      state: c.Status,
+      ports: c.Ports || []
     }));
   } catch (error) {
     console.warn('⚠️ Docker no accesible:', error.message);
-    // If permission denied or dev mode, return mock data to keep UI functional
     if (process.env.NODE_ENV === 'development' || error.message.includes('permission denied') || error.code === 'ENOENT') {
       isMockMode = true;
-      return [
-        { id: '1', name: 'Nextcloud (Modo Demo)', image: 'nextcloud:latest', status: 'running', state: 'Up 2 horas' },
-        { id: '2', name: 'Pi-hole (Modo Demo)', image: 'pihole/pihole:latest', status: 'exited', state: 'Exited (0) 5 days ago' },
-        { id: '3', name: 'Plex (Modo Demo)', image: 'plexinc/pms-docker', status: 'running', state: 'Up 10 minutos' }
-      ];
+      return [];
     }
     return [];
   }
 };
 
+// CDN base for CasaOS icons
+const CDN = 'https://cdn.jsdelivr.net/gh/IceWhaleTech/CasaOS-AppStore@main/Apps';
+
 const getAvailableApps = () => {
   return [
-    // Cloud
-    { id: 'nextcloud', name: 'Nextcloud', description: 'Nube personal y colaboración.', image: 'nextcloud', icon: '☁️', category: 'cloud', developer: 'Nextcloud GmbH', ports: { '80/tcp': 8080 } },
-    { id: 'syncthing', name: 'Syncthing', description: 'Sincronización de archivos P2P.', image: 'syncthing/syncthing', icon: '🔄', category: 'cloud', developer: 'Syncthing Foundation', ports: { '8384/tcp': 8384 } },
-    // Media
-    { id: 'plex', name: 'Plex', description: 'Servidor de medios avanzado.', image: 'plexinc/pms-docker', icon: '🎬', category: 'media', developer: 'Plex Inc.', ports: { '32400/tcp': 32400 } },
-    { id: 'jellyfin', name: 'Jellyfin', description: 'Medios libres y sin restricciones.', image: 'jellyfin/jellyfin', icon: '📺', category: 'media', developer: 'Jellyfin Project', ports: { '8096/tcp': 8096 } },
-    { id: 'photoprism', name: 'PhotoPrism', description: 'Galería de fotos con IA.', image: 'photoprism/photoprism', icon: '📷', category: 'media', developer: 'PhotoPrism UG', ports: { '2342/tcp': 2342 } },
-    // Productivity
-    { id: 'homeassistant', name: 'Home Assistant', description: 'Domótica inteligente.', image: 'homeassistant/home-assistant', icon: '🏠', category: 'productivity', developer: 'Nabu Casa', ports: { '8123/tcp': 8123 } },
-    { id: 'gitea', name: 'Gitea', description: 'Servidor Git ligero.', image: 'gitea/gitea', icon: '🐙', category: 'development', developer: 'Gitea Community', ports: { '3001/tcp': 3001 } },
-    { id: 'codeserver', name: 'Code Server', description: 'VS Code en el navegador.', image: 'codercom/code-server', icon: '💻', category: 'development', developer: 'Coder Inc.', ports: { '8443/tcp': 8443 } },
-    // Database
-    { id: 'mariadb', name: 'MariaDB', description: 'Base de datos SQL.', image: 'mariadb', icon: '🗄️', category: 'database', developer: 'MariaDB Foundation', ports: { '3306/tcp': 3306 } },
-    { id: 'postgres', name: 'PostgreSQL', description: 'Base de datos relacional avanzada.', image: 'postgres', icon: '🐘', category: 'database', developer: 'PostgreSQL Global', ports: { '5432/tcp': 5432 } },
-    { id: 'redis', name: 'Redis', description: 'Almacén clave-valor en memoria.', image: 'redis', icon: '⚡', category: 'database', developer: 'Redis Ltd.', ports: { '6379/tcp': 6379 } },
-    // Security
-    { id: 'pihole', name: 'Pi-hole', description: 'Bloqueador de anuncios DNS.', image: 'pihole/pihole', icon: '🛡️', category: 'security', developer: 'Pi-hole LLC', ports: { '80/tcp': 8081 } },
-    { id: 'wireguard', name: 'WireGuard', description: 'VPN rápida y moderna.', image: 'linuxserver/wireguard', icon: '🔒', category: 'security', developer: 'LinuxServer.io', ports: { '51820/udp': 51820 } },
-    // Utilities
-    { id: 'transmission', name: 'Transmission', description: 'Cliente BitTorrent ligero.', image: 'linuxserver/transmission', icon: '⏬', category: 'utilities', developer: 'LinuxServer.io', ports: { '9091/tcp': 9091 } },
-    { id: 'portainer', name: 'Portainer', description: 'Gestión visual de contenedores.', image: 'portainer/portainer-ce', icon: '🐳', category: 'utilities', developer: 'Portainer.io', ports: { '9000/tcp': 9000 } },
-    { id: 'uptime', name: 'Uptime Kuma', description: 'Monitoreo de servicios.', image: 'louislam/uptime-kuma', icon: '📊', category: 'utilities', developer: 'Louis Lam', ports: { '3001/tcp': 3002 } },
+    // ── Cloud ──
+    {
+      id: 'nextcloud',
+      name: 'Nextcloud',
+      description: 'Tu propia nube personal. Almacena, sincroniza y comparte archivos, calendario, contactos y más.',
+      image: 'nextcloud:latest',
+      icon: `${CDN}/Nextcloud/icon.png`,
+      category: 'cloud',
+      developer: 'Nextcloud GmbH',
+      ports: { '80/tcp': 8080 },
+      volumes: { '/var/www/html': '/opt/nubeos/appdata/nextcloud/html' },
+      webPort: 8080
+    },
+    {
+      id: 'syncthing',
+      name: 'Syncthing',
+      description: 'Sincronización continua de archivos entre dispositivos. Descentralizado y privado.',
+      image: 'syncthing/syncthing:latest',
+      icon: `${CDN}/Syncthing/icon.png`,
+      category: 'cloud',
+      developer: 'Syncthing Foundation',
+      ports: { '8384/tcp': 8384, '22000/tcp': 22000 },
+      volumes: { '/var/syncthing': '/opt/nubeos/appdata/syncthing/data' },
+      webPort: 8384
+    },
+    {
+      id: 'filebrowser',
+      name: 'FileBrowser',
+      description: 'Explorador de archivos web con interfaz moderna. Subida, descarga y gestión de archivos.',
+      image: 'filebrowser/filebrowser:latest',
+      icon: `${CDN}/FileBrowser/icon.png`,
+      category: 'cloud',
+      developer: 'FileBrowser',
+      ports: { '80/tcp': 8082 },
+      volumes: { '/srv': '/opt/nubeos/appdata/filebrowser/srv', '/database.db': '/opt/nubeos/appdata/filebrowser/database.db' },
+      webPort: 8082
+    },
+
+    // ── Media ──
+    {
+      id: 'plex',
+      name: 'Plex',
+      description: 'Servidor multimedia avanzado. Organiza y transmite películas, series y música.',
+      image: 'lscr.io/linuxserver/plex:latest',
+      icon: `${CDN}/Plex/icon.png`,
+      category: 'media',
+      developer: 'Plex Inc.',
+      ports: { '32400/tcp': 32400 },
+      volumes: { '/config': '/opt/nubeos/appdata/plex/config', '/Media': '/opt/nubeos/media' },
+      env: { PUID: '1000', PGID: '1000', VERSION: 'docker' },
+      networkMode: 'host',
+      webPort: 32400,
+      webPath: '/web/index.html'
+    },
+    {
+      id: 'jellyfin',
+      name: 'Jellyfin',
+      description: 'Servidor de medios libre y gratuito. Alternativa open-source a Plex sin restricciones.',
+      image: 'jellyfin/jellyfin:latest',
+      icon: `${CDN}/Jellyfin/icon.png`,
+      category: 'media',
+      developer: 'Jellyfin Project',
+      ports: { '8096/tcp': 8096 },
+      volumes: { '/config': '/opt/nubeos/appdata/jellyfin/config', '/cache': '/opt/nubeos/appdata/jellyfin/cache', '/media': '/opt/nubeos/media' },
+      webPort: 8096
+    },
+    {
+      id: 'photoprism',
+      name: 'PhotoPrism',
+      description: 'Galería de fotos inteligente con reconocimiento facial y clasificación automática por IA.',
+      image: 'photoprism/photoprism:latest',
+      icon: `${CDN}/PhotoPrism/icon.png`,
+      category: 'media',
+      developer: 'PhotoPrism UG',
+      ports: { '2342/tcp': 2342 },
+      volumes: { '/photoprism/storage': '/opt/nubeos/appdata/photoprism/storage', '/photoprism/originals': '/opt/nubeos/media/photos' },
+      env: { PHOTOPRISM_ADMIN_PASSWORD: 'nubeos123' },
+      webPort: 2342
+    },
+    {
+      id: 'navidrome',
+      name: 'Navidrome',
+      description: 'Servidor de música moderno. Transmite tu colección musical desde cualquier dispositivo.',
+      image: 'deluan/navidrome:latest',
+      icon: `${CDN}/Navidrome/icon.png`,
+      category: 'media',
+      developer: 'Navidrome',
+      ports: { '4533/tcp': 4533 },
+      volumes: { '/data': '/opt/nubeos/appdata/navidrome/data', '/music': '/opt/nubeos/media/music' },
+      webPort: 4533
+    },
+
+    // ── Productividad ──
+    {
+      id: 'homeassistant',
+      name: 'Home Assistant',
+      description: 'Automatización del hogar inteligente. Controla luces, sensores y dispositivos IoT.',
+      image: 'homeassistant/home-assistant:latest',
+      icon: `${CDN}/HomeAssistant/icon.png`,
+      category: 'productivity',
+      developer: 'Nabu Casa',
+      ports: { '8123/tcp': 8123 },
+      volumes: { '/config': '/opt/nubeos/appdata/homeassistant/config' },
+      webPort: 8123
+    },
+    {
+      id: 'vaultwarden',
+      name: 'Vaultwarden',
+      description: 'Gestor de contraseñas seguro. Compatible con Bitwarden, auto-hospedado.',
+      image: 'vaultwarden/server:latest',
+      icon: `${CDN}/Vaultwarden/icon.png`,
+      category: 'productivity',
+      developer: 'Vaultwarden',
+      ports: { '80/tcp': 8083 },
+      volumes: { '/data': '/opt/nubeos/appdata/vaultwarden/data' },
+      webPort: 8083
+    },
+
+    // ── Desarrollo ──
+    {
+      id: 'gitea',
+      name: 'Gitea',
+      description: 'Servidor Git ligero y rápido. Tu propio GitHub privado.',
+      image: 'gitea/gitea:latest',
+      icon: `${CDN}/Gitea/icon.png`,
+      category: 'development',
+      developer: 'Gitea Community',
+      ports: { '3000/tcp': 3001, '22/tcp': 2222 },
+      volumes: { '/data': '/opt/nubeos/appdata/gitea/data' },
+      webPort: 3001
+    },
+    {
+      id: 'codeserver',
+      name: 'Code Server',
+      description: 'Visual Studio Code en el navegador. Programa desde cualquier dispositivo.',
+      image: 'lscr.io/linuxserver/code-server:latest',
+      icon: `${CDN}/CodeServer/icon.png`,
+      category: 'development',
+      developer: 'Coder Inc.',
+      ports: { '8443/tcp': 8443 },
+      volumes: { '/config': '/opt/nubeos/appdata/codeserver/config' },
+      env: { PUID: '1000', PGID: '1000', DEFAULT_WORKSPACE: '/config/workspace' },
+      webPort: 8443
+    },
+
+    // ── Base de Datos ──
+    {
+      id: 'mariadb',
+      name: 'MariaDB',
+      description: 'Base de datos relacional SQL de alto rendimiento. Fork mejorado de MySQL.',
+      image: 'mariadb:latest',
+      icon: `${CDN}/MariaDB/icon.png`,
+      category: 'database',
+      developer: 'MariaDB Foundation',
+      ports: { '3306/tcp': 3306 },
+      volumes: { '/var/lib/mysql': '/opt/nubeos/appdata/mariadb/data' },
+      env: { MYSQL_ROOT_PASSWORD: 'nubeos123' }
+    },
+    {
+      id: 'postgres',
+      name: 'PostgreSQL',
+      description: 'Base de datos relacional avanzada. La más potente del mundo open-source.',
+      image: 'postgres:16-alpine',
+      icon: `${CDN}/PostgreSQL/icon.png`,
+      category: 'database',
+      developer: 'PostgreSQL Global',
+      ports: { '5432/tcp': 5432 },
+      volumes: { '/var/lib/postgresql/data': '/opt/nubeos/appdata/postgres/data' },
+      env: { POSTGRES_PASSWORD: 'nubeos123' }
+    },
+    {
+      id: 'redis',
+      name: 'Redis',
+      description: 'Almacén clave-valor en memoria, ultra-rápido. Ideal para caché y colas.',
+      image: 'redis:alpine',
+      icon: `${CDN}/Redis/icon.png`,
+      category: 'database',
+      developer: 'Redis Ltd.',
+      ports: { '6379/tcp': 6379 },
+      volumes: { '/data': '/opt/nubeos/appdata/redis/data' }
+    },
+
+    // ── Seguridad ──
+    {
+      id: 'pihole',
+      name: 'Pi-hole',
+      description: 'Bloqueador de anuncios a nivel DNS. Protege toda tu red doméstica.',
+      image: 'pihole/pihole:latest',
+      icon: `${CDN}/Pi-hole/icon.png`,
+      category: 'security',
+      developer: 'Pi-hole LLC',
+      ports: { '80/tcp': 8084, '53/tcp': 53, '53/udp': 53 },
+      volumes: { '/etc/pihole': '/opt/nubeos/appdata/pihole/etc', '/etc/dnsmasq.d': '/opt/nubeos/appdata/pihole/dnsmasq' },
+      env: { WEBPASSWORD: 'nubeos123' },
+      webPort: 8084,
+      webPath: '/admin'
+    },
+    {
+      id: 'wireguard',
+      name: 'WireGuard',
+      description: 'VPN moderna, rápida y segura. Accede a tu red doméstica desde cualquier lugar.',
+      image: 'lscr.io/linuxserver/wireguard:latest',
+      icon: `${CDN}/WireGuard/icon.png`,
+      category: 'security',
+      developer: 'LinuxServer.io',
+      ports: { '51820/udp': 51820 },
+      volumes: { '/config': '/opt/nubeos/appdata/wireguard/config' },
+      env: { PUID: '1000', PGID: '1000', SERVERPORT: '51820' }
+    },
+
+    // ── Utilidades ──
+    {
+      id: 'transmission',
+      name: 'Transmission',
+      description: 'Cliente BitTorrent ligero con interfaz web. Descarga archivos de forma eficiente.',
+      image: 'lscr.io/linuxserver/transmission:latest',
+      icon: `${CDN}/Transmission/icon.png`,
+      category: 'utilities',
+      developer: 'LinuxServer.io',
+      ports: { '9091/tcp': 9091, '51413/tcp': 51413 },
+      volumes: { '/config': '/opt/nubeos/appdata/transmission/config', '/downloads': '/opt/nubeos/downloads' },
+      env: { PUID: '1000', PGID: '1000' },
+      webPort: 9091
+    },
+    {
+      id: 'portainer',
+      name: 'Portainer',
+      description: 'Panel visual para gestionar contenedores Docker. Monitorea y administra tus apps.',
+      image: 'portainer/portainer-ce:latest',
+      icon: `${CDN}/Portainer/icon.png`,
+      category: 'utilities',
+      developer: 'Portainer.io',
+      ports: { '9000/tcp': 9000 },
+      volumes: { '/data': '/opt/nubeos/appdata/portainer/data', '/var/run/docker.sock': '/var/run/docker.sock' },
+      webPort: 9000
+    },
+    {
+      id: 'uptimekuma',
+      name: 'Uptime Kuma',
+      description: 'Monitoreo de servicios con alertas. Vigila que tus sitios y apps estén siempre activos.',
+      image: 'louislam/uptime-kuma:latest',
+      icon: `${CDN}/Uptime-Kuma/icon.png`,
+      category: 'utilities',
+      developer: 'Louis Lam',
+      ports: { '3001/tcp': 3002 },
+      volumes: { '/app/data': '/opt/nubeos/appdata/uptimekuma/data' },
+      webPort: 3002
+    },
+    {
+      id: 'homarr',
+      name: 'Homarr',
+      description: 'Dashboard personalizable para tu servidor. Accede a todas tus apps desde un solo lugar.',
+      image: 'ghcr.io/homarr-labs/homarr:latest',
+      icon: `${CDN}/Homarr/icon.png`,
+      category: 'utilities',
+      developer: 'Homarr Labs',
+      ports: { '7575/tcp': 7575 },
+      volumes: { '/appdata': '/opt/nubeos/appdata/homarr/data' },
+      webPort: 7575
+    },
   ];
 };
 
 const installApp = async (appId) => {
   if (isMockMode) return true;
-  
+
   const apps = getAvailableApps();
   const app = apps.find(a => a.id === appId);
   if (!app) throw new Error('Aplicación no encontrada en la tienda');
+
+  console.log(`📦 Instalando ${app.name} (${app.image})...`);
 
   // Pull image
   await new Promise((resolve, reject) => {
@@ -76,6 +314,8 @@ const installApp = async (appId) => {
     });
   });
 
+  console.log(`✅ Imagen descargada: ${app.image}`);
+
   // Prepare Port Bindings
   const portBindings = {};
   const exposedPorts = {};
@@ -84,18 +324,48 @@ const installApp = async (appId) => {
     exposedPorts[containerPort] = {};
   }
 
-  // Create Container
-  const container = await docker.createContainer({
+  // Prepare Volume Binds
+  const binds = [];
+  if (app.volumes) {
+    const fs = require('fs');
+    for (const [containerPath, hostPath] of Object.entries(app.volumes)) {
+      // Don't create dirs for socket files
+      if (!hostPath.endsWith('.sock') && !hostPath.endsWith('.db')) {
+        if (!fs.existsSync(hostPath)) {
+          fs.mkdirSync(hostPath, { recursive: true });
+        }
+      }
+      binds.push(`${hostPath}:${containerPath}`);
+    }
+  }
+
+  // Prepare Environment Variables
+  const envArr = [];
+  if (app.env) {
+    for (const [key, value] of Object.entries(app.env)) {
+      envArr.push(`${key}=${value}`);
+    }
+  }
+
+  // Create Container config
+  const containerConfig = {
     Image: app.image,
     name: `nubeos-${app.id}`,
     ExposedPorts: exposedPorts,
+    Env: envArr.length > 0 ? envArr : undefined,
     HostConfig: {
-      PortBindings: portBindings,
-      RestartPolicy: { Name: 'always' }
+      PortBindings: app.networkMode === 'host' ? undefined : portBindings,
+      NetworkMode: app.networkMode || 'bridge',
+      Binds: binds.length > 0 ? binds : undefined,
+      RestartPolicy: { Name: 'unless-stopped' }
     }
-  });
+  };
 
-  return await container.start();
+  const container = await docker.createContainer(containerConfig);
+  await container.start();
+
+  console.log(`🚀 ${app.name} iniciada correctamente`);
+  return true;
 };
 
 const startContainer = async (id) => {

@@ -24,6 +24,8 @@ interface StoreApp {
   category: string;
   developer: string;
   ports: Record<string, number>;
+  webPort?: number;
+  webPath?: string;
   container?: any;
 }
 
@@ -147,6 +149,13 @@ const getStatusText = (app: StoreApp) => {
   if (!app.container) return '';
   return app.container.status === 'running' ? 'Ejecutando' : 'Detenida';
 };
+
+const openAppUrl = (app: StoreApp) => {
+  if (!app.webPort) return;
+  const host = window.location.hostname;
+  const path = app.webPath || '';
+  window.open(`http://${host}:${app.webPort}${path}`, '_blank');
+};
 </script>
 
 <template>
@@ -209,7 +218,7 @@ const getStatusText = (app: StoreApp) => {
             :key="app.id" 
             class="app-tile"
           >
-            <div class="tile-icon">{{ app.icon }}</div>
+            <div class="tile-icon"><img :src="app.icon" :alt="app.name" /></div>
             <div class="tile-info">
               <div class="tile-name">{{ app.name }}</div>
               <div class="tile-dev">{{ app.developer }}</div>
@@ -236,7 +245,8 @@ const getStatusText = (app: StoreApp) => {
                 Iniciar
               </button>
               <button 
-                v-if="app.container?.status === 'running'" 
+                v-if="app.container?.status === 'running' && app.webPort" 
+                @click="openAppUrl(app)"
                 class="tile-btn open"
               >
                 Abrir
@@ -258,7 +268,7 @@ const getStatusText = (app: StoreApp) => {
             :key="app.id" 
             class="app-tile available"
           >
-            <div class="tile-icon">{{ app.icon }}</div>
+            <div class="tile-icon"><img :src="app.icon" :alt="app.name" /></div>
             <div class="tile-info">
               <div class="tile-name">{{ app.name }}</div>
               <div class="tile-dev">{{ app.developer }}</div>
@@ -519,7 +529,13 @@ const getStatusText = (app: StoreApp) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.5rem;
+  overflow: hidden;
+}
+
+.tile-icon img {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
 }
 
 .tile-info {
