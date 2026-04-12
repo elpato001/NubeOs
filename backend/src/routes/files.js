@@ -79,7 +79,7 @@ router.post('/mkdir', authMiddleware, (req, res) => {
 // 4. Delete File/Folder
 router.delete('/delete', authMiddleware, (req, res) => {
   try {
-    const { items, path: relPath } = req.body; // Array of names
+    const { items, path: relPath } = req.body;
     if (!items || !Array.isArray(items)) return res.status(400).json({ error: 'Lista de items requerida' });
 
     items.forEach(itemName => {
@@ -90,6 +90,76 @@ router.delete('/delete', authMiddleware, (req, res) => {
     });
 
     res.json({ message: 'Elementos eliminados' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 5. Preview/Serve file (inline viewing without download)
+router.get('/preview', authMiddleware, (req, res) => {
+  try {
+    const relPath = req.query.path || '';
+    const fileName = req.query.name;
+    if (!fileName) return res.status(400).json({ error: 'Nombre de archivo requerido' });
+
+    const fullPath = getSafePath(req.user.username, path.join(relPath, fileName));
+
+    if (!fs.existsSync(fullPath) || fs.statSync(fullPath).isDirectory()) {
+      return res.status(404).json({ error: 'Archivo no encontrado' });
+    }
+
+    // Determine MIME type
+    const ext = path.extname(fileName).toLowerCase();
+    const mimeTypes = {
+      // Images
+      '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png',
+      '.gif': 'image/gif', '.webp': 'image/webp', '.svg': 'image/svg+xml',
+      '.bmp': 'image/bmp', '.ico': 'image/x-icon',
+      // Video
+      '.mp4': 'video/mp4', '.webm': 'video/webm', '.ogg': 'video/ogg',
+      '.mov': 'video/quicktime', '.mkv': 'video/x-matroska',
+      // Audio
+      '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.flac': 'audio/flac',
+      '.aac': 'audio/aac', '.m4a': 'audio/mp4',
+      // Documents
+      '.pdf': 'application/pdf',
+      '.txt': 'text/plain', '.md': 'text/plain', '.log': 'text/plain',
+      '.json': 'application/json', '.xml': 'text/xml',
+      '.html': 'text/html', '.htm': 'text/html',
+      '.css': 'text/css', '.js': 'text/javascript',
+      '.py': 'text/plain', '.sh': 'text/plain', '.bat': 'text/plain',
+      '.yml': 'text/plain', '.yaml': 'text/plain',
+      '.ini': 'text/plain', '.conf': 'text/plain', '.cfg': 'text/plain',
+      '.csv': 'text/csv',
+    };
+
+    const mime = mimeTypes[ext] || 'application/octet-stream';
+
+    // Set headers for inline viewing
+    res.setHeader('Content-Type', mime);
+    res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
+
+    const stream = fs.createReadStream(fullPath);
+    stream.pipe(res);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 6. Download file
+router.get('/download', authMiddleware, (req, res) => {
+  try {
+    const relPath = req.query.path || '';
+    const fileName = req.query.name;
+    if (!fileName) return res.status(400).json({ error: 'Nombre de archivo requerido' });
+
+    const fullPath = getSafePath(req.user.username, path.join(relPath, fileName));
+
+    if (!fs.existsSync(fullPath) || fs.statSync(fullPath).isDirectory()) {
+      return res.status(404).json({ error: 'Archivo no encontrado' });
+    }
+
+    res.download(fullPath, fileName);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
