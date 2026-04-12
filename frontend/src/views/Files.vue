@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref, computed } from 'vue';
-import { useFileStore, FileItem } from '../stores/files';
+import { onMounted, onUnmounted, ref } from 'vue';
+import { useFileStore } from '../stores/files';
+import type { FileItem } from '../stores/files';
 import { 
   Folder, 
   File, 
@@ -14,7 +15,6 @@ import {
   ChevronLeft,
   Grid,
   List,
-  Eye,
   Download,
   X,
   Copy,

@@ -2,7 +2,7 @@
 import { ref, onMounted, onUnmounted } from 'vue';
 import { useAuthStore } from '../stores/auth';
 import { useRouter } from 'vue-router';
-import { UserPlus, ShieldCheck, Rocket, Lock, User, Check } from 'lucide-vue-next';
+import { Rocket, Lock, User, Check } from 'lucide-vue-next';
 
 const auth = useAuthStore();
 const router = useRouter();
