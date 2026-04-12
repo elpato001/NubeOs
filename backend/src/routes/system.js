@@ -31,24 +31,39 @@ router.get('/stats', authMiddleware, async (req, res) => {
 router.post('/update', authMiddleware, adminMiddleware, async (req, res) => {
   const { exec } = require('child_process');
   const path = require('path');
+  const fs = require('fs');
   
-  // The git root is the parent folder of 'backend' (3 levels up from routes/system.js)
   const gitRoot = path.join(__dirname, '../../../');
+  const updateScript = path.join(gitRoot, 'update.sh');
   
-  exec('git pull origin main', { cwd: gitRoot }, (error, stdout, stderr) => {
+  // En Linux, nos aseguramos que el script sea ejecutable
+  if (process.platform === 'linux') {
+    try {
+      fs.chmodSync(updateScript, '755');
+    } catch (e) {
+      console.warn('No se pudo dar permisos de ejecución a update.sh:', e.message);
+    }
+  }
+
+  // Si estamos en Windows (desarrollo), solo hacemos git pull para no fallar
+  const command = process.platform === 'linux' ? `bash ${updateScript}` : 'git pull origin main';
+
+  console.log(`Ejecutando comando de actualización: ${command}`);
+
+  exec(command, { cwd: gitRoot }, (error, stdout, stderr) => {
     if (error) {
       console.error(`Error de actualización: ${error.message}`);
       return res.status(500).json({ 
-        error: 'Error al actualizar desde GitHub', 
+        error: 'Error al ejecutar la actualización', 
         details: stderr || error.message,
         path: gitRoot 
       });
     }
     
-    console.log(`Actualización exitosa: ${stdout}`);
+    console.log(`Salida de actualización: ${stdout}`);
     res.json({ 
       success: true, 
-      message: 'Aplicación actualizada con éxito',
+      message: 'Actualización iniciada. El sistema se reiniciará en unos segundos para aplicar los cambios.',
       output: stdout
     });
   });
