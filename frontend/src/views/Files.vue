@@ -367,11 +367,12 @@ const handleDblClick = (item: any) => {
 .view-toggle button.active { background: var(--primary); color: white; }
 
 .file-area { display: grid; gap: 1.25rem; min-height: 400px; }
-.file-area.grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+.file-area.grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
 
 .file-item {
-  position: relative; display: flex; flex-direction: column; align-items: center; padding: 1.25rem;
-  gap: 0.75rem; cursor: pointer; transition: all 0.2s; user-select: none;
+  position: relative; display: flex; flex-direction: column; align-items: center; 
+  justify-content: center; padding: 1rem; aspect-ratio: 1/1; text-align: center;
+  gap: 0.5rem; cursor: pointer; transition: all 0.2s; user-select: none;
 }
 .file-item:hover { background: rgba(255, 255, 255, 0.05); transform: translateY(-2px); }
 .file-item.selected { border-color: var(--primary); background: rgba(99, 102, 241, 0.1); }
