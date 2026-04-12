@@ -13,6 +13,7 @@ export const useAuthStore = defineStore('auth', {
     user: JSON.parse(localStorage.getItem('nubeos_user') || 'null') as User | null,
     loading: false,
     error: null as string | null,
+    cachedIsConfigured: null as boolean | null,
   }),
 
   getters: {
@@ -28,6 +29,7 @@ export const useAuthStore = defineStore('auth', {
         const response = await axios.post('/api/auth/login', { username, password });
         this.token = response.data.token;
         this.user = response.data.user;
+        this.cachedIsConfigured = true;
         
         localStorage.setItem('nubeos_token', this.token!);
         localStorage.setItem('nubeos_user', JSON.stringify(this.user));
@@ -53,6 +55,33 @@ export const useAuthStore = defineStore('auth', {
     init() {
       if (this.token) {
         axios.defaults.headers.common['Authorization'] = `Bearer ${this.token}`;
+      }
+    },
+
+    async checkSetup() {
+      if (this.cachedIsConfigured) return true;
+      try {
+        const response = await axios.get('/api/auth/status');
+        this.cachedIsConfigured = response.data.isConfigured;
+        return this.cachedIsConfigured;
+      } catch (err) {
+        console.error('Error checking setup status:', err);
+        return true; // Assume configured on error to avoid loops
+      }
+    },
+
+    async setupAdmin(username: string, password: string) {
+      this.loading = true;
+      this.error = null;
+      try {
+        await axios.post('/api/auth/setup', { username, password });
+        this.cachedIsConfigured = true;
+        return await this.login(username, password);
+      } catch (err: any) {
+        this.error = err.response?.data?.error || 'Error al configurar el administrador';
+        return false;
+      } finally {
+        this.loading = false;
       }
     }
   }

@@ -63,7 +63,6 @@ fi
 # 6. Instalar dependencias del proyecto
 echo -e "${GREEN}[5/6] Instalando dependencias de Backend y Frontend...${NC}"
 cd $INSTALL_DIR/backend && npm install
-node src/scripts/setup.js # Inicializar usuario admin
 
 cd $INSTALL_DIR/frontend && npm install
 npm run build # Construir el frontend para producción
@@ -125,9 +124,8 @@ echo
 echo -e "NubeOS Dashboard: ${GREEN}http://$(hostname -I | awk '{print $1}'):5173${NC}"
 echo -e "NubeOS API:       ${GREEN}http://$(hostname -I | awk '{print $1}'):3000${NC}"
 echo
-echo -e "Credenciales por defecto:"
-echo -e "  Usuario:    ${BLUE}admin${NC}"
-echo -e "  Contraseña: ${BLUE}admin123${NC}"
+echo -e "Para comenzar, abre el ${BLUE}Dashboard${NC} en tu navegador y sigue los pasos"
+echo -e "del asistente para crear tu cuenta de administrador."
 echo
 echo -e "Puedes gestionar los servicios con:"
 echo -e "  systemctl status nubeos-backend"

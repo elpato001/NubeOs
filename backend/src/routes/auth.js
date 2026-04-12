@@ -65,4 +65,16 @@ router.post('/setup', (req, res) => {
   res.json({ message: 'Administrador creado correctamente' });
 });
 
+// Check if setup is needed
+router.get('/status', (req, res) => {
+  try {
+    const count = db.prepare('SELECT count(*) as total FROM users').get().total;
+    res.json({
+      isConfigured: count > 0
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Error al verificar el estado del sistema' });
+  }
+});
+
 module.exports = router;
