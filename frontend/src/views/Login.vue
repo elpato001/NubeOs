@@ -2,7 +2,7 @@
 import { ref, onMounted, onUnmounted } from 'vue';
 import { useAuthStore } from '../stores/auth';
 import { useRouter } from 'vue-router';
-import { LogIn, User, Lock, Check } from 'lucide-vue-next';
+import { Check } from 'lucide-vue-next';
 
 const auth = useAuthStore();
 const router = useRouter();
@@ -36,12 +36,20 @@ const draw = () => {
   const { width, height } = canvasRef.value;
   ctx.clearRect(0, 0, width, height);
   stars.forEach(star => {
+    // Autonomous movement
+    star.y -= star.speed; // Move up slowly
+    if (star.y < 0) star.y = height;
+
+    // Parallax effect based on mouse
     const offsetX = (mouse.x - width / 2) * star.speed * 0.05;
     const offsetY = (mouse.y - height / 2) * star.speed * 0.05;
+    
     ctx!.fillStyle = `rgba(255, 255, 255, ${star.opacity})`;
     ctx!.beginPath();
     ctx!.arc(star.x + offsetX, star.y + offsetY, star.size, 0, Math.PI * 2);
     ctx!.fill();
+    
+    // Twinkle effect
     star.opacity += (Math.random() - 0.5) * 0.02;
     if (star.opacity < 0.1) star.opacity = 0.1;
     if (star.opacity > 0.8) star.opacity = 0.8;
