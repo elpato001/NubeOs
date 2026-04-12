@@ -52,9 +52,58 @@ router.get('/list', authMiddleware, (req, res) => {
   }
 });
 
-// 2. Upload files
+// 2. Standard Upload (for small files)
 router.post('/upload', authMiddleware, upload.array('files'), (req, res) => {
   res.json({ message: 'Archivos subidos correctamente' });
+});
+
+// 2b. Chunked Upload (for large files)
+router.post('/upload/chunk', authMiddleware, multer().single('chunk'), async (req, res) => {
+  try {
+    const { 
+      chunkIndex, 
+      totalChunks, 
+      fileName, 
+      path: relPath,
+      uploadId 
+    } = req.body;
+
+    const chunk = req.file;
+    const tempDir = path.join(__dirname, '../../../data/temp', uploadId);
+    
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+
+    const chunkPath = path.join(tempDir, `chunk-${chunkIndex}`);
+    fs.writeFileSync(chunkPath, chunk.buffer);
+
+    // Check if all chunks are uploaded
+    const uploadedChunks = fs.readdirSync(tempDir).length;
+    
+    if (uploadedChunks === parseInt(totalChunks)) {
+      const finalPath = getSafePath(req.user.username, path.join(relPath || '', fileName));
+      const writeStream = fs.createWriteStream(finalPath);
+
+      for (let i = 0; i < totalChunks; i++) {
+        const partPath = path.join(tempDir, `chunk-${i}`);
+        const partBuffer = fs.readFileSync(partPath);
+        writeStream.write(partBuffer);
+        fs.unlinkSync(partPath); // Delete chunk after writing
+      }
+
+      writeStream.end();
+      fs.rmdirSync(tempDir); // Delete temp dir
+      
+      console.log(`✅ Archivo reensamblado: ${fileName}`);
+      return res.json({ message: 'Archivo subido y reensamblado correctamente', completed: true });
+    }
+
+    res.json({ message: `Chunk ${chunkIndex} recibido`, completed: false });
+  } catch (error) {
+    console.error('Error en chunked upload:', error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // 3. Create Folder
