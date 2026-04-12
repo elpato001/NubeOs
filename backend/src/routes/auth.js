@@ -48,21 +48,26 @@ router.post('/login', (req, res) => {
 router.post('/setup', (req, res) => {
   const { username, password } = req.body;
 
-  const count = db.prepare('SELECT count(*) as total FROM users').get().total;
-  if (count > 0) {
-    return res.status(400).json({ error: 'El sistema ya ha sido configurado' });
+  try {
+    const count = db.prepare('SELECT count(*) as total FROM users').get().total;
+    if (count > 0) {
+      return res.status(400).json({ error: 'El sistema ya ha sido configurado' });
+    }
+
+    if (!username || !password) {
+      return res.status(400).json({ error: 'Usuario y contraseña requeridos' });
+    }
+
+    const hashedPassword = bcrypt.hashSync(password, 10);
+    
+    db.prepare('INSERT INTO users (username, password, role) VALUES (?, ?, ?)')
+      .run(username, hashedPassword, 'admin');
+
+    res.json({ message: 'Administrador creado correctamente' });
+  } catch (error) {
+    console.error('Error durante el setup inicial:', error);
+    res.status(500).json({ error: 'Error en la base de datos: ' + (error.message || 'Error desconocido') });
   }
-
-  if (!username || !password) {
-    return res.status(400).json({ error: 'Usuario y contraseña requeridos' });
-  }
-
-  const hashedPassword = bcrypt.hashSync(password, 10);
-  
-  db.prepare('INSERT INTO users (username, password, role) VALUES (?, ?, ?)')
-    .run(username, hashedPassword, 'admin');
-
-  res.json({ message: 'Administrador creado correctamente' });
 });
 
 // Check if setup is needed
