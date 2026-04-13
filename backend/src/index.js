@@ -11,6 +11,7 @@ const appsRoutes = require('./routes/apps');
 const usersRoutes = require('./routes/users');
 const systemRoutes = require('./routes/system');
 const networkRoutes = require('./routes/network');
+const storageRoutes = require('./routes/storage');
 const { authMiddleware } = require('./middleware/auth');
 
 dotenv.config();
@@ -34,6 +35,7 @@ app.use('/api/apps', appsRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/system', systemRoutes);
 app.use('/api/network', networkRoutes);
+app.use('/api/storage', storageRoutes);
 
 // Protected Sample Route
 app.get('/api/me', authMiddleware, (req, res) => {

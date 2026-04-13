@@ -341,6 +341,30 @@ const saveNetwork = async () => {
   }
 };
 
+// Storage State
+const storageInfo = ref<any>(null);
+const selectedDisk = ref<any>(null);
+
+const fetchStorage = async () => {
+  try {
+    const res = await axios.get('/api/storage/info');
+    storageInfo.value = res.data;
+    if (storageInfo.value.disks?.length > 0 && !selectedDisk.value) {
+      selectedDisk.value = storageInfo.value.disks[0];
+    }
+  } catch (err) {
+    console.error('Error fetching storage info');
+  }
+};
+
+const formatBytes = (bytes: number) => {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+};
+
 const handleItemClick = (id: string) => {
   if (id === 'personalization') {
     activeSubView.value = 'personalization';
@@ -355,6 +379,9 @@ const handleItemClick = (id: string) => {
   } else if (id === 'network') {
     activeSubView.value = 'network';
     fetchNetwork();
+  } else if (['volume', 'storage_pool', 'hdd', 'vdisk', 'ext_storage'].includes(id)) {
+    activeSubView.value = 'storage';
+    fetchStorage();
   }
 };
 </script>
@@ -576,6 +603,89 @@ const handleItemClick = (id: string) => {
             </div>
           </div>
         </section>
+      </div>
+    </template>
+
+    <!-- Storage Management View -->
+    <template v-else-if="activeSubView === 'storage'">
+      <header class="cp-header">
+        <div class="header-left">
+          <button class="back-btn" @click="activeSubView = 'grid'">
+            <ArrowLeft :size="20" />
+          </button>
+          <h2>Administrador de Almacenamiento</h2>
+        </div>
+        <button @click="fetchStorage" class="btn-refresh">
+          <RefreshCw :size="16" />
+        </button>
+      </header>
+
+      <div class="cp-content storage-view">
+        <div class="storage-layout">
+          <!-- Disk List -->
+          <div class="disk-sidebar glass">
+            <h4 class="sidebar-title">Unidades Físicas</h4>
+            <div 
+              v-for="disk in storageInfo?.disks" 
+              :key="disk.name"
+              class="disk-card"
+              :class="{ active: selectedDisk?.name === disk.name }"
+              @click="selectedDisk = disk"
+            >
+              <HardDrive :size="20" />
+              <div class="disk-info">
+                <span class="disk-name">{{ disk.model || disk.name }}</span>
+                <span class="disk-size">{{ formatBytes(disk.size) }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Partition Details -->
+          <div v-if="selectedDisk" class="partition-pane settings-card glass">
+            <div class="card-header">
+              <Database :size="20" class="icon-primary"/>
+              <h3>Detalles del Disco: {{ selectedDisk.name }}</h3>
+            </div>
+            
+            <div class="disk-metadata">
+              <div class="meta-item"><span class="label">Modelo:</span> <span class="val">{{ selectedDisk.model || 'N/A' }}</span></div>
+              <div class="meta-item"><span class="label">Serie:</span> <span class="val">{{ selectedDisk.serial || 'N/A' }}</span></div>
+              <div class="meta-item"><span class="label">Estado:</span> <span class="val status-ok">{{ selectedDisk.state || 'Normal' }}</span></div>
+            </div>
+
+            <div class="partition-list mt-1">
+              <h4 class="sub-title">Particiones y Volúmenes</h4>
+              <div v-if="!selectedDisk.children?.length" class="empty-parts">Sin particiones detectadas</div>
+              <div 
+                v-for="part in selectedDisk.children" 
+                :key="part.name"
+                class="part-row glass"
+              >
+                <div class="part-main">
+                  <Layers :size="18" class="icon-primary" />
+                  <div class="part-details">
+                    <span class="part-name">{{ part.name }} <small v-if="part.fstype">({{ part.fstype }})</small></span>
+                    <span class="part-mount" v-if="part.mountpoint">Montado en: <code>{{ part.mountpoint }}</code></span>
+                  </div>
+                  <span class="part-size">{{ formatBytes(part.size) }}</span>
+                </div>
+                <!-- Sub-partitions (like LVM or nested parts) -->
+                <div v-if="part.children?.length" class="sub-parts-list">
+                  <div v-for="sub in part.children" :key="sub.name" class="sub-part">
+                    <ArrowLeft :size="12" class="rotate-down" />
+                    <span>{{ sub.name }} - {{ sub.fstype }} ({{ formatBytes(sub.size) }})</span>
+                    <code v-if="sub.mountpoint">{{ sub.mountpoint }}</code>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="warning-box mt-1">
+              <Shield :size="16" />
+              <span>Para realizar operaciones de formateo o particionado avanzado, se recomienda usar la terminal de NubeOS para mayor seguridad.</span>
+            </div>
+          </div>
+        </div>
       </div>
     </template>
 
@@ -924,6 +1034,36 @@ const handleItemClick = (id: string) => {
 .form-group-row { display: flex; flex-direction: column; gap: 0.75rem; }
 .form-group-row label { font-size: 0.85rem; font-weight: 700; color: #334155; }
 .w-full { width: 100%; }
+
+.storage-layout { display: grid; grid-template-columns: 240px 1fr; gap: 1.5rem; }
+.disk-sidebar { display: flex; flex-direction: column; gap: 0.5rem; padding: 1rem; height: fit-content; background: #1e293b; border: 1px solid rgba(255,255,255,0.05); }
+.disk-card { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem; border-radius: 8px; cursor: pointer; transition: 0.2s; color: #94a3b8; }
+.disk-card:hover { background: rgba(255,255,255,0.05); color: white; }
+.disk-card.active { background: #6366f1; color: white; }
+.disk-info { display: flex; flex-direction: column; overflow: hidden; }
+.disk-name { font-size: 0.8rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.disk-size { font-size: 0.65rem; opacity: 0.7; }
+
+.disk-metadata { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; padding: 1rem; background: rgba(255,255,255,0.03); border-radius: 8px; margin-top: 1rem; }
+.meta-item { display: flex; flex-direction: column; gap: 0.25rem; }
+.meta-item .label { font-size: 0.65rem; color: #94a3b8; text-transform: uppercase; }
+.meta-item .val { font-size: 0.85rem; font-weight: 600; color: white; }
+.status-ok { color: #10b981 !important; }
+
+.sub-title { font-size: 0.75rem; text-transform: uppercase; color: #94a3b8; letter-spacing: 0.05rem; margin-bottom: 0.75rem; }
+.part-row { padding: 1rem; margin-bottom: 0.5rem; border: 1px solid rgba(255,255,255,0.05); }
+.part-main { display: flex; align-items: center; gap: 1rem; }
+.part-details { flex: 1; display: flex; flex-direction: column; gap: 0.1rem; }
+.part-name { font-size: 0.85rem; font-weight: 700; color: white; }
+.part-mount { font-size: 0.7rem; color: #94a3b8; }
+.part-size { font-size: 0.85rem; font-weight: 700; color: #818cf8; }
+
+.sub-parts-list { margin-top: 0.75rem; padding-left: 1.5rem; border-left: 1px dashed rgba(255,255,255,0.1); margin-left: 0.5rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.sub-part { display: flex; align-items: center; gap: 0.5rem; font-size: 0.75rem; color: #94a3b8; }
+.rotate-down { transform: rotate(-90deg); }
+.sub-part code { background: rgba(255,255,255,0.05); padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.65rem; }
+
+.empty-parts { text-align: center; padding: 2rem; color: #64748b; font-size: 0.85rem; font-style: italic; }
 
 .section-title {
   font-size: 0.75rem;
