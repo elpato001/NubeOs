@@ -7,6 +7,8 @@ export interface FileItem {
   size: number;
   modified: string;
   extension: string;
+  relativePath?: string;
+  parentPath?: string;
 }
 
 export interface UploadingFile {
@@ -14,6 +16,16 @@ export interface UploadingFile {
   progress: number;
   size: number;
 }
+
+export interface TreeNode {
+  name: string;
+  path: string;
+  children: TreeNode[];
+  expanded?: boolean;
+}
+
+export type SortField = 'name' | 'size' | 'modified' | 'type';
+export type SortOrder = 'asc' | 'desc';
 
 export const useFileStore = defineStore('files', {
   state: () => ({
@@ -27,21 +39,125 @@ export const useFileStore = defineStore('files', {
       item: null as FileItem | null,
       type: null as 'copy' | 'cut' | null,
       fromPath: ''
-    }
+    },
+    // Navigation history
+    history: [] as string[],
+    historyIndex: -1,
+    // Search
+    searchQuery: '',
+    searchResults: [] as FileItem[],
+    isSearching: false,
+    // Folder tree
+    folderTree: [] as TreeNode[],
+    // Sorting
+    sortField: 'name' as SortField,
+    sortOrder: 'asc' as SortOrder,
+    // Drag & Drop
+    draggedItem: null as FileItem | null,
+    dropTarget: null as string | null,
   }),
 
+  getters: {
+    sortedItems(state): FileItem[] {
+      const itemsToSort = state.searchQuery ? state.searchResults : [...state.items];
+
+      // Directories first, then sort within each group
+      const dirs = itemsToSort.filter(i => i.isDirectory);
+      const files = itemsToSort.filter(i => !i.isDirectory);
+
+      const sortFn = (a: FileItem, b: FileItem) => {
+        let cmp = 0;
+        switch (state.sortField) {
+          case 'name':
+            cmp = a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+            break;
+          case 'size':
+            cmp = a.size - b.size;
+            break;
+          case 'modified':
+            cmp = new Date(a.modified).getTime() - new Date(b.modified).getTime();
+            break;
+          case 'type':
+            cmp = (a.extension || '').localeCompare(b.extension || '');
+            break;
+        }
+        return state.sortOrder === 'asc' ? cmp : -cmp;
+      };
+
+      dirs.sort(sortFn);
+      files.sort(sortFn);
+      return [...dirs, ...files];
+    },
+
+    canGoBack(state): boolean {
+      return state.historyIndex > 0;
+    },
+
+    canGoForward(state): boolean {
+      return state.historyIndex < state.history.length - 1;
+    },
+
+    pathSegments(state): { name: string; path: string }[] {
+      if (!state.currentPath) return [];
+      const parts = state.currentPath.split('/');
+      return parts.map((part, index) => ({
+        name: part,
+        path: parts.slice(0, index + 1).join('/')
+      }));
+    },
+
+    totalSize(state): number {
+      return state.items.reduce((sum, item) => sum + (item.size || 0), 0);
+    },
+
+    itemCount(state): { total: number; files: number; folders: number } {
+      const files = state.items.filter(i => !i.isDirectory).length;
+      const folders = state.items.filter(i => i.isDirectory).length;
+      return { total: state.items.length, files, folders };
+    }
+  },
+
   actions: {
-    async fetchFiles(path: string = '') {
+    async fetchFiles(path: string = '', addToHistory = true) {
       this.loading = true;
+      this.searchQuery = '';
+      this.searchResults = [];
       try {
         const response = await axios.get(`/api/files/list?path=${path}`);
         this.items = response.data.items;
         this.currentPath = response.data.currentPath;
+
+        if (addToHistory) {
+          // Trim forward history when navigating new path
+          if (this.historyIndex < this.history.length - 1) {
+            this.history = this.history.slice(0, this.historyIndex + 1);
+          }
+          this.history.push(path);
+          this.historyIndex = this.history.length - 1;
+        }
       } catch (err: any) {
         this.error = err.response?.data?.error || 'Error al obtener archivos';
       } finally {
         this.loading = false;
       }
+    },
+
+    goBack() {
+      if (this.canGoBack) {
+        this.historyIndex--;
+        this.fetchFiles(this.history[this.historyIndex], false);
+      }
+    },
+
+    goForward() {
+      if (this.canGoForward) {
+        this.historyIndex++;
+        this.fetchFiles(this.history[this.historyIndex], false);
+      }
+    },
+
+    navigateToPath(path: string) {
+      this.fetchFiles(path);
     },
 
     async renameItem(oldName: string, newName: string) {
@@ -51,7 +167,8 @@ export const useFileStore = defineStore('files', {
           oldName,
           newName
         });
-        await this.fetchFiles(this.currentPath);
+        await this.fetchFiles(this.currentPath, false);
+        await this.fetchFolderTree();
       } catch (error: any) {
         alert(error.response?.data?.error || 'Error al renombrar');
       }
@@ -67,21 +184,22 @@ export const useFileStore = defineStore('files', {
 
     async pasteItem() {
       if (!this.clipboard.item || !this.clipboard.type) return;
-      
+
       const endpoint = this.clipboard.type === 'copy' ? '/api/files/copy' : '/api/files/move';
-      
+
       try {
         await axios.post(endpoint, {
           fromPath: this.clipboard.fromPath,
           toPath: this.currentPath,
           name: this.clipboard.item.name
         });
-        
+
         if (this.clipboard.type === 'cut') {
           this.clipboard = { item: null, type: null, fromPath: '' };
         }
-        
-        await this.fetchFiles(this.currentPath);
+
+        await this.fetchFiles(this.currentPath, false);
+        await this.fetchFolderTree();
       } catch (error: any) {
         alert(error.response?.data?.error || 'Error al pegar');
       }
@@ -90,7 +208,8 @@ export const useFileStore = defineStore('files', {
     async createFolder(folderName: string) {
       try {
         await axios.post('/api/files/mkdir', { folderName, path: this.currentPath });
-        await this.fetchFiles(this.currentPath);
+        await this.fetchFiles(this.currentPath, false);
+        await this.fetchFolderTree();
       } catch (err: any) {
         alert(err.response?.data?.error || 'Error al crear carpeta');
       }
@@ -99,9 +218,61 @@ export const useFileStore = defineStore('files', {
     async deleteItems(names: string[]) {
       try {
         await axios.delete('/api/files/delete', { data: { items: names, path: this.currentPath } });
-        await this.fetchFiles(this.currentPath);
+        await this.fetchFiles(this.currentPath, false);
+        await this.fetchFolderTree();
       } catch (err: any) {
         alert(err.response?.data?.error || 'Error al eliminar');
+      }
+    },
+
+    async searchFiles(query: string) {
+      this.searchQuery = query;
+      if (!query.trim()) {
+        this.searchResults = [];
+        this.isSearching = false;
+        return;
+      }
+
+      this.isSearching = true;
+      try {
+        const response = await axios.get(`/api/files/search?q=${encodeURIComponent(query)}&path=${this.currentPath}`);
+        this.searchResults = response.data.results;
+      } catch (err: any) {
+        this.searchResults = [];
+      } finally {
+        this.isSearching = false;
+      }
+    },
+
+    async fetchFolderTree() {
+      try {
+        const response = await axios.get('/api/files/tree');
+        this.folderTree = response.data.tree;
+      } catch (err) {
+        this.folderTree = [];
+      }
+    },
+
+    setSort(field: SortField) {
+      if (this.sortField === field) {
+        this.sortOrder = this.sortOrder === 'asc' ? 'desc' : 'asc';
+      } else {
+        this.sortField = field;
+        this.sortOrder = 'asc';
+      }
+    },
+
+    async moveItem(itemName: string, fromPath: string, toPath: string) {
+      try {
+        await axios.post('/api/files/move', {
+          fromPath,
+          toPath,
+          name: itemName
+        });
+        await this.fetchFiles(this.currentPath, false);
+        await this.fetchFolderTree();
+      } catch (error: any) {
+        alert(error.response?.data?.error || 'Error al mover');
       }
     },
 
@@ -117,12 +288,11 @@ export const useFileStore = defineStore('files', {
 
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        
+
         if (file.size <= CHUNK_SIZE) {
-          // Small file: Standard upload
           const formData = new FormData();
           formData.append('files', file);
-          
+
           try {
             await axios.post(`/api/files/upload?path=${this.currentPath}`, formData, {
               headers: { 'Content-Type': 'multipart/form-data' },
@@ -135,7 +305,6 @@ export const useFileStore = defineStore('files', {
             console.error(`Error subiendo ${file.name}:`, err);
           }
         } else {
-          // Large file: Chunked upload
           const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
           const uploadId = Math.random().toString(36).substring(7) + Date.now();
 
@@ -145,24 +314,23 @@ export const useFileStore = defineStore('files', {
             const chunk = file.slice(start, end);
 
             const formData = new FormData();
-            // Appending primitive fields BEFORE the file chunk helps backend parsers
             formData.append('chunkIndex', chunkIndex.toString());
             formData.append('totalChunks', totalChunks.toString());
             formData.append('fileName', file.name);
             formData.append('path', this.currentPath);
             formData.append('uploadId', uploadId);
-            formData.append('chunk', chunk); 
+            formData.append('chunk', chunk);
 
             try {
               await axios.post('/api/files/upload/chunk', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
               });
-              
+
               const percent = Math.round(((chunkIndex + 1) * 100) / totalChunks);
               this.updateFileProgress(file.name, percent);
             } catch (err) {
               console.error(`Error en chunk ${chunkIndex} de ${file.name}:`, err);
-              break; 
+              break;
             }
           }
         }
@@ -171,7 +339,8 @@ export const useFileStore = defineStore('files', {
       setTimeout(async () => {
         this.uploading = false;
         this.uploadingFiles = [];
-        await this.fetchFiles(this.currentPath);
+        await this.fetchFiles(this.currentPath, false);
+        await this.fetchFolderTree();
       }, 500);
     },
 

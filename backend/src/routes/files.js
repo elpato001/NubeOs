@@ -290,4 +290,78 @@ router.post('/move', authMiddleware, async (req, res) => {
   }
 });
 
+// 10. Search files recursively
+router.get('/search', authMiddleware, (req, res) => {
+  try {
+    const query = (req.query.q || '').toLowerCase().trim();
+    const relPath = req.query.path || '';
+    if (!query) return res.json({ results: [] });
+
+    const basePath = getSafePath(req.user.username, relPath);
+    const results = [];
+    const MAX_RESULTS = 100;
+
+    const searchRecursive = (dir, currentRelPath) => {
+      if (results.length >= MAX_RESULTS) return;
+      try {
+        const items = fs.readdirSync(dir, { withFileTypes: true });
+        for (const item of items) {
+          if (results.length >= MAX_RESULTS) break;
+          if (item.name.toLowerCase().includes(query)) {
+            const stats = fs.statSync(path.join(dir, item.name));
+            results.push({
+              name: item.name,
+              isDirectory: item.isDirectory(),
+              size: stats.size,
+              modified: stats.mtime,
+              extension: path.extname(item.name).toLowerCase(),
+              relativePath: currentRelPath ? `${currentRelPath}/${item.name}` : item.name,
+              parentPath: currentRelPath
+            });
+          }
+          if (item.isDirectory()) {
+            const subPath = currentRelPath ? `${currentRelPath}/${item.name}` : item.name;
+            searchRecursive(path.join(dir, item.name), subPath);
+          }
+        }
+      } catch (e) {
+        // Skip directories we can't read
+      }
+    };
+
+    searchRecursive(basePath, relPath);
+    res.json({ results });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 11. Get folder tree for navigation panel
+router.get('/tree', authMiddleware, (req, res) => {
+  try {
+    const basePath = getSafePath(req.user.username, '');
+    const MAX_DEPTH = 4;
+
+    const buildTree = (dir, depth = 0) => {
+      if (depth >= MAX_DEPTH) return [];
+      try {
+        const items = fs.readdirSync(dir, { withFileTypes: true });
+        return items
+          .filter(item => item.isDirectory())
+          .map(item => ({
+            name: item.name,
+            path: path.relative(basePath, path.join(dir, item.name)).replace(/\\/g, '/'),
+            children: buildTree(path.join(dir, item.name), depth + 1)
+          }));
+      } catch (e) {
+        return [];
+      }
+    };
+
+    res.json({ tree: buildTree(basePath) });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;
