@@ -289,6 +289,58 @@ const fetchStats = async () => {
   }
 };
 
+// Network State
+const networkInterfaces = ref<any[]>([]);
+const selectedIface = ref<any>(null);
+const networkForm = ref({
+  connection: '',
+  method: 'auto',
+  ip: '',
+  mask: '24',
+  gateway: '',
+  dns: '8.8.8.8,1.1.1.1'
+});
+const isSavingNetwork = ref(false);
+
+const fetchNetwork = async () => {
+  try {
+    const res = await axios.get('/api/network');
+    networkInterfaces.value = res.data.interfaces;
+    if (networkInterfaces.value.length > 0 && !selectedIface.value) {
+      selectInterface(networkInterfaces.value[0]);
+    }
+  } catch (err) {
+    console.error('Error fetching network info');
+  }
+};
+
+const selectInterface = (iface: any) => {
+  selectedIface.value = iface;
+  networkForm.value = {
+    connection: iface.connection,
+    method: iface.method === 'manual' ? 'manual' : 'auto',
+    ip: iface.ip,
+    mask: '24',
+    gateway: iface.gateway || '',
+    dns: iface.dns || '8.8.8.8,1.1.1.1'
+  };
+};
+
+const saveNetwork = async () => {
+  if (!confirm('¿Estás seguro? Si la configuración es incorrecta, podrías perder el acceso al servidor.')) return;
+  
+  isSavingNetwork.value = true;
+  try {
+    const res = await axios.post('/api/network/save', networkForm.value);
+    alert(res.data.message);
+    fetchNetwork();
+  } catch (err: any) {
+    alert(err.response?.data?.error || 'Error al guardar configuración');
+  } finally {
+    isSavingNetwork.value = false;
+  }
+};
+
 const handleItemClick = (id: string) => {
   if (id === 'personalization') {
     activeSubView.value = 'personalization';
@@ -300,6 +352,9 @@ const handleItemClick = (id: string) => {
   } else if (id === 'overview') {
     activeSubView.value = 'overview';
     fetchStats();
+  } else if (id === 'network') {
+    activeSubView.value = 'network';
+    fetchNetwork();
   }
 };
 </script>
@@ -524,6 +579,106 @@ const handleItemClick = (id: string) => {
       </div>
     </template>
 
+    <!-- Network Management View -->
+    <template v-else-if="activeSubView === 'network'">
+      <header class="cp-header">
+        <div class="header-left">
+          <button class="back-btn" @click="activeSubView = 'grid'">
+            <ArrowLeft :size="20" />
+          </button>
+          <h2>Gestión de Red</h2>
+        </div>
+      </header>
+
+      <div class="cp-content network-view">
+        <div class="network-layout">
+          <!-- Interface List -->
+          <div class="iface-sidebar glass">
+            <h4 class="sidebar-title">Interfaces</h4>
+            <div 
+              v-for="iface in networkInterfaces" 
+              :key="iface.name"
+              class="iface-card"
+              :class="{ active: selectedIface?.name === iface.name }"
+              @click="selectInterface(iface)"
+            >
+              <Network :size="20" />
+              <div class="iface-info">
+                <span class="iface-name">{{ iface.name }}</span>
+                <span class="iface-status" :class="iface.state">{{ iface.state }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Config Form -->
+          <div v-if="selectedIface" class="config-pane settings-card glass">
+            <div class="card-header">
+              <Globe :size="20" class="icon-primary"/>
+              <h3>Configurar {{ selectedIface.name }}</h3>
+            </div>
+
+            <div class="network-form">
+              <div class="form-group-row">
+                <label>Método de Red</label>
+                <div class="toggle-group">
+                  <button 
+                    :class="{ active: networkForm.method === 'auto' }"
+                    @click="networkForm.method = 'auto'"
+                  >DHCP (Automático)</button>
+                  <button 
+                    :class="{ active: networkForm.method === 'manual' }"
+                    @click="networkForm.method = 'manual'"
+                  >Estático (Manual)</button>
+                </div>
+              </div>
+
+              <div v-if="networkForm.method === 'manual'" class="static-fields fade-in">
+                <div class="form-group mt-1">
+                  <label>Dirección IP</label>
+                  <input v-model="networkForm.ip" type="text" placeholder="Ej: 192.168.1.100">
+                </div>
+                <div class="form-group mt-1">
+                  <label>Máscara de Prefijo (Bitmask)</label>
+                  <input v-model="networkForm.mask" type="number" placeholder="Ej: 24">
+                </div>
+                <div class="form-group mt-1">
+                  <label>Puerta de Enlace (Gateway)</label>
+                  <input v-model="networkForm.gateway" type="text" placeholder="Ej: 192.168.1.1">
+                </div>
+                <div class="form-group mt-1">
+                  <label>Servidores DNS (separados por coma)</label>
+                  <input v-model="networkForm.dns" type="text" placeholder="Ej: 8.8.8.8,1.1.1.1">
+                </div>
+              </div>
+
+              <div v-else class="dhcp-info mt-1 glass">
+                <p>La interfaz recibirá una dirección IP automáticamente desde el servidor DHCP de tu red.</p>
+                <div v-if="selectedIface.ip" class="current-ip">
+                  IP Actual: <strong>{{ selectedIface.ip }}</strong>
+                </div>
+              </div>
+
+              <div class="warning-box mt-1">
+                <Shield :size="16" />
+                <span>Advertencia: Cambiar la configuración de red puede causar la pérdida inmediata de conexión con el Panel de Control.</span>
+              </div>
+
+              <div class="form-actions mt-1">
+                <button 
+                  class="btn-confirm w-full" 
+                  @click="saveNetwork"
+                  :disabled="isSavingNetwork"
+                >
+                  <RefreshCw v-if="isSavingNetwork" class="spin" :size="16" />
+                  <span v-else>Aplicar Cambios</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </template>
+
     <!-- Global Create User Modal -->
     <div v-if="showCreateModal" class="modal-overlay">
       <div class="modal glass">
@@ -697,6 +852,30 @@ const handleItemClick = (id: string) => {
 .btn-refresh { background: #f1f5f9; color: #64748b; padding: 0.5rem; border-radius: 8px; }
 .btn-refresh:hover { background: #e2e8f0; color: #1e293b; }
 .mt-1 { margin-top: 1.5rem; }
+
+.network-layout { display: grid; grid-template-columns: 200px 1fr; gap: 1.5rem; }
+.iface-sidebar { display: flex; flex-direction: column; gap: 0.5rem; padding: 1rem; height: fit-content; }
+.sidebar-title { font-size: 0.7rem; text-transform: uppercase; color: #94a3b8; font-weight: 700; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.5rem; margin-bottom: 0.5rem; }
+.iface-card { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem; border-radius: 8px; cursor: pointer; transition: 0.2s; color: #64748b; }
+.iface-card:hover { background: #f1f5f9; color: #1e293b; }
+.iface-card.active { background: var(--primary); color: white; }
+.iface-info { display: flex; flex-direction: column; }
+.iface-name { font-size: 0.85rem; font-weight: 700; }
+.iface-status { font-size: 0.65rem; text-transform: capitalize; }
+.iface-status.connected { color: #10b981; }
+.iface-card.active .iface-status.connected { color: #ccfbf1; }
+
+.toggle-group { display: flex; background: #f1f5f9; border-radius: 8px; padding: 0.25rem; }
+.toggle-group button { flex: 1; padding: 0.5rem; border-radius: 6px; font-size: 0.75rem; font-weight: 600; color: #64748b; transition: 0.2s; }
+.toggle-group button.active { background: white; color: var(--primary); box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+
+.warning-box { background: #fef2f2; border: 1px solid #fee2e2; color: #991b1b; padding: 1rem; border-radius: 8px; display: flex; align-items: flex-start; gap: 0.75rem; font-size: 0.75rem; font-weight: 600; }
+.dhcp-info { padding: 1.5rem; text-align: center; color: #64748b; font-size: 0.85rem; }
+.current-ip { margin-top: 1rem; color: var(--primary); font-size: 1rem; }
+
+.form-group-row { display: flex; flex-direction: column; gap: 0.75rem; }
+.form-group-row label { font-size: 0.85rem; font-weight: 700; color: #334155; }
+.w-full { width: 100%; }
 
 .section-title {
   font-size: 0.75rem;
