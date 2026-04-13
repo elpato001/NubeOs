@@ -129,10 +129,43 @@ router.post('/update', authMiddleware, adminMiddleware, async (req, res) => {
   }, (error, stdout, stderr) => {
     if (error) {
       console.error(`[SYS] Error diferido en la actualización: ${error.message}`);
+      // Actualizamos el archivo de estado con el error
+      const statusFile = path.join(gitRoot, 'data/update_status.json');
+      fs.writeFileSync(statusFile, JSON.stringify({ 
+        step: 'error', 
+        progress: 0, 
+        message: `Error: ${stderr || error.message}`,
+        timestamp: new Date()
+      }));
       return;
     }
     console.log(`[SYS] Proceso de actualización finalizado en segundo plano.`);
   });
+});
+
+// New: Check update status
+router.get('/update/status', authMiddleware, (req, res) => {
+  const statusFile = path.join(__dirname, '../../../data/update_status.json');
+  
+  if (!fs.existsSync(statusFile)) {
+    return res.json({ step: 'idle', progress: 100, message: 'Sistema listo' });
+  }
+
+  try {
+    const statusData = JSON.parse(fs.readFileSync(statusFile, 'utf8'));
+    
+    // Si el estado es "idle" o el archivo es muy antiguo (p. ej. > 10 min), 
+    // consideramos que no hay actualización activa.
+    const lastUpdate = new Date(statusData.timestamp);
+    const now = new Date();
+    if (statusData.step === 'idle' || (now - lastUpdate > 600000)) {
+      return res.json({ step: 'idle', progress: 100, message: 'Listo', lastStatus: statusData });
+    }
+
+    res.json(statusData);
+  } catch (e) {
+    res.status(500).json({ error: 'Error al leer el estado' });
+  }
 });
 
 router.post('/reboot', authMiddleware, adminMiddleware, async (req, res) => {

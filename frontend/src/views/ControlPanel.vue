@@ -200,28 +200,67 @@ const deleteUser = async (id: number) => {
 const isUpdating = ref(false);
 const showUpdateConfirm = ref(false);
 const updateResult = ref<{ success: boolean; message: string; details?: string; path?: string } | null>(null);
+const updateStatus = ref({ step: 'idle', progress: 0, message: '' });
+let updatePollInterval: any = null;
+
+const startStatusPolling = () => {
+  if (updatePollInterval) clearInterval(updatePollInterval);
+  
+  updatePollInterval = setInterval(async () => {
+    try {
+      const res = await axios.get('/api/system/update/status');
+      updateStatus.value = res.data;
+      
+      // Si termina con éxito o error, detenemos polling tras recibir el estado final
+      if (res.data.step === 'idle' || res.data.step === 'error') {
+        stopStatusPolling();
+        if (res.data.step === 'idle') {
+          updateResult.value = { success: true, message: '¡Sistema actualizado con éxito!' };
+        } else {
+          updateResult.value = { success: false, message: 'Error en la actualización', details: res.data.message };
+        }
+      }
+    } catch (err) {
+      // Si falla la conexión, es probable que se esté REINICIANDO
+      if (updateStatus.value.step === 'restarting') {
+        updateStatus.value.message = 'El sistema se está reiniciando. Reconectando...';
+      }
+    }
+  }, 2000);
+};
+
+const stopStatusPolling = () => {
+  if (updatePollInterval) {
+    clearInterval(updatePollInterval);
+    updatePollInterval = null;
+  }
+};
 
 const performUpdate = async () => {
   showUpdateConfirm.value = false;
   isUpdating.value = true;
   updateResult.value = null;
+  updateStatus.value = { step: 'starting', progress: 5, message: 'Iniciando proceso...' };
   
   try {
     const res = await axios.post('/api/system/update');
-    updateResult.value = {
-      success: true,
-      message: res.data.message
-    };
+    // Empezamos a preguntar por el estado real
+    startStatusPolling();
   } catch (err: any) {
+    isUpdating.value = false;
     updateResult.value = {
       success: false,
       message: err.response?.data?.error || 'Error al conectar con el servidor',
-      details: err.response?.data?.details || 'El servidor cerró la conexión inesperadamente. Es posible que la actualización ya esté en marcha y el sistema esté reiniciándose.'
+      details: err.response?.data?.details || 'No se pudo iniciar la actualización.'
     };
-  } finally {
-    isUpdating.value = false;
   }
 };
+
+onUnmounted(() => {
+  stopStatusPolling();
+  window.removeEventListener('mousemove', onMouseMove);
+  window.removeEventListener('mouseup', onMouseUp);
+});
 
 const handleItemClick = (id: string) => {
   if (id === 'personalization') {
@@ -416,10 +455,20 @@ const handleItemClick = (id: string) => {
     <!-- Updating Overlay -->
     <div v-if="isUpdating" class="modal-overlay">
       <div class="modal glass align-center">
-        <RefreshCw :size="48" class="spin icon-primary" />
-        <h3>Actualizando NubeOS</h3>
-        <p>Buscando cambios en GitHub y sincronizando archivos...</p>
-        <span class="loader-subtext">Por favor, no cierres esta ventana.</span>
+        <RefreshCw :size="48" class="spin icon-primary mb-1" />
+        <h3>{{ updateStatus.step === 'restarting' ? 'Reiniciando...' : 'Actualizando NubeOS' }}</h3>
+        
+        <div class="update-progress-container">
+          <div class="progress-info">
+            <span class="step-text">{{ updateStatus.message }}</span>
+            <span class="percentage-text">{{ updateStatus.progress }}%</span>
+          </div>
+          <div class="progress-bar-bg">
+            <div class="progress-bar-fill" :style="{ width: updateStatus.progress + '%' }"></div>
+          </div>
+        </div>
+
+        <p class="loader-subtext">Por favor, no cierres esta ventana. El sistema se sincronizará y aplicará los cambios automáticamente.</p>
       </div>
     </div>
 
@@ -628,6 +677,36 @@ td { padding: 1rem; font-size: 0.85rem; border-top: 1px solid #e2e8f0; }
 
 .hidden-input { display: none; }
 .spin-container { display: flex; align-items: center; justify-content: center; }
+
+/* Progress Bar Styles */
+.update-progress-container {
+  width: 100%;
+  margin: 1rem 0;
+}
+
+.progress-info {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #64748b;
+  margin-bottom: 0.5rem;
+}
+
+.progress-bar-bg {
+  width: 100%;
+  height: 8px;
+  background: #f1f5f9;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: var(--primary);
+  border-radius: 4px;
+  transition: width 0.5s ease;
+}
 
 /* Custom Scrollbar */
 .cp-content::-webkit-scrollbar { width: 4px; }
