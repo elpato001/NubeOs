@@ -329,7 +329,7 @@ const currentItemMetadata = computed(() => {
         </div>
       </div>
 
-      <div v-if="externalDrives.length > 0" class="sidebar-section fade-in">
+      <div class="sidebar-section fade-in">
         <header>Unidades externas</header>
         <div class="tree-root">
           <button 
@@ -342,6 +342,9 @@ const currentItemMetadata = computed(() => {
             <HardDrive :size="16" color="#f97316" />
             <span>{{ drive.label }}</span>
           </button>
+          <div v-if="externalDrives.length === 0" class="nav-item-empty">
+             <span style="font-size: 0.7rem; opacity: 0.5; padding-left: 1.25rem;">Ninguna conectada</span>
+          </div>
         </div>
       </div>
     </aside>
