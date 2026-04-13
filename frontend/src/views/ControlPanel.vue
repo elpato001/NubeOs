@@ -622,36 +622,38 @@ const handleItemClick = (id: string) => {
                 <label>Método de Red</label>
                 <div class="toggle-group">
                   <button 
+                    type="button"
                     :class="{ active: networkForm.method === 'auto' }"
                     @click="networkForm.method = 'auto'"
                   >DHCP (Automático)</button>
                   <button 
+                    type="button"
                     :class="{ active: networkForm.method === 'manual' }"
                     @click="networkForm.method = 'manual'"
                   >Estático (Manual)</button>
                 </div>
               </div>
 
-              <div v-if="networkForm.method === 'manual'" class="static-fields fade-in">
+              <div v-show="networkForm.method === 'manual'" class="static-fields fade-in">
                 <div class="form-group mt-1">
                   <label>Dirección IP</label>
-                  <input v-model="networkForm.ip" type="text" placeholder="Ej: 192.168.1.100">
+                  <input v-model="networkForm.ip" type="text" placeholder="Ej: 192.168.1.100" class="cp-input">
                 </div>
                 <div class="form-group mt-1">
                   <label>Máscara de Prefijo (Bitmask)</label>
-                  <input v-model="networkForm.mask" type="number" placeholder="Ej: 24">
+                  <input v-model="networkForm.mask" type="number" placeholder="Ej: 24" class="cp-input">
                 </div>
                 <div class="form-group mt-1">
                   <label>Puerta de Enlace (Gateway)</label>
-                  <input v-model="networkForm.gateway" type="text" placeholder="Ej: 192.168.1.1">
+                  <input v-model="networkForm.gateway" type="text" placeholder="Ej: 192.168.1.1" class="cp-input">
                 </div>
                 <div class="form-group mt-1">
                   <label>Servidores DNS (separados por coma)</label>
-                  <input v-model="networkForm.dns" type="text" placeholder="Ej: 8.8.8.8,1.1.1.1">
+                  <input v-model="networkForm.dns" type="text" placeholder="Ej: 8.8.8.8,1.1.1.1" class="cp-input">
                 </div>
               </div>
 
-              <div v-else class="dhcp-info mt-1 glass">
+              <div v-show="networkForm.method === 'auto'" class="dhcp-info mt-1 glass">
                 <p>La interfaz recibirá una dirección IP automáticamente desde el servidor DHCP de tu red.</p>
                 <div v-if="selectedIface.ip" class="current-ip">
                   IP Actual: <strong>{{ selectedIface.ip }}</strong>
