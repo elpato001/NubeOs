@@ -277,7 +277,12 @@ const currentItemMetadata = computed(() => {
 </script>
 
 <template>
-  <div class="explorer-container glass-container" @dragover.prevent @drop="handleNativeDrop">
+  <div 
+    class="explorer-container glass-container" 
+    @dragover.prevent 
+    @drop="handleNativeDrop"
+    @contextmenu.prevent="openContextMenu($event, null)"
+  >
     <!-- Sidebar Panel -->
     <aside v-if="showSidebar" class="explorer-sidebar">
       <div class="sidebar-section">
@@ -372,7 +377,11 @@ const currentItemMetadata = computed(() => {
       </div>
 
       <!-- File Area -->
-      <div class="file-area-container" @click="clearSelection">
+      <div 
+        class="file-area-container" 
+        @click="clearSelection"
+        @contextmenu.self="openContextMenu($event, null)"
+      >
         <div 
           v-if="fileStore.loading" 
           class="center-msg"

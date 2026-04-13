@@ -19,6 +19,7 @@ Thumbs.db
 
 # Project specific
 compartir.rar
-data/db/
+data/
+casaos/
 *.sqlite
 *.sqlite-journal

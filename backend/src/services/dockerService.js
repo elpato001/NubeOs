@@ -2,6 +2,8 @@ const Docker = require('dockerode');
 const isLinux = process.platform === 'linux';
 
 const docker = new Docker(isLinux ? { socketPath: '/var/run/docker.sock' } : {});
+const { DATA_DIR } = require('../utils/fileHelper');
+const path = require('path');
 
 let isMockMode = false;
 
@@ -41,7 +43,10 @@ const getAvailableApps = () => {
       category: 'cloud',
       developer: 'Nextcloud GmbH',
       ports: { '80/tcp': 8080 },
-      volumes: { '/var/www/html': '/opt/nubeos/appdata/nextcloud/html' },
+      volumes: { 
+        '/var/www/html': '/opt/nubeos/appdata/nextcloud/html',
+        '/storage': DATA_DIR 
+      },
       webPort: 8080
     },
     {
@@ -79,7 +84,10 @@ const getAvailableApps = () => {
       category: 'media',
       developer: 'Plex Inc.',
       ports: { '32400/tcp': 32400 },
-      volumes: { '/config': '/opt/nubeos/appdata/plex/config', '/Media': '/opt/nubeos/media' },
+      volumes: { 
+        '/config': '/opt/nubeos/appdata/plex/config', 
+        '/Media': DATA_DIR 
+      },
       env: { PUID: '1000', PGID: '1000', VERSION: 'docker' },
       networkMode: 'host',
       webPort: 32400,
@@ -94,7 +102,11 @@ const getAvailableApps = () => {
       category: 'media',
       developer: 'Jellyfin Project',
       ports: { '8096/tcp': 8096 },
-      volumes: { '/config': '/opt/nubeos/appdata/jellyfin/config', '/cache': '/opt/nubeos/appdata/jellyfin/cache', '/media': '/opt/nubeos/media' },
+      volumes: { 
+        '/config': '/opt/nubeos/appdata/jellyfin/config', 
+        '/cache': '/opt/nubeos/appdata/jellyfin/cache', 
+        '/media': DATA_DIR 
+      },
       webPort: 8096
     },
     {
@@ -106,7 +118,10 @@ const getAvailableApps = () => {
       category: 'media',
       developer: 'PhotoPrism UG',
       ports: { '2342/tcp': 2342 },
-      volumes: { '/photoprism/storage': '/opt/nubeos/appdata/photoprism/storage', '/photoprism/originals': '/opt/nubeos/media/photos' },
+      volumes: { 
+        '/photoprism/storage': '/opt/nubeos/appdata/photoprism/storage', 
+        '/photoprism/originals': DATA_DIR 
+      },
       env: { PHOTOPRISM_ADMIN_PASSWORD: 'nubeos123' },
       webPort: 2342
     },
@@ -119,7 +134,10 @@ const getAvailableApps = () => {
       category: 'media',
       developer: 'Navidrome',
       ports: { '4533/tcp': 4533 },
-      volumes: { '/data': '/opt/nubeos/appdata/navidrome/data', '/music': '/opt/nubeos/media/music' },
+      volumes: { 
+        '/data': '/opt/nubeos/appdata/navidrome/data', 
+        '/music': DATA_DIR 
+      },
       webPort: 4533
     },
 
@@ -171,7 +189,10 @@ const getAvailableApps = () => {
       category: 'development',
       developer: 'Coder Inc.',
       ports: { '8443/tcp': 8443 },
-      volumes: { '/config': '/opt/nubeos/appdata/codeserver/config' },
+      volumes: { 
+        '/config': '/opt/nubeos/appdata/codeserver/config',
+        '/home/coder/project': DATA_DIR
+      },
       env: { PUID: '1000', PGID: '1000', DEFAULT_WORKSPACE: '/config/workspace' },
       webPort: 8443
     },
@@ -251,7 +272,10 @@ const getAvailableApps = () => {
       category: 'utilities',
       developer: 'LinuxServer.io',
       ports: { '9091/tcp': 9091, '51413/tcp': 51413 },
-      volumes: { '/config': '/opt/nubeos/appdata/transmission/config', '/downloads': '/opt/nubeos/downloads' },
+      volumes: { 
+        '/config': '/opt/nubeos/appdata/transmission/config', 
+        '/downloads': DATA_DIR 
+      },
       env: { PUID: '1000', PGID: '1000' },
       webPort: 9091
     },

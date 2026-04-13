@@ -23,4 +23,4 @@ const getSafePath = (username, requestedPath = '') => {
   return fullPath;
 };
 
-module.exports = { getUserRoot, getSafePath };
+module.exports = { getUserRoot, getSafePath, DATA_DIR };
