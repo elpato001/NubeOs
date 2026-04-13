@@ -105,7 +105,16 @@ fi
 
 echo -e "${GREEN}Build del Frontend completado.${NC}"
 
-# 7. Configurar servicio Systemd (un solo servicio: el backend sirve todo)
+# 7. Configurar permisos de sistema (Sudoers para Red y Almacenamiento)
+echo -e "${GREEN}Configurando permisos de red y almacenamiento...${NC}"
+SUDOERS_FILE="/etc/sudoers.d/nubeos"
+cat <<EOF > "$SUDOERS_FILE"
+# NubeOS: Permisos para gestion de red y discos sin password
+ALL ALL=(ALL) NOPASSWD: /usr/bin/nmcli, /usr/bin/mount, /usr/bin/umount, /usr/bin/mkdir, /usr/bin/rmdir
+EOF
+chmod 440 "$SUDOERS_FILE"
+
+# 8. Configurar servicio Systemd (un solo servicio: el backend sirve todo)
 echo -e "${GREEN}Configurando servicio del sistema...${NC}"
 
 cat <<EOF > /etc/systemd/system/nubeos.service
