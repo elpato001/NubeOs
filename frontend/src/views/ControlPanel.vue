@@ -637,19 +637,43 @@ const handleItemClick = (id: string) => {
               <div v-show="networkForm.method === 'manual'" class="static-fields fade-in">
                 <div class="form-group mt-1">
                   <label>Dirección IP</label>
-                  <input v-model="networkForm.ip" type="text" placeholder="Ej: 192.168.1.100" class="cp-input">
+                  <input 
+                    v-model="networkForm.ip" 
+                    type="text" 
+                    placeholder="Ej: 192.168.1.100" 
+                    class="cp-input"
+                    @click.stop
+                  >
                 </div>
                 <div class="form-group mt-1">
                   <label>Máscara de Prefijo (Bitmask)</label>
-                  <input v-model="networkForm.mask" type="number" placeholder="Ej: 24" class="cp-input">
+                  <input 
+                    v-model="networkForm.mask" 
+                    type="number" 
+                    placeholder="Ej: 24" 
+                    class="cp-input"
+                    @click.stop
+                  >
                 </div>
                 <div class="form-group mt-1">
                   <label>Puerta de Enlace (Gateway)</label>
-                  <input v-model="networkForm.gateway" type="text" placeholder="Ej: 192.168.1.1" class="cp-input">
+                  <input 
+                    v-model="networkForm.gateway" 
+                    type="text" 
+                    placeholder="Ej: 192.168.1.1" 
+                    class="cp-input"
+                    @click.stop
+                  >
                 </div>
                 <div class="form-group mt-1">
                   <label>Servidores DNS (separados por coma)</label>
-                  <input v-model="networkForm.dns" type="text" placeholder="Ej: 8.8.8.8,1.1.1.1" class="cp-input">
+                  <input 
+                    v-model="networkForm.dns" 
+                    type="text" 
+                    placeholder="Ej: 8.8.8.8,1.1.1.1" 
+                    class="cp-input"
+                    @click.stop
+                  >
                 </div>
               </div>
 
@@ -854,6 +878,9 @@ const handleItemClick = (id: string) => {
 .btn-refresh { background: #f1f5f9; color: #64748b; padding: 0.5rem; border-radius: 8px; }
 .btn-refresh:hover { background: #e2e8f0; color: #1e293b; }
 .mt-1 { margin-top: 1.5rem; }
+
+.cp-input { cursor: text !important; pointer-events: auto !important; }
+.cp-input:focus { border-color: var(--primary); background: white; box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1); }
 
 .network-layout { display: grid; grid-template-columns: 200px 1fr; gap: 1.5rem; }
 .iface-sidebar { display: flex; flex-direction: column; gap: 0.5rem; padding: 1rem; height: fit-content; }
