@@ -180,15 +180,13 @@ const performUpdate = async () => {
     const res = await axios.post('/api/system/update');
     updateResult.value = {
       success: true,
-      message: res.data.message,
-      details: res.data.output
+      message: res.data.message
     };
   } catch (err: any) {
     updateResult.value = {
       success: false,
-      message: err.response?.data?.error || 'Error al actualizar',
-      details: err.response?.data?.details,
-      path: err.response?.data?.path
+      message: err.response?.data?.error || 'Error al conectar con el servidor',
+      details: err.response?.data?.details || 'El servidor cerró la conexión inesperadamente. Es posible que la actualización ya esté en marcha y el sistema esté reiniciándose.'
     };
   } finally {
     isUpdating.value = false;

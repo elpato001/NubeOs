@@ -49,27 +49,24 @@ router.post('/update', authMiddleware, adminMiddleware, async (req, res) => {
   // En Linux usamos bash para asegurar que los comandos se interpreten correctamente
   const command = process.platform === 'linux' ? `bash "${updateScript}"` : 'git pull origin main';
 
-  console.log(`[SYS] Iniciando actualización: ${command}`);
+  console.log(`[SYS] Iniciando proceso de actualización asíncrono: ${command}`);
 
+  // Respondemos inmediatamente al cliente para evitar el error de conexión cerrada al reiniciar
+  res.json({ 
+    success: true, 
+    message: 'La actualización se ha iniciado correctamente en el servidor. El sistema sincronizará los archivos de GitHub, reconstruirá el frontend y se reiniciará automáticamente en 2-4 minutos.'
+  });
+
+  // Ejecutamos el script de forma independiente
   exec(command, { 
     cwd: gitRoot,
-    env: { ...process.env, PATH: process.env.PATH + ':/usr/local/bin' } // Asegurar que npm esté en path
+    env: { ...process.env, PATH: process.env.PATH + ':/usr/local/bin' }
   }, (error, stdout, stderr) => {
     if (error) {
-      console.error(`[SYS] Error de actualización: ${error.message}`);
-      return res.status(500).json({ 
-        error: 'Error al ejecutar la actualización', 
-        details: stderr || stdout || error.message,
-        path: gitRoot 
-      });
+      console.error(`[SYS] Error diferido en la actualización: ${error.message}`);
+      return;
     }
-    
-    console.log(`Salida de actualización: ${stdout}`);
-    res.json({ 
-      success: true, 
-      message: 'Actualización iniciada. El sistema se reiniciará en unos segundos para aplicar los cambios.',
-      output: stdout
-    });
+    console.log(`[SYS] Proceso de actualización finalizado en segundo plano.`);
   });
 });
 
