@@ -42,6 +42,7 @@ router.get('/stats', authMiddleware, async (req, res) => {
       cpu: Math.round(cpu.currentLoad),
       ram: Math.round((mem.active / mem.total) * 100),
       disk: Math.round((disk[0].use)),
+      version: require('child_process').execSync('git rev-parse --short HEAD').toString().trim(),
       details: {
         memTotal: mem.total,
         memUsed: mem.active,

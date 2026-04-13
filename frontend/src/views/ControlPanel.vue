@@ -278,6 +278,17 @@ onUnmounted(() => {
   stopStatusPolling();
 });
 
+const systemStats = ref<any>(null);
+
+const fetchStats = async () => {
+  try {
+    const res = await axios.get('/api/system/stats');
+    systemStats.value = res.data;
+  } catch (err) {
+    console.error('Error fetching system stats');
+  }
+};
+
 const handleItemClick = (id: string) => {
   if (id === 'personalization') {
     activeSubView.value = 'personalization';
@@ -286,6 +297,9 @@ const handleItemClick = (id: string) => {
     fetchUsers();
   } else if (id === 'update') {
     showUpdateConfirm.value = true;
+  } else if (id === 'overview') {
+    activeSubView.value = 'overview';
+    fetchStats();
   }
 };
 </script>
@@ -383,6 +397,71 @@ const handleItemClick = (id: string) => {
             </tbody>
           </table>
         </div>
+      </div>
+    </template>
+
+    <!-- System Overview View -->
+    <template v-else-if="activeSubView === 'overview'">
+      <header class="cp-header">
+        <div class="header-left">
+          <button class="back-btn" @click="activeSubView = 'grid'">
+            <ArrowLeft :size="20" />
+          </button>
+          <h2>Información del Sistema</h2>
+        </div>
+        <button @click="fetchStats" class="btn-refresh">
+          <RefreshCw :size="16" />
+        </button>
+      </header>
+
+      <div class="cp-content overview-view">
+        <div v-if="systemStats" class="stats-grid">
+          <div class="stat-card glass">
+            <div class="stat-icon cpu"><Cpu :size="24" /></div>
+            <div class="stat-info">
+              <span class="stat-label">CPU</span>
+              <span class="stat-value">{{ systemStats.cpu }}%</span>
+              <div class="mini-progress-bar"><div class="fill" :style="{ width: systemStats.cpu + '%' }"></div></div>
+            </div>
+          </div>
+          <div class="stat-card glass">
+            <div class="stat-icon ram"><Activity :size="24" /></div>
+            <div class="stat-info">
+              <span class="stat-label">RAM</span>
+              <span class="stat-value">{{ systemStats.ram }}%</span>
+              <div class="mini-progress-bar"><div class="fill" :style="{ width: systemStats.ram + '%' }"></div></div>
+            </div>
+          </div>
+          <div class="stat-card glass">
+            <div class="stat-icon disk"><Database :size="24" /></div>
+            <div class="stat-info">
+              <span class="stat-label">Disco (Almacenamiento)</span>
+              <span class="stat-value">{{ systemStats.disk }}%</span>
+              <div class="mini-progress-bar"><div class="fill theme-disk" :style="{ width: systemStats.disk + '%' }"></div></div>
+            </div>
+          </div>
+        </div>
+
+        <section class="settings-card glass mt-1">
+          <div class="card-header">
+            <Info :size="20" class="icon-primary"/>
+            <h3>Detalles de NubeOS</h3>
+          </div>
+          <div class="info-list">
+            <div class="info-row">
+              <span class="label">Versión del Sistema (Hash)</span>
+              <span class="value code">{{ systemStats?.version || 'Descargando...' }}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">Plataforma</span>
+              <span class="value">Linux (NubeOS Server)</span>
+            </div>
+            <div class="info-row">
+              <span class="label">Uptime</span>
+              <span class="value">{{ Math.floor((systemStats?.details?.uptime || 0) / 3600) }} horas</span>
+            </div>
+          </div>
+        </section>
       </div>
     </template>
 
@@ -594,6 +673,30 @@ const handleItemClick = (id: string) => {
   flex-direction: column;
   gap: 2.5rem;
 }
+
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; }
+.stat-card { padding: 1.25rem; display: flex; align-items: center; gap: 1rem; }
+.stat-icon { width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: white; }
+.stat-icon.cpu { background: #6366f1; }
+.stat-icon.ram { background: #10b981; }
+.stat-icon.disk { background: #f59e0b; }
+.stat-info { flex: 1; display: flex; flex-direction: column; gap: 0.25rem; }
+.stat-label { font-size: 0.7rem; font-weight: 700; color: #64748b; text-transform: uppercase; }
+.stat-value { font-size: 1.25rem; font-weight: 800; color: #1e293b; }
+.mini-progress-bar { width: 100%; height: 4px; background: #f1f5f9; border-radius: 2px; }
+.mini-progress-bar .fill { height: 100%; border-radius: 2px; background: var(--primary); }
+.mini-progress-bar .theme-disk { background: #f59e0b; }
+
+.info-list { display: flex; flex-direction: column; gap: 0.75rem; padding-top: 1rem; }
+.info-row { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0; border-bottom: 1px solid #f1f5f9; }
+.info-row:last-child { border-bottom: none; }
+.info-row .label { font-size: 0.85rem; color: #64748b; }
+.info-row .value { font-size: 0.85rem; font-weight: 700; color: #1e293b; }
+.info-row .value.code { font-family: monospace; background: #f1f5f9; padding: 0.2rem 0.5rem; border-radius: 4px; border: 1px solid #e2e8f0; }
+
+.btn-refresh { background: #f1f5f9; color: #64748b; padding: 0.5rem; border-radius: 8px; }
+.btn-refresh:hover { background: #e2e8f0; color: #1e293b; }
+.mt-1 { margin-top: 1.5rem; }
 
 .section-title {
   font-size: 0.75rem;
