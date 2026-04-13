@@ -8,7 +8,6 @@ const props = defineProps<{
 }>();
 
 const desktop = useDesktopStore();
-const iconRef = ref<HTMLElement | null>(null);
 
 // Mapeo de iconos
 const iconComponents: Record<string, any> = {
