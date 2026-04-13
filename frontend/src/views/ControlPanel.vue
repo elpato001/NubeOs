@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import axios from 'axios';
 import { useDesktopStore } from '../stores/desktop';
 import { 
@@ -243,7 +243,7 @@ const performUpdate = async () => {
   updateStatus.value = { step: 'starting', progress: 5, message: 'Iniciando proceso...' };
   
   try {
-    const res = await axios.post('/api/system/update');
+    await axios.post('/api/system/update');
     // Empezamos a preguntar por el estado real
     startStatusPolling();
   } catch (err: any) {
@@ -258,8 +258,6 @@ const performUpdate = async () => {
 
 onUnmounted(() => {
   stopStatusPolling();
-  window.removeEventListener('mousemove', onMouseMove);
-  window.removeEventListener('mouseup', onMouseUp);
 });
 
 const handleItemClick = (id: string) => {
