@@ -27,10 +27,23 @@ const searchInput = ref<HTMLInputElement | null>(null);
 
 // Selection state
 const lastSelectedIndex = ref(-1);
+const selectedItem = ref<FileItem | null>(null);
 
-onMounted(() => {
-  fileStore.fetchFiles();
-  fileStore.fetchFolderTree();
+// External Drives State
+const externalDrives = ref<any[]>([]);
+const fetchDrives = async () => {
+  try {
+    const res = await axios.get('/api/system/external-drives');
+    externalDrives.value = res.data;
+  } catch (err) {
+    console.error('Error fetching drives for sidebar');
+  }
+};
+
+onMounted(async () => {
+  await fileStore.fetchFiles();
+  await fileStore.fetchFolderTree();
+  fetchDrives();
   window.addEventListener('click', closeContextMenu);
   window.addEventListener('keydown', handleGlobalKeydown);
 });
@@ -298,16 +311,22 @@ const currentItemMetadata = computed(() => {
         </button>
       </div>
 
-      <div class="sidebar-section">
-        <header>Carpetas</header>
+        </div>
+      </div>
+
+      <div v-if="externalDrives.length > 0" class="sidebar-section fade-in">
+        <header>Unidades externas</header>
         <div class="tree-root">
-          <div v-for="node in fileStore.folderTree" :key="node.path" class="tree-item">
-            <div class="tree-row" :class="{ active: fileStore.currentPath === node.path }" @click="navigateTo(node.path)">
-              <ChevronRight :size="14" class="expander" />
-              <Folder :size="16" color="#eab308" />
-              <span>{{ node.name }}</span>
-            </div>
-          </div>
+          <button 
+            v-for="drive in externalDrives" 
+            :key="drive.id"
+            class="nav-item"
+            :class="{ active: fileStore.currentPath === drive.path }"
+            @click="navigateTo(drive.path)"
+          >
+            <HardDrive :size="16" color="#f97316" />
+            <span>{{ drive.label }}</span>
+          </button>
         </div>
       </div>
     </aside>
