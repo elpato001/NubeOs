@@ -59,17 +59,47 @@ const loadingUsers = ref(false);
 const showCreateModal = ref(false);
 const newUser = ref({ username: '', password: '', role: 'user' });
 
-const wallpapers = [
-  { name: 'Abstract Blue', url: '/wallpapers/wp1.png' },
-  { name: 'Dark Nature', url: '/wallpapers/wp2.png' },
-  { name: 'Fluid Waves', url: '/wallpapers/wp3.png' },
-  { name: 'Cosmic Night', url: '/wallpapers/wp0.png' },
-  { name: 'Cyberpunk City', url: '/wallpapers/wp4.png' },
-  { name: 'Minimalist Dawn', url: '/wallpapers/wp5.png' },
-  { name: 'Geometric Sun', url: '/wallpapers/wp6.png' },
-  { name: 'Forest Mist', url: '/wallpapers/wp7.png' },
-  { name: 'Oceanic Deep', url: '/wallpapers/wp8.png' },
-];
+// Wallpaper State
+const wallpapers = ref<{ name: string; url: string; type: string }[]>([]);
+const isUploadingWallpaper = ref(false);
+const wallpaperInput = ref<HTMLInputElement | null>(null);
+
+const fetchWallpapers = async () => {
+  try {
+    const res = await axios.get('/api/system/wallpapers');
+    wallpapers.value = res.data;
+  } catch (err) {
+    console.error('Error fetching wallpapers');
+  }
+};
+
+const handleWallpaperUpload = async (event: Event) => {
+  const target = event.target as HTMLInputElement;
+  if (!target.files?.length) return;
+
+  const file = target.files[0];
+  const formData = new FormData();
+  formData.append('wallpaper', file);
+
+  isUploadingWallpaper.value = true;
+  try {
+    const res = await axios.post('/api/system/wallpaper', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    if (res.data.success) {
+      await fetchWallpapers();
+      desktop.setWallpaper(res.data.url);
+    }
+  } catch (err: any) {
+    alert(err.response?.data?.error || 'Error al subir fondo de pantalla');
+  } finally {
+    isUploadingWallpaper.value = false;
+  }
+};
+
+onMounted(() => {
+  fetchWallpapers();
+});
 
 const categories = [
   {
@@ -321,6 +351,27 @@ const handleItemClick = (id: string) => {
           <p class="section-desc">Selecciona un fondo para personalizar tu escritorio de NubeOS.</p>
 
           <div class="wallpaper-selector">
+            <!-- Botón de Subida -->
+            <div 
+              class="wp-thumb upload-thumb glass"
+              @click="wallpaperInput?.click()"
+            >
+              <input 
+                ref="wallpaperInput"
+                type="file" 
+                accept="image/*" 
+                class="hidden-input" 
+                @change="handleWallpaperUpload"
+              >
+              <div v-if="isUploadingWallpaper" class="spin-container">
+                <RefreshCw class="spin" :size="24" />
+              </div>
+              <div v-else class="upload-content">
+                <UserPlus :size="24" />
+                <span>Subir Imagen</span>
+              </div>
+            </div>
+
             <div 
               v-for="wp in wallpapers" 
               :key="wp.url"
@@ -550,6 +601,33 @@ td { padding: 1rem; font-size: 0.85rem; border-top: 1px solid #e2e8f0; }
 .wp-thumb { aspect-ratio: 16/10; border-radius: 10px; background-size: cover; background-position: center; cursor: pointer; border: 4px solid transparent; transition: 0.2s; }
 .wp-thumb.active { border-color: var(--primary); box-shadow: 0 4px 12px rgba(99,102,241,0.3); }
 .wp-label { position: absolute; bottom:0; left:0; right:0; background: rgba(0,0,0,0.5); padding: 0.4rem; color: white; font-size: 0.7rem; text-align: center; }
+
+.upload-thumb {
+  border: 2px dashed #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f8fafc;
+  color: #64748b;
+}
+
+.upload-thumb:hover {
+  background: #f1f5f9;
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.upload-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.hidden-input { display: none; }
+.spin-container { display: flex; align-items: center; justify-content: center; }
 
 /* Custom Scrollbar */
 .cp-content::-webkit-scrollbar { width: 4px; }

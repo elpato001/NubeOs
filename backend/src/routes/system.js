@@ -2,6 +2,33 @@ const express = require('express');
 const router = express.Router();
 const si = require('systeminformation');
 const { authMiddleware, adminMiddleware } = require('../middleware/auth');
+const { exec } = require('child_process');
+const path = require('path');
+const fs = require('fs');
+const multer = require('multer');
+
+// Configure Multer for wallpaper storage
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const dir = path.join(__dirname, '../../../data/wallpapers');
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    cb(null, dir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const ext = path.extname(file.originalname);
+    cb(null, 'custom-' + uniqueSuffix + ext);
+  }
+});
+
+const upload = multer({ 
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) cb(null, true);
+    else cb(new Error('Solo se permiten imágenes'), false);
+  }
+});
 
 router.get('/stats', authMiddleware, async (req, res) => {
   try {
@@ -28,15 +55,57 @@ router.get('/stats', authMiddleware, async (req, res) => {
   }
 });
 
+// List all wallpapers (Default + Custom)
+router.get('/wallpapers', authMiddleware, async (req, res) => {
+  const customDir = path.join(__dirname, '../../../data/wallpapers');
+  const wallpapers = [
+    { name: 'Abstract Blue', url: '/wallpapers/wp1.png', type: 'default' },
+    { name: 'Dark Nature', url: '/wallpapers/wp2.png', type: 'default' },
+    { name: 'Fluid Waves', url: '/wallpapers/wp3.png', type: 'default' },
+    { name: 'Cosmic Night', url: '/wallpapers/wp0.png', type: 'default' },
+    { name: 'Cyberpunk City', url: '/wallpapers/wp4.png', type: 'default' },
+    { name: 'Minimalist Dawn', url: '/wallpapers/wp5.png', type: 'default' },
+    { name: 'Geometric Sun', url: '/wallpapers/wp6.png', type: 'default' },
+    { name: 'Forest Mist', url: '/wallpapers/wp7.png', type: 'default' },
+    { name: 'Oceanic Deep', url: '/wallpapers/wp8.png', type: 'default' },
+  ];
+
+  if (fs.existsSync(customDir)) {
+    try {
+      const files = fs.readdirSync(customDir);
+      files.forEach(file => {
+        if (['.jpg', '.jpeg', '.png', '.webp', '.gif'].includes(path.extname(file).toLowerCase())) {
+          wallpapers.push({
+            name: 'Personalizado',
+            url: `/wallpapers/custom/${file}`,
+            type: 'custom'
+          });
+        }
+      });
+    } catch (e) {
+      console.error('Error reading custom wallpapers:', e.message);
+    }
+  }
+
+  res.json(wallpapers);
+});
+
+// Upload custom wallpaper
+router.post('/wallpaper', authMiddleware, adminMiddleware, upload.single('wallpaper'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'No se ha subido ningún archivo' });
+  }
+
+  res.json({
+    success: true,
+    url: `/wallpapers/custom/${req.file.filename}`
+  });
+});
+
 router.post('/update', authMiddleware, adminMiddleware, async (req, res) => {
-  const { exec } = require('child_process');
-  const path = require('path');
-  const fs = require('fs');
-  
   const gitRoot = path.join(__dirname, '../../../');
   const updateScript = path.join(gitRoot, 'update.sh');
   
-  // En Linux, nos aseguramos que el script sea ejecutable
   if (process.platform === 'linux') {
     try {
       fs.chmodSync(updateScript, '755');
@@ -45,19 +114,15 @@ router.post('/update', authMiddleware, adminMiddleware, async (req, res) => {
     }
   }
 
-  // Si estamos en Windows (desarrollo), solo hacemos git pull para no fallar
-  // En Linux usamos bash para asegurar que los comandos se interpreten correctamente
   const command = process.platform === 'linux' ? `bash "${updateScript}"` : 'git pull origin main';
 
   console.log(`[SYS] Iniciando proceso de actualización asíncrono: ${command}`);
 
-  // Respondemos inmediatamente al cliente para evitar el error de conexión cerrada al reiniciar
   res.json({ 
     success: true, 
     message: 'La actualización se ha iniciado correctamente en el servidor. El sistema sincronizará los archivos de GitHub, reconstruirá el frontend y se reiniciará automáticamente en 2-4 minutos.'
   });
 
-  // Ejecutamos el script de forma independiente
   exec(command, { 
     cwd: gitRoot,
     env: { ...process.env, PATH: process.env.PATH + ':/usr/local/bin' }
@@ -71,7 +136,6 @@ router.post('/update', authMiddleware, adminMiddleware, async (req, res) => {
 });
 
 router.post('/reboot', authMiddleware, adminMiddleware, async (req, res) => {
-  const { exec } = require('child_process');
   res.json({ success: true, message: 'El equipo se está reiniciando...' });
   setTimeout(() => {
     exec('reboot');
@@ -79,7 +143,6 @@ router.post('/reboot', authMiddleware, adminMiddleware, async (req, res) => {
 });
 
 router.post('/shutdown', authMiddleware, adminMiddleware, async (req, res) => {
-  const { exec } = require('child_process');
   res.json({ success: true, message: 'El equipo se está apagando...' });
   setTimeout(() => {
     exec('poweroff');

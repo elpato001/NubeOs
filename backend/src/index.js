@@ -43,6 +43,14 @@ app.get('/health', (req, res) => {
   res.json({ status: 'NubeOS Backend is running', time: new Date() });
 });
 
+// --- Custom Wallpapers Storage ---
+const wallpapersDir = path.join(__dirname, '../../data/wallpapers');
+if (!fs.existsSync(wallpapersDir)) {
+  fs.mkdirSync(wallpapersDir, { recursive: true });
+}
+// Serve custom wallpapers statically
+app.use('/wallpapers/custom', express.static(wallpapersDir));
+
 // --- Serve Frontend Static Files in Production ---
 const frontendDistPath = path.join(__dirname, '../../frontend/dist');
 
