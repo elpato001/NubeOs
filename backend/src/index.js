@@ -22,7 +22,9 @@ const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(helmet({
-  contentSecurityPolicy: false
+  contentSecurityPolicy: false,
+  crossOriginOpenerPolicy: false,
+  originAgentCluster: false
 }));
 app.use(cors());
 app.use(morgan('dev'));
