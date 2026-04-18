@@ -20,12 +20,8 @@ export const useNotificationStore = defineStore('notifications', {
   actions: {
     init() {
       if (this.socket) return;
-
-      const protocol = window.location.protocol;
-      const host = window.location.hostname;
-      const port = 3000;
       
-      this.socket = io(`${protocol}//${host}:${port}`);
+      this.socket = io();
 
       this.socket.on('notification', (notif: AppNotification) => {
         this.addNotification(notif);

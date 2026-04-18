@@ -77,28 +77,40 @@ app.use('/wallpapers/custom', express.static(wallpapersDir));
 const frontendDistPath = path.join(__dirname, '../../frontend/dist');
 
 if (fs.existsSync(frontendDistPath)) {
-  console.log('📦 Serving frontend from:', frontendDistPath);
+  console.log('📦 Frontend build detected at:', frontendDistPath);
 
   app.use(express.static(frontendDistPath, {
     etag: false,
-    maxAge: 0,
+    maxAge: '1h', // Standard cache for static assets
     setHeaders: (res, path) => {
-      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-      res.setHeader('Pragma', 'no-cache');
-      res.setHeader('Expires', '0');
+      // For index.html, never cache
+      if (path.endsWith('index.html')) {
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      }
     }
   }));
 
+  // SPA Fallback
   app.get('*', (req, res) => {
-    res.sendFile(path.join(frontendDistPath, 'index.html'));
+    // Only handle if not an API route (which should have been handled before)
+    if (!req.path.startsWith('/api') && !req.path.startsWith('/socket.io')) {
+       res.sendFile(path.join(frontendDistPath, 'index.html'));
+    } else {
+       res.status(404).json({ error: 'Endpoint not found' });
+    }
   });
 } else {
-  console.log('⚠️  Frontend build not found. Running in API-only mode.');
-  console.log('   (In development, use Vite dev server for the frontend)');
+  console.warn('⚠️  Frontend build (dist) not found. The UI will not be available.');
+  console.log('   Run "npm run build" in the frontend directory to fix this.');
+  
+  app.get('/', (req, res) => {
+    res.send('<h1>NubeOS Backend is running</h1><p>UI is missing. Run <code>npm run build</code> in the frontend folder.</p>');
+  });
 }
 
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 NubeOS Backend running on http://localhost:${PORT}`);
+  console.log(`🚀 NubeOS Server unificado activo`);
+  console.log(`📡 Local: http://localhost:${PORT}`);
 });
 
 server.timeout = 600000; // 10 minutes timeout for large uploads

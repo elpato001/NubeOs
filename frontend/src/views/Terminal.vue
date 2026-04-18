@@ -40,12 +40,7 @@ const initializeTerminal = () => {
   fitAddon.fit();
 
   // 2. Setup Socket.io
-  // Probar la URL actual para el socket
-  const protocol = window.location.protocol;
-  const host = window.location.hostname;
-  const port = 3000; // Backend port (ajustar si es necesario)
-  
-  socket = io(`${protocol}//${host}:${port}`);
+  socket = io();
 
   socket.on('connect', () => {
     term?.write('\x1b[32m[NubeOS] Conectado a la terminal del sistema\r\n\x1b[0m');
