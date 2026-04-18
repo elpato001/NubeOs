@@ -163,12 +163,8 @@ function attachTerminalWebSocket(server) {
         if (msg.type === 'input' && proc.stdin.writable) {
           proc.stdin.write(msg.data);
         } else if (msg.type === 'resize' && proc.stdin.writable) {
-          // Workaround for non-PTY terminals: send stty command to update shell's view of dimensions
-          // This only works on Linux/Unix-like shells (including WSL)
-          if (isLinux || (isWin && shell === 'wsl.exe')) {
-            const cmd = `\nstty rows ${msg.rows} cols ${msg.cols} 2>/dev/null\n`;
-            proc.stdin.write(cmd);
-          }
+          // Non-PTY resize is limited, but we ignore it for now to avoid echoing
+          // stty commands into the user's terminal.
         }
       } catch (e) {
         // If not JSON, treat as raw input

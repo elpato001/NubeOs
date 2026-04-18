@@ -30,9 +30,10 @@ const initTerminal = () => {
     cursorStyle: 'bar',
     cursorWidth: 2,
     fontSize: 14,
-    fontFamily: '"JetBrains Mono", "Fira Code", "Cascadia Code", "SF Mono", Menlo, Monaco, "Courier New", monospace',
-    lineHeight: 1.4,
+    fontFamily: '"JetBrains Mono", "Fira Code", "Cascadia Code", Mono, monospace',
+    lineHeight: 1.2,
     letterSpacing: 0,
+    convertEol: true, // Fixes 'staircase' effect with non-PTY shells
     allowProposedApi: true,
     scrollback: 5000,
     smoothScrollDuration: 100,
@@ -200,8 +201,14 @@ const handleClear = () => {
 
 // Cleanup
 onMounted(() => {
-  nextTick(() => {
+  nextTick(async () => {
     initTerminal();
+    
+    // Ensure fonts are loaded before fitting
+    if ('fonts' in document) {
+      await (document as any).fonts.ready;
+      handleFit();
+    }
   });
 });
 
