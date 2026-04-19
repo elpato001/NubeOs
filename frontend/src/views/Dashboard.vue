@@ -328,16 +328,21 @@ const fetchDrives = async () => {
     
     // Convert drives to desktop icons
     const screenWidth = window.innerWidth;
-    const icons = drives.map((drive: any, index: number) => ({
-      id: drive.id ? `drive-${drive.id}` : `drive-${index}`,
-      label: drive.label || `Unidad (${drive.path})`,
-      icon: 'HardDrive',
-      color: 'orange',
-      x: screenWidth - 110, // Position on the right side
-      y: 20 + (index * 110),
-      type: 'drive',
-      path: drive.path
-    }));
+    const icons = drives.map((drive: any, index: number) => {
+      const id = drive.id ? `drive-${drive.id}` : `drive-${index}`;
+      const existing = desktop.dynamicIcons[id];
+
+      return {
+        id,
+        label: drive.label || `Unidad (${drive.path})`,
+        icon: 'HardDrive',
+        color: 'orange',
+        x: existing ? existing.x : screenWidth - 110,
+        y: existing ? existing.y : 20 + (index * 110),
+        type: 'drive',
+        path: drive.path
+      };
+    });
 
     // Simple diff to notify new drives
     const currentDriveIds = Object.keys(desktop.dynamicIcons);
