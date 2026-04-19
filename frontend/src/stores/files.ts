@@ -186,13 +186,18 @@ export const useFileStore = defineStore('files', {
       if (!this.clipboard.item || !this.clipboard.type) return;
 
       const endpoint = this.clipboard.type === 'copy' ? '/api/files/copy' : '/api/files/move';
+      const label = this.clipboard.type === 'copy' ? 'Copiando...' : 'Moviendo...';
 
       try {
+        const processId = this.startProcessing(this.clipboard.item.name, label);
+        
         await axios.post(endpoint, {
           fromPath: this.clipboard.fromPath,
           toPath: this.currentPath,
           name: this.clipboard.item.name
         });
+
+        this.updateProcessProgress(processId, 100);
 
         if (this.clipboard.type === 'cut') {
           this.clipboard = { item: null, type: null, fromPath: '' };
@@ -200,6 +205,7 @@ export const useFileStore = defineStore('files', {
 
         await this.fetchFiles(this.currentPath, false);
         await this.fetchFolderTree();
+        setTimeout(() => this.removeProcess(processId), 2000);
       } catch (error: any) {
         alert(error.response?.data?.error || 'Error al pegar');
       }
@@ -264,13 +270,16 @@ export const useFileStore = defineStore('files', {
 
     async moveItem(itemName: string, fromPath: string, toPath: string) {
       try {
+        const processId = this.startProcessing(itemName, 'Moviendo...');
         await axios.post('/api/files/move', {
           fromPath,
           toPath,
           name: itemName
         });
+        this.updateProcessProgress(processId, 100);
         await this.fetchFiles(this.currentPath, false);
         await this.fetchFolderTree();
+        setTimeout(() => this.removeProcess(processId), 2000);
       } catch (error: any) {
         alert(error.response?.data?.error || 'Error al mover');
       }
@@ -377,6 +386,43 @@ export const useFileStore = defineStore('files', {
     getDownloadUrl(fileName: string) {
       const token = localStorage.getItem('nubeos_token');
       return `/api/files/download?path=${this.currentPath}&name=${encodeURIComponent(fileName)}&token=${token}`;
+    },
+
+    startProcessing(name: string, label: string) {
+      this.uploading = true;
+      const id = Math.random().toString(36).substring(7);
+      this.uploadingFiles.push({
+        name: `${label} ${name}`,
+        progress: 0,
+        size: 0,
+      });
+
+      // Simular progreso hasta el 90%
+      let prog = 0;
+      const interval = setInterval(() => {
+        if (prog < 90) {
+          prog += 10;
+          this.updateFileProgress(`${label} ${name}`, prog);
+        } else {
+          clearInterval(interval);
+        }
+      }, 100);
+
+      return `${label} ${name}`;
+    },
+
+    updateProcessProgress(name: string, progress: number) {
+      this.updateFileProgress(name, progress);
+    },
+
+    removeProcess(name: string) {
+      const idx = this.uploadingFiles.findIndex(f => f.name === name);
+      if (idx > -1) {
+        this.uploadingFiles.splice(idx, 1);
+      }
+      if (this.uploadingFiles.length === 0) {
+        this.uploading = false;
+      }
     }
   }
 });
