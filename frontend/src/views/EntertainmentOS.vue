@@ -708,6 +708,19 @@ const tmdbKey = ref('');
 const configData = ref<any>({});
 const isAdmin = computed(() => auth.isAdmin);
 
+// HLS.js Support
+const hls = ref<any>(null);
+const isHlsSupported = ref(false);
+const loadHlsScript = () => {
+  return new Promise((resolve) => {
+    if ((window as any).Hls) return resolve(true);
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/hls.js@latest';
+    script.onload = () => resolve(true);
+    document.head.appendChild(script);
+  });
+};
+
 // IPTV State
 const iptvLists = ref<any[]>([]);
 const selectedIptvList = ref<any>(null);
@@ -912,11 +925,46 @@ const deleteIptvList = async (id: number) => {
   }
 };
 
-const playIptv = (ch: any) => {
+const playIptv = async (ch: any) => {
   playerSource.value = ch.url;
   playerTitle.value = ch.name;
   playerMediaId.value = null;
   showPlayer.value = true;
+  
+  await loadHlsScript();
+  
+  setTimeout(() => {
+    if (!videoRef.value) return;
+    
+    // Destroy previous HLS instance if any
+    if (hls.value) {
+      hls.value.destroy();
+      hls.value = null;
+    }
+
+    const isM3u8 = ch.url.includes('.m3u8') || ch.url.includes('m3u8');
+    
+    if (isM3u8 && (window as any).Hls) {
+      if ((window as any).Hls.isSupported()) {
+        const hlsInstance = new (window as any).Hls();
+        hlsInstance.loadSource(ch.url);
+        hlsInstance.attachMedia(videoRef.value);
+        hlsInstance.on((window as any).Hls.Events.MANIFEST_PARSED, () => {
+          videoRef.value?.play().catch(() => {
+            if (videoRef.value) videoRef.value.muted = true;
+            videoRef.value?.play();
+          });
+        });
+        hls.value = hlsInstance;
+      } else if (videoRef.value.canPlayType('application/vnd.apple.mpegurl')) {
+        videoRef.value.src = ch.url;
+        videoRef.value.play();
+      }
+    } else {
+      videoRef.value.src = ch.url;
+      videoRef.value.play();
+    }
+  }, 300);
 };
 
 const fetchConfig = async () => {
@@ -941,7 +989,7 @@ const saveConfig = async () => {
   }
 };
 
-const playMedia = (m: any) => {
+const playMedia = async (m: any) => {
   const token = localStorage.getItem('nubeos_token');
   const streamUrl = `/api/entertainment/stream/${m.id}?token=${token}`;
   
@@ -953,19 +1001,36 @@ const playMedia = (m: any) => {
   const startTime = m.progress || 0;
   lastSavedTime.value = startTime;
   
-  // Set start time once metadata loaded
-  if (videoRef.value) {
+  await loadHlsScript();
+
+  setTimeout(() => {
+    if (!videoRef.value) return;
+    
+    if (hls.value) {
+      hls.value.destroy();
+      hls.value = null;
+    }
+
+    // Normal stream might also be HLS depending on backend transcoding (currently it's direct file stream)
+    // For now we assume direct stream unless it's obviously m3u8
+    videoRef.value.src = streamUrl;
+
     videoRef.value.onloadedmetadata = () => {
       if (videoRef.value && startTime > 0) {
         videoRef.value.currentTime = startTime;
       }
+      videoRef.value?.play();
     };
-  }
+  }, 300);
 
   selectedMedia.value = null;
 };
 
 const closePlayer = () => {
+  if (hls.value) {
+    hls.value.destroy();
+    hls.value = null;
+  }
   if (videoRef.value) {
     saveInternalProgress();
     videoRef.value.pause();
