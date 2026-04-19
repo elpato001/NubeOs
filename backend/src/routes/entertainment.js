@@ -293,7 +293,13 @@ router.get('/admin/stats', authMiddleware, (req, res) => {
 router.get('/admin/media', authMiddleware, (req, res) => {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' });
   try {
-    const media = db.prepare('SELECT * FROM eo_media ORDER BY title ASC').all();
+    const libPath = req.query.libPath;
+    let media;
+    if (libPath) {
+      media = db.prepare('SELECT * FROM eo_media WHERE file_path LIKE ? || "%" ORDER BY title ASC').all(libPath);
+    } else {
+      media = db.prepare('SELECT * FROM eo_media ORDER BY title ASC').all();
+    }
     res.json(media);
   } catch (error) {
     res.status(500).json({ error: error.message });

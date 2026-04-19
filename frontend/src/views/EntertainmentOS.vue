@@ -351,7 +351,85 @@
               </div>
 
               <div v-if="activeAdminTab === 'libraries'" class="admin-libraries">
-                <!-- Add Library Section -->
+                
+                <!-- Library Detail View -->
+                <template v-if="selectedAdminLibrary">
+                  <header class="detail-header">
+                    <button @click="selectedAdminLibrary = null" class="back-link">
+                      <ChevronLeft :size="18" /> Volver a librerías
+                    </button>
+                    <div class="header-main">
+                      <div class="lib-info-pill">
+                         <component :is="getLibIcon(selectedAdminLibrary.name)" :size="24" />
+                         <div>
+                            <h2>{{ selectedAdminLibrary.name }}</h2>
+                            <code class="text-xs">{{ selectedAdminLibrary.path }}</code>
+                         </div>
+                      </div>
+                      <div class="header-actions">
+                        <button @click="scanLibraries" class="scan-action-btn" :disabled="scanning">
+                          <Loader2 v-if="scanning" class="spinning" :size="16" />
+                          <RotateCcw v-else :size="16" />
+                          <span>Escanear esta carpeta</span>
+                        </button>
+                        <button @click="removeLibrary(selectedAdminLibrary.id); selectedAdminLibrary = null" class="btn-del-main">
+                          <Trash2 :size="16" />
+                        </button>
+                      </div>
+                    </div>
+                  </header>
+
+                  <div class="detail-content">
+                    <div class="media-management-grid">
+                      <div class="table-container">
+                        <div class="table-header">
+                          <h3>Contenido de la Librería ({{ libraryMedia.length }})</h3>
+                          <div class="mini-search">
+                            <Search :size="14" />
+                            <input v-model="adminSearch" type="text" placeholder="Filtrar en esta librería..." />
+                          </div>
+                        </div>
+                        <div class="eos-scroll-table">
+                          <table>
+                            <thead>
+                              <tr>
+                                <th>Poster</th>
+                                <th>Título / Metadata</th>
+                                <th>Tipo</th>
+                                <th>Ruta de Archivo</th>
+                                <th>Acciones</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <tr v-for="m in filteredLibraryMedia" :key="'libmedia-'+m.id">
+                                <td class="td-poster">
+                                  <div class="mini-poster" :style="{ backgroundImage: `url(${m.poster_path ? '/api/entertainment/poster/' + m.id : '/entertainment/posters/stellar_horizon.png'})` }"></div>
+                                </td>
+                                <td>
+                                  <div class="media-title-stack">
+                                    <span class="m-title">{{ m.title }}</span>
+                                    <span class="m-year">{{ m.year }} · {{ m.genre }}</span>
+                                    <div class="m-rating" v-if="m.rating">⭐ {{ m.rating }}</div>
+                                  </div>
+                                </td>
+                                <td><span class="type-tag">{{ m.type }}</span></td>
+                                <td><code class="file-path-code" :title="m.file_path">{{ m.file_path.split('/').pop() }}</code></td>
+                                <td class="table-btns">
+                                  <button @click="editMedia(m)" class="btn-edit" title="Editar"><Settings2 :size="14" /></button>
+                                  <button @click="deleteItem(m.id)" class="btn-del" title="Eliminar"><Trash2 :size="14" /></button>
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </template>
+
+                <!-- Libraries List View (Existing) -->
+                <template v-else>
+                  <!-- Add Library Section -->
                 <div class="admin-setup-banner">
                   <div class="banner-content">
                     <h3>Añadir Nueva Librería</h3>
@@ -387,7 +465,7 @@
                   </header>
 
                   <div class="lib-grid">
-                    <div v-for="lib in libraries" :key="'lib-'+lib.id" class="lib-card">
+                    <div v-for="lib in libraries" :key="'lib-'+lib.id" class="lib-card selectable" @click="enterLibraryDetail(lib)">
                       <div class="lib-card-icon">
                         <component :is="getLibIcon(lib.name)" :size="32" />
                       </div>
@@ -412,7 +490,8 @@
                     </div>
                   </div>
                 </div>
-              </div>
+              </template>
+            </div>
 
               <!-- IPTV Management Tab -->
               <div v-if="activeAdminTab === 'iptv'" class="admin-libraries">
@@ -613,6 +692,10 @@ const loadingIptv = ref(false);
 const newIptvName = ref('');
 const newIptvUrl = ref('');
 
+// Admin Detail State
+const selectedAdminLibrary = ref<any>(null);
+const libraryMedia = ref<any[]>([]);
+
 // Folder Browser State
 const showFolderPicker = ref(false);
 const currentBrowserPath = ref('');
@@ -679,6 +762,12 @@ const filteredAdminMedia = computed(() => {
   return allAdminMedia.value.filter(m => (m.title || '').toLowerCase().includes(q));
 });
 
+const filteredLibraryMedia = computed(() => {
+  if (!adminSearch.value) return libraryMedia.value;
+  const q = adminSearch.value.toLowerCase();
+  return libraryMedia.value.filter(m => (m.title || '').toLowerCase().includes(q));
+});
+
 // Hero Data
 const heroIndex = ref(0);
 const heroItems = [
@@ -722,6 +811,30 @@ const fetchIptvLists = async () => {
     const res = await axios.get('/api/entertainment/iptv/lists');
     iptvLists.value = res.data;
   } catch (err) {}
+};
+
+const enterLibraryDetail = async (lib: any) => {
+  selectedAdminLibrary.value = lib;
+  loading.value = true;
+  try {
+    const res = await axios.get('/api/entertainment/admin/media', { params: { libPath: lib.path } });
+    libraryMedia.value = res.data;
+  } catch (err) {
+    notification.error('Error', 'No se pudo cargar el contenido');
+  } finally {
+    loading.value = false;
+  }
+};
+
+const deleteItem = async (id: number) => {
+  if (!confirm('¿Eliminar este contenido?')) return;
+  try {
+    await axios.delete(`/api/entertainment/admin/media/${id}`);
+    libraryMedia.value = libraryMedia.value.filter(m => m.id !== id);
+    notification.success('Eliminado', 'Se ha quitado el archivo de la biblioteca.');
+  } catch (err) {
+    notification.error('Error', 'No se pudo eliminar');
+  }
 };
 
 const selectIptvList = async (list: any) => {
@@ -994,6 +1107,35 @@ th, td { padding: 1rem; text-align: left; border-bottom: 1px solid rgba(255,255,
 .lib-add-form-premium input { flex: 1; background: transparent; border: none; padding: 0.75rem 1rem; color: white; font-size: 0.9rem; }
 .browse-btn { background: rgba(255,255,255,0.05); border: none; border-left: 1px solid rgba(255,255,255,0.1); color: #94a3b8; padding: 0 1rem; cursor: pointer; transition: all 0.2s; }
 .browse-btn:hover { color: white; background: rgba(255,255,255,0.1); }
+
+/* Library Detail View Styles */
+.detail-header { margin-bottom: 2rem; display: flex; flex-direction: column; gap: 1rem; }
+.back-link { background: none; border: none; color: #64748b; cursor: pointer; display: flex; align-items: center; gap: 4px; font-size: 0.9rem; width: fit-content; padding: 0; }
+.back-link:hover { color: white; }
+.header-main { display: flex; justify-content: space-between; align-items: center; }
+.lib-info-pill { display: flex; align-items: center; gap: 1rem; }
+.lib-info-pill h2 { margin: 0; font-size: 1.5rem; color: white; }
+.header-actions { display: flex; gap: 1rem; }
+.btn-del-main { background: rgba(244, 63, 94, 0.1); color: #f43f5e; border: 1px solid rgba(244, 63, 94, 0.2); padding: 0.5rem 1rem; border-radius: 8px; cursor: pointer; }
+.btn-del-main:hover { background: #f43f5e; color: white; }
+
+.table-container { background: rgba(30, 41, 59, 0.4); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 12px; overflow: hidden; }
+.table-header { padding: 1.25rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05); }
+.table-header h3 { margin: 0; font-size: 1rem; color: #94a3b8; }
+.mini-search { display: flex; align-items: center; gap: 0.5rem; background: rgba(0,0,0,0.2); padding: 0.4rem 0.8rem; border-radius: 8px; font-size: 0.8rem; }
+.mini-search input { background: none; border: none; color: white; outline: none; }
+
+.td-poster { width: 50px; }
+.mini-poster { width: 40px; aspect-ratio: 2/3; border-radius: 4px; background-size: cover; background-position: center; border: 1px solid rgba(255,255,255,0.1); }
+.media-title-stack { display: flex; flex-direction: column; gap: 2px; }
+.m-title { font-weight: 600; color: white; }
+.m-year { font-size: 0.75rem; color: #64748b; }
+.m-rating { font-size: 0.75rem; color: #f59e0b; margin-top: 2px; }
+.type-tag { font-size: 0.65rem; background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 4px; text-transform: uppercase; color: #94a3b8; }
+.file-path-code { font-size: 0.7rem; color: #64748b; font-family: monospace; }
+
+.lib-card.selectable { cursor: pointer; }
+.lib-card.selectable:hover .lib-card-icon { transform: scale(1.1); }
 
 /* IPTV Styles */
 .eos-iptv-container { display: flex; height: 100%; }
