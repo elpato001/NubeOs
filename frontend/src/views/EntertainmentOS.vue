@@ -329,15 +329,16 @@
                     </div>
                   </div>
                 </div>
+              </div>
 
-                <!-- Global Configuration Tab -->
-                <div v-if="activeAdminTab === 'config'" class="admin-view animate-fade">
-                  <div class="eos-admin-banner">
-                    <div class="banner-content">
-                      <h2>Configuración del Sistema</h2>
-                      <p>Gestiona las conexiones con servicios externos de metadatos.</p>
-                    </div>
+              <!-- Global Configuration Tab -->
+              <div v-if="activeAdminTab === 'config'" class="admin-view animate-fade">
+                <div class="eos-admin-banner">
+                  <div class="banner-content">
+                    <h2>Configuración del Sistema</h2>
+                    <p>Gestiona las conexiones con servicios externos de metadatos.</p>
                   </div>
+                </div>
 
                   <div class="config-grid">
                     <div class="config-card">
@@ -774,7 +775,6 @@ th, td { padding: 1rem; text-align: left; border-bottom: 1px solid rgba(255,255,
 .modal-fade-enter-active, .modal-fade-leave-active { transition: opacity 0.3s; }
 .modal-fade-enter-from, .modal-fade-leave-to { opacity: 0; }
 .mt-4 { margin-top: 1rem; }
-.mt-4 { margin-top: 1rem; }
 .ml-auto { margin-left: auto; }
 
 /* Folder Browser Modal */
@@ -816,8 +816,6 @@ th, td { padding: 1rem; text-align: left; border-bottom: 1px solid rgba(255,255,
 .text-xs { font-size: 0.75rem; }
 .animate-fade { animation: fadeIn 0.3s ease; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
-.browse-btn { background: rgba(255,255,255,0.05); border: none; border-left: 1px solid rgba(255,255,255,0.1); color: #94a3b8; padding: 0 1rem; cursor: pointer; transition: all 0.2s; }
-.browse-btn:hover { color: white; background: rgba(255,255,255,0.1); }
 
 .lib-grid-container { display: flex; flex-direction: column; gap: 1.5rem; }
 .section-header { display: flex; justify-content: space-between; align-items: center; }
