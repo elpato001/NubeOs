@@ -174,6 +174,27 @@ const getAvailableApps = () => {
       env: { PUID: '1000', PGID: '1000' },
       webPort: 6595
     },
+    {
+      id: 'mediaelch',
+      name: 'MediaElch',
+      description: 'Gestor de medios para Kodi. Escanea, identifica y organiza películas y series con archivos NFO, posters y fanart desde TMDB, Fanart.tv y más.',
+      image: 'jlesage/mediaelch:latest',
+      icon: `${ICON_CDN}/mediaelch.png`,
+      category: 'media',
+      developer: 'MediaElch / jlesage',
+      ports: { '5800/tcp': 5800, '5900/tcp': 5900 },
+      volumes: { 
+        '/config': `${APPDATA_BASE}/mediaelch/config`,
+        '/storage': DATA_DIR
+      },
+      env: { 
+        USER_ID: '1000', 
+        GROUP_ID: '1000',
+        DISPLAY_WIDTH: '1280',
+        DISPLAY_HEIGHT: '768'
+      },
+      webPort: 5800
+    },
 
     // ── Productividad ──
     {
