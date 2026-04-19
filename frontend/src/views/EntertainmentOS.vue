@@ -199,6 +199,88 @@
           </section>
         </template>
 
+        <!-- IPTV View -->
+        <template v-if="activeNav === 'iptv'">
+          <div class="eos-iptv-container">
+            <!-- IPTV Sidebar -->
+            <aside class="iptv-side">
+              <div class="iptv-side-header">
+                <h3>Listas IPTV</h3>
+                <button v-if="isAdmin" @click="activeAdminTab = 'iptv'; activeNav = 'admin'" class="iptv-add-btn" title="Gestionar Listas">
+                   <Settings2 :size="16" />
+                </button>
+              </div>
+              <div class="iptv-list-selector">
+                <button 
+                  v-for="list in iptvLists" 
+                  :key="list.id" 
+                  class="iptv-list-item"
+                  :class="{ active: selectedIptvList?.id === list.id }"
+                  @click="selectIptvList(list)"
+                >
+                  <ListMusic :size="18" />
+                  <span>{{ list.name }}</span>
+                </button>
+                <div v-if="iptvLists.length === 0" class="iptv-empty">
+                   No hay listas añadidas.
+                </div>
+              </div>
+
+              <template v-if="selectedIptvList && parsedIptvData">
+                <div class="iptv-side-header mt-4">
+                  <h3>Categorías</h3>
+                </div>
+                <div class="iptv-cat-selector">
+                  <button 
+                    v-for="cat in parsedIptvData.categories" 
+                    :key="cat.name" 
+                    class="iptv-cat-item"
+                    :class="{ active: selectedIptvCat?.name === cat.name }"
+                    @click="selectedIptvCat = cat"
+                  >
+                    <span>{{ cat.name }}</span>
+                    <span class="cat-count">{{ cat.channels.length }}</span>
+                  </button>
+                </div>
+              </template>
+            </aside>
+
+            <!-- IPTV Main -->
+            <div class="iptv-main">
+              <template v-if="loadingIptv">
+                <div class="iptv-loading">
+                  <Loader2 class="spinning" :size="32" />
+                  <p>Cargando canales...</p>
+                </div>
+              </template>
+              <template v-else-if="selectedIptvCat">
+                <div class="iptv-channels-grid">
+                  <div 
+                    v-for="ch in selectedIptvCat.channels" 
+                    :key="ch.url" 
+                    class="iptv-channel-card"
+                    @click="playIptv(ch)"
+                  >
+                    <div class="ch-logo">
+                       <img v-if="ch.logo" :src="ch.logo" :alt="ch.name" />
+                       <MonitorPlay v-else :size="32" opacity="0.3" />
+                       <div class="ch-play-overlay"><Play :size="24" /></div>
+                    </div>
+                    <div class="ch-info">
+                       <div class="ch-name">{{ ch.name }}</div>
+                    </div>
+                  </div>
+                </div>
+              </template>
+              <div v-else class="iptv-welcome">
+                <MonitorPlay :size="64" opacity="0.1" />
+                <h2>Televisión en Vivo</h2>
+                <p>Selecciona una lista y una categoría para comenzar a ver.</p>
+              </div>
+            </div>
+          </div>
+        </template>
+
         <!-- Admin View -->
         <template v-if="activeNav === 'admin'">
           <div class="eos-admin-container">
@@ -208,6 +290,7 @@
                 <button :class="{ active: activeAdminTab === 'overview' }" @click="activeAdminTab = 'overview'; fetchConfig()">Resumen</button>
                 <button :class="{ active: activeAdminTab === 'media' }" @click="activeAdminTab = 'media'">Gestión</button>
                 <button :class="{ active: activeAdminTab === 'libraries' }" @click="activeAdminTab = 'libraries'">Librerías</button>
+                <button :class="{ active: activeAdminTab === 'iptv' }" @click="activeAdminTab = 'iptv'">IPTV</button>
                 <button :class="{ active: activeAdminTab === 'config' }" @click="activeAdminTab = 'config'; fetchConfig()">Configuración</button>
               </div>
             </header>
@@ -326,6 +409,51 @@
                     <div v-if="libraries.length === 0" class="lib-empty-state">
                       <Folder :size="48" opacity="0.2" />
                       <p>No hay librerías configuradas.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- IPTV Management Tab -->
+              <div v-if="activeAdminTab === 'iptv'" class="admin-libraries">
+                <div class="admin-setup-banner">
+                  <div class="banner-content">
+                    <h3>Añadir Lista IPTV (m3u)</h3>
+                    <p>Introduce una URL de una lista m3u para disfrutar de canales en vivo.</p>
+                  </div>
+                  <div class="lib-add-form-premium">
+                    <input v-model="newIptvName" type="text" placeholder="Nombre (Ej: Latino TV)" style="max-width: 200px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 0.75rem; color: white" />
+                    <input v-model="newIptvUrl" type="text" placeholder="URL m3u (http://...)" style="flex: 1; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 0.75rem; color: white" />
+                    <button @click="addIptvList" class="eos-btn-primary" :disabled="loading">
+                      <Plus :size="18" /> <span>Añadir</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div class="lib-grid-container">
+                  <header class="section-header">
+                    <h3>Listas Configuradas</h3>
+                  </header>
+                  <div class="lib-grid">
+                    <div v-for="list in iptvLists" :key="'iptv-'+list.id" class="lib-card">
+                      <div class="lib-card-icon">
+                        <MonitorPlay :size="32" />
+                      </div>
+                      <div class="lib-card-body">
+                        <div class="lib-card-header">
+                          <h4>{{ list.name }}</h4>
+                        </div>
+                        <code class="text-xs opacity-50 truncate block" style="max-width: 200px">{{ list.url }}</code>
+                      </div>
+                      <div class="lib-card-actions">
+                        <button @click="deleteIptvList(list.id)" class="item-action-btn delete">
+                          <Trash2 :size="16" />
+                        </button>
+                      </div>
+                    </div>
+                    <div v-if="iptvLists.length === 0" class="lib-empty-state">
+                      <MonitorPlay :size="48" opacity="0.2" />
+                      <p>No hay listas configuradas.</p>
                     </div>
                   </div>
                 </div>
@@ -450,7 +578,8 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import {
   Clapperboard, Home, Film, Tv, Music, Search, Bell, User, ChevronDown,
-  ChevronLeft, ChevronRight, Play, Info, Settings2, X, Plus, Star, Loader2, Trash2, Folder
+  ChevronLeft, ChevronRight, Play, Info, Settings2, X, Plus, Star, Loader2, Trash2, Folder, MonitorPlay,
+  RotateCcw, ListMusic
 } from 'lucide-vue-next';
 import axios from 'axios';
 import { useDesktopStore } from '../stores/desktop';
@@ -471,6 +600,16 @@ const selectedLibType = ref('movie');
 const selectedMedia = ref<any>(null);
 const tmdbKey = ref('');
 const configData = ref<any>({});
+const isAdmin = computed(() => true); // Simplificado para este contexto
+
+// IPTV State
+const iptvLists = ref<any[]>([]);
+const selectedIptvList = ref<any>(null);
+const selectedIptvCat = ref<any>(null);
+const parsedIptvData = ref<any>(null);
+const loadingIptv = ref(false);
+const newIptvName = ref('');
+const newIptvUrl = ref('');
 
 // Folder Browser State
 const showFolderPicker = ref(false);
@@ -485,6 +624,7 @@ const navItems = [
   { id: 'movies', label: 'Películas', icon: Film },
   { id: 'series', label: 'Series', icon: Tv },
   { id: 'music', label: 'Música', icon: Music },
+  { id: 'iptv', label: 'IPTV', icon: MonitorPlay },
   { id: 'admin', label: 'Dashboard', icon: Settings2 },
 ];
 
@@ -572,7 +712,61 @@ const fetchAdminData = async () => {
     allAdminMedia.value = media.data;
     libraries.value = libs.data;
     fetchConfig();
+    fetchIptvLists();
   } catch (err) { /* Not admin */ }
+};
+
+const fetchIptvLists = async () => {
+  try {
+    const res = await axios.get('/api/entertainment/iptv/lists');
+    iptvLists.value = res.data;
+  } catch (err) {}
+};
+
+const selectIptvList = async (list: any) => {
+  selectedIptvList.value = list;
+  selectedIptvCat.value = null;
+  parsedIptvData.value = null;
+  loadingIptv.value = true;
+  try {
+    const res = await axios.get(`/api/entertainment/iptv/parse/${list.id}`);
+    parsedIptvData.value = res.data;
+    if (res.data.categories.length > 0) {
+      selectedIptvCat.value = res.data.categories[0];
+    }
+  } catch (err) {
+    notification.error('Error', 'No se pudo cargar la lista IPTV');
+  } finally {
+    loadingIptv.value = false;
+  }
+};
+
+const addIptvList = async () => {
+  if (!newIptvName.value || !newIptvUrl.value) return;
+  try {
+    await axios.post('/api/entertainment/iptv/lists', { name: newIptvName.value, url: newIptvUrl.value });
+    newIptvName.value = '';
+    newIptvUrl.value = '';
+    notification.success('Éxito', 'Lista IPTV añadida');
+    fetchIptvLists();
+  } catch (err) {
+    notification.error('Error', 'No se pudo añadir la lista');
+  }
+};
+
+const deleteIptvList = async (id: number) => {
+  if (!confirm('¿Eliminar esta lista?')) return;
+  try {
+    await axios.delete(`/api/entertainment/iptv/lists/${id}`);
+    fetchIptvLists();
+    notification.success('Éxito', 'Lista eliminada');
+  } catch (err) {
+    notification.error('Error', 'No se pudo eliminar');
+  }
+};
+
+const playIptv = (ch: any) => {
+  desktop.playVideo(ch.url, ch.name, 'iptv-' + ch.name, 0);
 };
 
 const fetchConfig = async () => {
@@ -698,6 +892,7 @@ const nextHero = () => heroIndex.value = (heroIndex.value + 1) % heroItems.lengt
 let heroTimer: any;
 onMounted(() => {
   fetchCatalog();
+  fetchIptvLists();
   if (activeNav.value === 'admin') fetchAdminData();
   heroTimer = setInterval(nextHero, 8000);
 });
@@ -798,6 +993,32 @@ th, td { padding: 1rem; text-align: left; border-bottom: 1px solid rgba(255,255,
 .lib-add-form-premium input { flex: 1; background: transparent; border: none; padding: 0.75rem 1rem; color: white; font-size: 0.9rem; }
 .browse-btn { background: rgba(255,255,255,0.05); border: none; border-left: 1px solid rgba(255,255,255,0.1); color: #94a3b8; padding: 0 1rem; cursor: pointer; transition: all 0.2s; }
 .browse-btn:hover { color: white; background: rgba(255,255,255,0.1); }
+
+/* IPTV Styles */
+.eos-iptv-container { display: flex; height: 100%; }
+.iptv-side { width: 260px; background: rgba(0,0,0,0.2); border-right: 1px solid rgba(255,255,255,0.05); display: flex; flex-direction: column; }
+.iptv-side-header { padding: 1.5rem; display: flex; justify-content: space-between; align-items: center; }
+.iptv-side-header h3 { font-size: 0.9rem; color: #64748b; text-transform: uppercase; letter-spacing: 1px; }
+.iptv-list-selector, .iptv-cat-selector { flex: 1; overflow-y: auto; padding: 0 0.75rem; }
+.iptv-list-item, .iptv-cat-item { width: 100%; display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; border: none; background: none; color: #94a3b8; cursor: pointer; border-radius: 8px; font-size: 0.85rem; text-align: left; transition: all 0.2s; }
+.iptv-list-item:hover, .iptv-cat-item:hover { background: rgba(255,255,255,0.05); color: white; }
+.iptv-list-item.active, .iptv-cat-item.active { background: rgba(245, 158, 11, 0.1); color: #f59e0b; }
+.cat-count { margin-left: auto; font-size: 0.7rem; background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 4px; }
+.iptv-main { flex: 1; display: flex; flex-direction: column; overflow-y: auto; background: rgba(0,0,0,0.1); }
+.iptv-loading { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #64748b; gap: 1rem; }
+.iptv-channels-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 1.5rem; padding: 2rem; }
+.iptv-channel-card { cursor: pointer; transition: transform 0.2s; }
+.iptv-channel-card:hover { transform: translateY(-5px); }
+.ch-logo { aspect-ratio: 16/9; background: #1e293b; border-radius: 12px; display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative; border: 1px solid rgba(255,255,255,0.05); }
+.ch-logo img { width: 100%; height: 100%; object-fit: contain; padding: 10px; }
+.ch-play-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; opacity: 0; transition: 0.3s; }
+.iptv-channel-card:hover .ch-play-overlay { opacity: 1; }
+.ch-info { margin-top: 0.75rem; text-align: center; }
+.ch-name { font-size: 0.8rem; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.iptv-welcome { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #64748b; gap: 1rem; text-align: center; padding: 2rem; }
+.iptv-welcome h2 { color: white; }
+.iptv-add-btn { background: rgba(255,255,255,0.05); border: none; color: #64748b; padding: 4px; border-radius: 4px; cursor: pointer; }
+.iptv-add-btn:hover { color: white; background: rgba(255,255,255,0.1); }
 
 /* Config Styles */
 .config-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 1.5rem; }

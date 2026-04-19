@@ -388,4 +388,70 @@ router.post('/admin/config', authMiddleware, (req, res) => {
   }
 });
 
+// --- IPTV ROUTES ---
+
+// 15. Get IPTV Lists
+router.get('/iptv/lists', authMiddleware, (req, res) => {
+  try {
+    const lists = db.prepare('SELECT * FROM eo_iptv_lists ORDER BY created_at DESC').all();
+    res.json(lists);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 16. Add IPTV List
+router.post('/iptv/lists', authMiddleware, (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' });
+  try {
+    const { name, url } = req.body;
+    if (!name || !url) return res.status(400).json({ error: 'Nombre y URL son requeridos' });
+    
+    db.prepare('INSERT INTO eo_iptv_lists (name, url) VALUES (?, ?)').run(name, url);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 17. Delete IPTV List
+router.delete('/iptv/lists/:id', authMiddleware, (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' });
+  try {
+    db.prepare('DELETE FROM eo_iptv_lists WHERE id = ?').run(req.params.id);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 18. Parse IPTV List
+const iptvService = require('../services/iptvService');
+router.get('/iptv/parse/:id', authMiddleware, async (req, res) => {
+  try {
+    const list = db.prepare('SELECT * FROM eo_iptv_lists WHERE id = ?').get(req.params.id);
+    if (!list) return res.status(404).json({ error: 'Lista no encontrada' });
+
+    const content = await iptvService.fetchM3u(list.url);
+    const channels = iptvService.parseM3u(content);
+    
+    // Group by category
+    const categories = {};
+    channels.forEach(ch => {
+      if (!categories[ch.group]) categories[ch.group] = [];
+      categories[ch.group].push(ch);
+    });
+
+    res.json({
+      name: list.name,
+      categories: Object.keys(categories).sort().map(name => ({
+        name,
+        channels: categories[name]
+      }))
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;

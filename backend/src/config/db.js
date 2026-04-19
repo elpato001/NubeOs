@@ -78,6 +78,13 @@ db.exec(`
     type TEXT DEFAULT 'movie',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
+
+  CREATE TABLE IF NOT EXISTS eo_iptv_lists (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    url TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
 `);
 
 // Migration: Fix incorrect /backend/data and /nubeos/data paths in existing databases
