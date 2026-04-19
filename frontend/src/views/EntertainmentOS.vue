@@ -218,6 +218,117 @@
           </section>
         </template>
 
+        <!-- Admin View -->
+        <template v-if="activeNav === 'admin'">
+          <div class="eos-admin-container">
+            <header class="eos-admin-header">
+              <h1><Settings2 :size="24" /> Panel de Control EntertainmentOS</h1>
+              <div class="admin-tabs">
+                <button v-for="tab in ['overview', 'media', 'libraries']" :key="tab" 
+                        :class="{ active: activeAdminTab === tab }" @click="activeAdminTab = tab">
+                  {{ tab === 'overview' ? 'Resumen' : tab === 'media' ? 'Gestionar Medios' : 'Bibliotecas' }}
+                </button>
+              </div>
+            </header>
+
+            <div class="eos-admin-content">
+              <!-- Overview Tab -->
+              <div v-if="activeAdminTab === 'overview'" class="admin-overview">
+                <div class="stats-grid">
+                  <div class="stat-card">
+                    <Film :size="24" />
+                    <div class="stat-val">{{ adminStats.movies }}</div>
+                    <div class="stat-label">Películas</div>
+                  </div>
+                  <div class="stat-card">
+                    <Tv :size="24" />
+                    <div class="stat-val">{{ adminStats.series }}</div>
+                    <div class="stat-label">Series</div>
+                  </div>
+                  <div class="stat-card">
+                    <Music :size="24" />
+                    <div class="stat-val">{{ adminStats.music }}</div>
+                    <div class="stat-label">Canciones</div>
+                  </div>
+                  <div class="stat-card warning" v-if="adminStats.noPoster > 0">
+                    <Info :size="24" />
+                    <div class="stat-val">{{ adminStats.noPoster }}</div>
+                    <div class="stat-label">Sin Poster</div>
+                  </div>
+                </div>
+
+                <div class="admin-section-card mt-2">
+                  <h3>Últimas Incorporaciones</h3>
+                  <div class="last-added-list">
+                    <div v-for="item in adminStats.lastAdded" :key="item.title" class="last-added-item">
+                      {{ item.title }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Media Management Tab -->
+              <div v-if="activeAdminTab === 'media'" class="admin-media-table">
+                <div class="table-actions">
+                  <input v-model="adminSearch" type="text" placeholder="Buscar por título..." />
+                </div>
+                <div class="eos-scroll-table">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Título</th>
+                        <th>Tipo</th>
+                        <th>Género</th>
+                        <th>Año</th>
+                        <th>Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="m in filteredAdminMedia" :key="m.id">
+                        <td>{{ m.title }}</td>
+                        <td><span class="type-badge">{{ m.type }}</span></td>
+                        <td>{{ m.genre }}</td>
+                        <td>{{ m.year }}</td>
+                        <td class="table-btns">
+                          <button @click="editMedia(m)" class="btn-edit"><Star :size="14" /></button>
+                          <button @click="deleteMedia(m.id)" class="btn-del"><Trash2 :size="14" /></button>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- Original Libraries section moved here -->
+              <div v-if="activeAdminTab === 'libraries'" class="admin-libraries">
+                 <div class="admin-section-card">
+                    <h3>Gestionar Librerías</h3>
+                    <p class="section-desc">Añade carpetas locales de NubeOS para escanear contenido.</p>
+                    <div class="lib-add-form">
+                      <input v-model="newLibPath" type="text" placeholder="Ruta: C:/Videos" />
+                      <button @click="addLibrary" class="eos-btn-primary">Añadir</button>
+                    </div>
+                    <div class="lib-list">
+                      <div v-for="lib in libraries" :key="lib.id" class="lib-item">
+                        <div class="lib-info">
+                          <div class="lib-name">{{ lib.name }}</div>
+                          <div class="lib-path">{{ lib.path }}</div>
+                        </div>
+                        <button @click="removeLibrary(lib.id)" class="lib-remove-btn"><Trash2 :size="14" /></button>
+                      </div>
+                    </div>
+                    <div class="mt-2">
+                      <button @click="scanLibraries" class="eos-btn-secondary" :disabled="scanning">
+                        <Loader2 v-if="scanning" class="spinning" :size="16" />
+                        <span v-else>Escanear Todo</span>
+                      </button>
+                    </div>
+                 </div>
+              </div>
+            </div>
+          </div>
+        </template>
+
       </div>
 
       <!-- Media Detail Modal -->
@@ -344,6 +455,7 @@ const navItems = [
   { id: 'movies', label: 'Películas', icon: Film },
   { id: 'series', label: 'Series', icon: Tv },
   { id: 'music', label: 'Música', icon: Music },
+  { id: 'admin', label: 'Dashboard', icon: Settings2 },
 ];
 
 // --- Search & Filter ---
@@ -585,11 +697,50 @@ const openMediaDetail = (media: any) => {
   selectedMedia.value = media;
 };
 
+// --- Admin State ---
+const activeAdminTab = ref('overview');
+const adminStats = ref({ movies: 0, series: 0, music: 0, noPoster: 0, lastAdded: [] });
+const allAdminMedia = ref<any[]>([]);
+const adminSearch = ref('');
+
+const fetchAdminData = async () => {
+  try {
+    const [statsRes, mediaRes] = await Promise.all([
+      axios.get('/api/entertainment/admin/stats'),
+      axios.get('/api/entertainment/admin/media')
+    ]);
+    adminStats.value = statsRes.data;
+    allAdminMedia.value = mediaRes.data;
+  } catch (err) { /* Not admin */ }
+};
+
+const filteredAdminMedia = computed(() => {
+  if (!adminSearch.value) return allAdminMedia.value;
+  return allAdminMedia.value.filter(m => m.title.toLowerCase().includes(adminSearch.value.toLowerCase()));
+});
+
+const deleteMedia = async (id: number) => {
+  if (!confirm('¿Eliminar este contenido del catálogo? No borrará el archivo físico.')) return;
+  try {
+    await axios.delete(`/api/entertainment/admin/media/${id}`);
+    fetchAdminData();
+    fetchCatalog();
+    notification.success('Eliminado', 'Contenido borrado del catálogo');
+  } catch (err) {
+    notification.error('Error', 'No se pudo eliminar');
+  }
+};
+
+const editMedia = (media: any) => {
+  notification.info('Info', 'El editor visual de metadatos se abrirá en la próxima actualización.');
+};
+
 // --- Lifecycle ---
 onMounted(() => {
   startHeroAutoplay();
   fetchCatalog();
   fetchLibraries();
+  fetchAdminData();
 });
 
 onUnmounted(() => {
@@ -597,16 +748,8 @@ onUnmounted(() => {
   clearInterval(progressTimer);
 });
 
-// --- Lifecycle ---
-onMounted(() => {
-  startHeroAutoplay();
-  fetchCatalog();
-  fetchLibraries();
-});
-
-onUnmounted(() => {
-  clearInterval(heroTimer);
-  clearInterval(progressTimer);
+watch(activeNav, (newNav) => {
+  if (newNav === 'admin') fetchAdminData();
 });
 </script>
 
@@ -1667,5 +1810,160 @@ onUnmounted(() => {
   opacity: 1;
 }
 
-@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+/* ===== ADMIN PANEL ===== */
+.eos-admin-container {
+  padding: 2rem;
+  background: #0f172a;
+  min-height: 100%;
+}
+
+.eos-admin-header {
+  margin-bottom: 2rem;
+}
+
+.eos-admin-header h1 {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: white;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.admin-tabs {
+  display: flex;
+  gap: 1rem;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+.admin-tabs button {
+  padding: 0.75rem 1rem;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: #64748b;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.admin-tabs button.active {
+  color: #f59e0b;
+  border-bottom-color: #f59e0b;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.stat-card {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.05);
+  border-radius: 16px;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  color: #94a3b8;
+}
+
+.stat-card.warning {
+  border-color: rgba(239, 68, 68, 0.3);
+  background: rgba(239, 68, 68, 0.05);
+  color: #f87171;
+}
+
+.stat-val {
+  font-size: 2rem;
+  font-weight: 900;
+  color: white;
+}
+
+.stat-label {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.admin-section-card {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.05);
+  border-radius: 16px;
+  padding: 1.5rem;
+}
+
+.admin-section-card h3 {
+  font-size: 1rem;
+  margin-bottom: 1rem;
+  color: white;
+}
+
+.last-added-item {
+  padding: 0.5rem 0;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+  font-size: 0.85rem;
+  color: #cbd5e1;
+}
+
+.eos-scroll-table {
+  overflow-x: auto;
+  background: rgba(255,255,255,0.02);
+  border-radius: 12px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th, td {
+  padding: 1rem;
+  text-align: left;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+  font-size: 0.85rem;
+}
+
+th {
+  background: rgba(255,255,255,0.05);
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.type-badge {
+  padding: 0.2rem 0.5rem;
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.table-btns {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.btn-edit, .btn-del {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-edit { background: rgba(59, 130, 246, 0.1); color: #60a5fa; }
+.btn-del { background: rgba(239, 68, 68, 0.1); color: #f87171; }
+
+.btn-edit:hover { background: #3b82f6; color: white; }
+.btn-del:hover { background: #ef4444; color: white; }
+
+.mt-2 { margin-top: 2rem; }
 </style>

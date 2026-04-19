@@ -217,4 +217,59 @@ router.post('/admin/scan', authMiddleware, (req, res) => {
   }
 });
 
+// 8. Admin - Get Stats
+router.get('/admin/stats', authMiddleware, (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' });
+  try {
+    const stats = {
+      movies: db.prepare("SELECT COUNT(*) as count FROM eo_media WHERE type = 'movie'").get().count,
+      series: db.prepare("SELECT COUNT(*) as count FROM eo_media WHERE type = 'series'").get().count,
+      music: db.prepare("SELECT COUNT(*) as count FROM eo_media WHERE type = 'music'").get().count,
+      noPoster: db.prepare("SELECT COUNT(*) as count FROM eo_media WHERE poster_path IS NULL").get().count,
+      lastAdded: db.prepare("SELECT title FROM eo_media ORDER BY created_at DESC LIMIT 5").all()
+    };
+    res.json(stats);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 9. Admin - List All Media for Management
+router.get('/admin/media', authMiddleware, (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' });
+  try {
+    const media = db.prepare('SELECT * FROM eo_media ORDER BY title ASC').all();
+    res.json(media);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 10. Admin - Update Media Metadata
+router.put('/admin/media/:id', authMiddleware, (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' });
+  try {
+    const { title, description, genre, year, stars } = req.body;
+    db.prepare(`
+      UPDATE eo_media 
+      SET title = ?, description = ?, genre = ?, year = ?, stars = ?
+      WHERE id = ?
+    `).run(title, description, genre, year, stars, req.params.id);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 11. Admin - Delete Media
+router.delete('/admin/media/:id', authMiddleware, (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' });
+  try {
+    db.prepare('DELETE FROM eo_media WHERE id = ?').run(req.params.id);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;
