@@ -379,9 +379,51 @@ const handleItemClick = (id: string) => {
   } else if (id === 'network') {
     activeSubView.value = 'network';
     fetchNetwork();
+  } else if (id === 'terminal') {
+    activeSubView.value = 'terminal';
   } else if (['volume', 'storage_pool', 'hdd', 'vdisk', 'ext_storage'].includes(id)) {
     activeSubView.value = 'storage';
     fetchStorage();
+  }
+};
+
+// Terminal & SNMP State
+const activeTerminalTab = ref<'terminal' | 'snmp'>('terminal');
+const terminalForm = ref({
+  telnet: false,
+  ssh: true,
+  sshPort: 22,
+  consolePortLock: false
+});
+
+const snmpForm = ref({
+  enabled: false,
+  v1v2: false,
+  community: 'public',
+  v3: false,
+  username: '',
+  protocol: 'MD5',
+  password: '',
+  privacy: false,
+  privacyProtocol: 'DES',
+  privacyPassword: '',
+  deviceName: '',
+  deviceLocation: '',
+  contact: ''
+});
+
+const isSavingTerminal = ref(false);
+const saveTerminalSettings = async () => {
+  isSavingTerminal.value = true;
+  try {
+    // Simulamos guardado o endpoint real si existe
+    setTimeout(() => {
+      alert('Configuración guardada correctamente');
+      isSavingTerminal.value = false;
+    }, 800);
+  } catch (err) {
+    alert('Error al guardar');
+    isSavingTerminal.value = false;
   }
 };
 </script>
@@ -794,22 +836,179 @@ const handleItemClick = (id: string) => {
                 </div>
               </div>
 
-              <div class="warning-box mt-1">
-                <Shield :size="16" />
-                <span>Advertencia: Cambiar la configuración de red puede causar la pérdida inmediata de conexión con el Panel de Control.</span>
-              </div>
-
-              <div class="form-actions mt-1">
-                <button 
-                  class="btn-confirm w-full" 
-                  @click="saveNetwork"
-                  :disabled="isSavingNetwork"
-                >
+              <div class="pane-footer">
+                <button class="btn-secondary" @click="fetchNetwork">Restablecer</button>
+                <button class="btn-primary-sc" @click="saveNetwork" :disabled="isSavingNetwork">
                   <RefreshCw v-if="isSavingNetwork" class="spin" :size="16" />
-                  <span v-else>Aplicar Cambios</span>
+                  <span>Aplicar</span>
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!-- Terminal & SNMP View -->
+    <template v-else-if="activeSubView === 'terminal'">
+      <header class="cp-header">
+        <div class="header-left">
+          <button class="back-btn" @click="activeSubView = 'grid'">
+            <ArrowLeft :size="20" />
+          </button>
+          <h2>Terminal y SNMP</h2>
+        </div>
+      </header>
+
+      <div class="cp-content terminal-view">
+        <div class="settings-card glass no-padding-card">
+          <div class="tabs-header">
+            <button 
+              :class="{ active: activeTerminalTab === 'terminal' }"
+              @click="activeTerminalTab = 'terminal'"
+            >Terminal</button>
+            <button 
+              :class="{ active: activeTerminalTab === 'snmp' }"
+              @click="activeTerminalTab = 'snmp'"
+            >SNMP</button>
+          </div>
+
+          <div class="tab-content-container">
+            <!-- Terminal Tab -->
+            <div v-if="activeTerminalTab === 'terminal'" class="tab-pane-content fade-in">
+              <p class="section-desc">Usar servicio Terminal para iniciar sesión y administrar el sistema. SSH/Telnet solo admite inicios de sesión desde cuentas que pertenezcan al grupo administrators. Consulte <a href="#" class="link-sc">Terminal</a> para obtener más información.</p>
+              
+              <div class="settings-group">
+                <label class="checkbox-container">
+                  <input type="checkbox" v-model="terminalForm.telnet">
+                  <span class="checkmark"></span>
+                  Habilitar servicio Telnet
+                </label>
+                
+                <label class="checkbox-container">
+                  <input type="checkbox" v-model="terminalForm.ssh">
+                  <span class="checkmark"></span>
+                  Habilitar servicio SSH
+                </label>
+
+                <div class="sub-form-group" v-if="terminalForm.ssh">
+                  <div class="input-row">
+                    <label>Puerto:</label>
+                    <input type="number" v-model="terminalForm.sshPort" class="cp-input small-input">
+                  </div>
+                  <button class="btn-secondary mt-1">Configuración avanzada</button>
+                </div>
+
+                <label class="checkbox-container mt-2">
+                  <input type="checkbox" v-model="terminalForm.consolePortLock">
+                  <span class="checkmark"></span>
+                  Prohibición del uso del puerto de consola
+                </label>
+              </div>
+
+              <p class="observation">
+                <strong>Observación:</strong> Se recomienda que defina una contraseña segura para la cuenta de inicio de sesión y habilite <a href="#" class="link-sc">Bloqueo automático</a> para conseguir el mayor nivel de seguridad en el sistema.
+              </p>
+            </div>
+
+            <!-- SNMP Tab -->
+            <div v-else class="tab-pane-content fade-in">
+              <p class="section-desc">Habilite SNMP para supervisar el servidor con el software de administración de red.</p>
+              
+              <div class="settings-group">
+                <label class="checkbox-container">
+                  <input type="checkbox" v-model="snmpForm.enabled">
+                  <span class="checkmark"></span>
+                  Habilitar servicio SNMP
+                </label>
+
+                <div class="indent-group" v-if="snmpForm.enabled">
+                  <label class="checkbox-container">
+                    <input type="checkbox" v-model="snmpForm.v1v2">
+                    <span class="checkmark"></span>
+                    Servicio SNMPv1, SNMPv2c <Info :size="12" class="info-icon-small" />
+                  </label>
+                  
+                  <div class="sub-form-group" v-if="snmpForm.v1v2">
+                    <div class="input-row">
+                      <label>Comunidad:</label>
+                      <input type="text" v-model="snmpForm.community" class="cp-input">
+                      <Info :size="12" class="info-icon-small" />
+                    </div>
+                  </div>
+
+                  <label class="checkbox-container mt-1">
+                    <input type="checkbox" v-model="snmpForm.v3">
+                    <span class="checkmark"></span>
+                    Servicio SNMPv3
+                  </label>
+
+                  <div class="sub-form-group" v-if="snmpForm.v3">
+                    <div class="input-row">
+                      <label>Nombre de usuario:</label>
+                      <input type="text" v-model="snmpForm.username" class="cp-input">
+                    </div>
+                    <div class="input-row mt-1">
+                      <label>Protocolo:</label>
+                      <select v-model="snmpForm.protocol" class="cp-select">
+                        <option value="MD5">MD5</option>
+                        <option value="SHA">SHA</option>
+                      </select>
+                    </div>
+                    <div class="input-row mt-1">
+                      <label>Contraseña:</label>
+                      <input type="password" v-model="snmpForm.password" class="cp-input">
+                    </div>
+
+                    <label class="checkbox-container mt-1">
+                      <input type="checkbox" v-model="snmpForm.privacy">
+                      <span class="checkmark"></span>
+                      Habilitar la privacidad SNMP
+                    </label>
+
+                    <div class="indent-group" v-if="snmpForm.privacy">
+                      <div class="input-row">
+                        <label>Protocolo:</label>
+                        <select v-model="snmpForm.privacyProtocol" class="cp-select">
+                          <option value="DES">DES</option>
+                          <option value="AES">AES</option>
+                        </select>
+                      </div>
+                      <div class="input-row mt-1">
+                        <label>Contraseña:</label>
+                        <input type="password" v-model="snmpForm.privacyPassword" class="cp-input">
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="divider-sc mt-2"></div>
+                
+                <div class="settings-section mt-1">
+                  <h4>Información del dispositivo SNMP</h4>
+                  <div class="input-row mt-1">
+                    <label>Nombre del dispositivo:</label>
+                    <input type="text" v-model="snmpForm.deviceName" class="cp-input">
+                  </div>
+                  <div class="input-row mt-1">
+                    <label>Ubicación del dispositivo:</label>
+                    <input type="text" v-model="snmpForm.deviceLocation" class="cp-input">
+                  </div>
+                  <div class="input-row mt-1">
+                    <label>Contacto:</label>
+                    <input type="text" v-model="snmpForm.contact" class="cp-input">
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="pane-footer">
+            <button class="btn-secondary" @click="activeSubView = 'grid'">Restablecer</button>
+            <button class="btn-primary-sc" @click="saveTerminalSettings" :disabled="isSavingTerminal">
+              <RefreshCw v-if="isSavingTerminal" class="spin" :size="16" />
+              <span>Aplicar</span>
+            </button>
           </div>
         </div>
       </div>
@@ -1240,4 +1439,180 @@ td { padding: 1rem; font-size: 0.85rem; border-top: 1px solid #e2e8f0; }
 .path-info { font-size: 0.7rem; color: #64748b; }
 .text-success { color: #10b981; }
 .text-danger { color: #ef4444; }
+.config-pane {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.pane-footer {
+  margin-top: auto;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  background: rgba(15, 23, 42, 0.4);
+}
+
+.terminal-view .no-padding-card {
+  padding: 0;
+  min-height: 500px;
+}
+
+.tabs-header {
+  display: flex;
+  padding: 0 1.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.tabs-header button {
+  padding: 1rem 1.5rem;
+  background: transparent;
+  color: #94a3b8;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  position: relative;
+  transition: color 0.2s;
+}
+
+.tabs-header button.active {
+  color: #3b82f6;
+}
+
+.tabs-header button.active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: #3b82f6;
+}
+
+.tab-content-container {
+  padding: 1.5rem;
+  flex: 1;
+}
+
+.section-desc {
+  font-size: 0.9rem;
+  color: #94a3b8;
+  line-height: 1.5;
+  margin-bottom: 1.5rem;
+}
+
+.link-sc {
+  color: #3b82f6;
+  text-decoration: none;
+}
+
+.checkpoint-group {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.checkbox-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: #e2e8f0;
+  user-select: none;
+  margin-bottom: 0.75rem;
+}
+
+.checkbox-container input {
+  display: none;
+}
+
+.checkmark {
+  width: 18px;
+  height: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.checkbox-container input:checked + .checkmark {
+  background: #3b82f6;
+  border-color: #3b82f6;
+}
+
+.checkbox-container input:checked + .checkmark::after {
+  content: '✓';
+  color: white;
+  font-size: 12px;
+}
+
+.sub-form-group {
+  padding-left: 30px;
+  margin-bottom: 1rem;
+}
+
+.input-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.input-row label {
+  font-size: 0.85rem;
+  color: #94a3b8;
+  min-width: 120px;
+}
+
+.small-input {
+  width: 100px !important;
+}
+
+.observation {
+  margin-top: 2rem;
+  padding: 1rem;
+  border-radius: 8px;
+  background: rgba(59, 130, 246, 0.05);
+  border-left: 4px solid #3b82f6;
+  font-size: 0.85rem;
+  color: #94a3b8;
+}
+
+.indent-group {
+  padding-left: 1.5rem;
+  border-left: 1px solid rgba(255, 255, 255, 0.05);
+  margin-top: 0.5rem;
+}
+
+.info-icon-small {
+  color: #3b82f6;
+  opacity: 0.6;
+  cursor: help;
+}
+
+.divider-sc {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.05);
+  margin: 1.5rem 0;
+}
+
+.cp-select {
+  padding: 0.5rem 0.75rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: white;
+  font-size: 0.85rem;
+  outline: none;
+}
+
+.cp-select:focus {
+  border-color: #3b82f6;
+  background: rgba(255, 255, 255, 0.08);
+}
 </style>
