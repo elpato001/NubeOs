@@ -159,16 +159,34 @@ router.post('/admin/scan', authMiddleware, (req, res) => {
         if (isVideo || isAudio) {
           const filePath = path.join(libPath, file);
           const fileNameNoExt = path.parse(file).name;
-          const isSeries = fileNameNoExt.match(/S\d{2}E\d{2}|[S\s]\d+E\d+|\d+x\d+/i);
+          const seriesMatch = fileNameNoExt.match(/S(\d+)E(\d+)|[S\s](\d+)E(\d+)|\s(\d+)x(\d+)/i);
+          const isSeries = !!seriesMatch;
           const type = isVideo ? (isSeries ? 'series' : 'movie') : 'music';
+
+          let season = null;
+          let episode = null;
+          let seriesName = null;
+          let title = fileNameNoExt;
+
+          if (isSeries) {
+            // Extract S and E (handling different formats)
+            const s = seriesMatch[1] || seriesMatch[3] || seriesMatch[5];
+            const e = seriesMatch[2] || seriesMatch[4] || seriesMatch[6];
+            season = parseInt(s);
+            episode = parseInt(e);
+            
+            // Series name is usually everything before the S01E01 part
+            seriesName = fileNameNoExt.split(seriesMatch[0])[0].replace(/[._-]/g, ' ').trim();
+            title = `${seriesName} - S${s}E${e}`;
+          } else {
+             title = fileNameNoExt
+              .replace(/\((19|20)\d{2}\)|(19|20)\d{2}/g, '')
+              .replace(/[._-]/g, ' ')
+              .trim();
+          }
           
           const yearMatch = fileNameNoExt.match(/\((19|20)\d{2}\)|(19|20)\d{2}/);
           const year = yearMatch ? parseInt(yearMatch[0].replace(/[()]/g, '')) : new Date().getFullYear();
-          
-          let title = fileNameNoExt
-            .replace(/\((19|20)\d{2}\)|(19|20)\d{2}/g, '')
-            .replace(/[._-]/g, ' ')
-            .trim();
           
           let posterPath = null;
           ['.jpg', '.jpeg', '.png', '.webp'].forEach(imgExt => {
@@ -182,9 +200,9 @@ router.post('/admin/scan', authMiddleware, (req, res) => {
 
           try {
             db.prepare(`
-              INSERT OR IGNORE INTO eo_media (title, type, file_path, genre, year, poster_path, is_new)
-              VALUES (?, ?, ?, ?, ?, ?, 1)
-            `).run(title, type, filePath, genre, year, posterPath);
+              INSERT OR IGNORE INTO eo_media (title, series_name, season, episode, type, file_path, genre, year, poster_path, is_new)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+            `).run(title, seriesName, season, episode, type, filePath, genre, year, posterPath);
             newItems++;
           } catch (e) { 
             console.error('Error inserting media:', e.message);

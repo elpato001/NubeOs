@@ -43,6 +43,9 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS eo_media (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     title TEXT NOT NULL,
+    series_name TEXT,
+    season INTEGER,
+    episode INTEGER,
     description TEXT,
     type TEXT CHECK(type IN ('movie', 'series', 'music')) NOT NULL,
     genre TEXT,

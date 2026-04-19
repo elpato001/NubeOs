@@ -147,7 +147,7 @@
             </div>
             <div class="eos-media-grid">
               <div
-                v-for="(media, i) in allMedia"
+                v-for="(media, i) in filteredMedia.filter(m => m.type === 'movie')"
                 :key="i"
                 class="eos-media-card"
                 @click="openMediaDetail(media)"
@@ -220,6 +220,57 @@
 
       </div>
 
+      <!-- Media Detail Modal -->
+      <Transition name="modal-fade">
+        <div v-if="selectedMedia" class="eos-modal-overlay" @click.self="selectedMedia = null">
+          <div class="eos-modal">
+            <button class="eos-modal-close" @click="selectedMedia = null"><X :size="20" /></button>
+            <div class="eos-modal-banner" :style="{ backgroundImage: `url(${selectedMedia.poster})` }">
+              <div class="eos-modal-banner-overlay"></div>
+              <div class="eos-modal-banner-content">
+                <h2>{{ selectedMedia.title }}</h2>
+                <div class="eos-hero-meta">
+                  <span class="eos-rating-badge">{{ selectedMedia.rating || 'PG-13' }}</span>
+                  <span v-if="selectedMedia.duration">{{ selectedMedia.duration }}</span>
+                  <span>{{ selectedMedia.genre }}</span>
+                </div>
+              </div>
+            </div>
+            <div class="eos-modal-body">
+              <p class="eos-modal-desc">{{ selectedMedia.description || (selectedMedia.isSeriesGroup ? 'Esta serie te llevará por un viaje épico a través de múltiples temporadas.' : 'Una experiencia cinematográfica intensa que explora los límites de la imaginación humana.') }}</p>
+              
+              <!-- Episodes list if it's a series -->
+              <div v-if="selectedMedia.isSeriesGroup" class="eos-episodes-list">
+                <h3>Episodios</h3>
+                <div v-for="ep in getEpisodes(selectedMedia.series_name)" :key="ep.id" class="eos-episode-item" @click="playMedia(ep)">
+                  <div class="eos-ep-num">T{{ ep.season }} E{{ ep.episode }}</div>
+                  <div class="eos-ep-title">{{ ep.title || 'Capítulo ' + ep.episode }}</div>
+                  <button class="eos-ep-play"><Play :size="14" /></button>
+                </div>
+              </div>
+
+              <div v-else class="eos-modal-actions">
+                <button class="eos-btn-primary" @click="playMedia(selectedMedia)"><Play :size="18" /> Reproducir</button>
+                <button class="eos-btn-secondary"><Plus :size="18" /> Mi Lista</button>
+                <button class="eos-btn-icon"><Heart :size="18" /></button>
+                <button class="eos-btn-icon"><Share2 :size="18" /></button>
+              </div>
+
+              <div class="eos-modal-details">
+                <div class="eos-detail-row">
+                  <span class="eos-detail-label">Género</span>
+                  <span>{{ selectedMedia.genre }}</span>
+                </div>
+                <div class="eos-detail-row" v-if="!selectedMedia.isSeriesGroup">
+                  <span class="eos-detail-label">Año</span>
+                  <span>{{ selectedMedia.year }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Transition>
+
       <!-- Settings / Admin Modal -->
       <Transition name="modal-fade">
         <div v-if="showSettings" class="eos-modal-overlay" @click.self="showSettings = false">
@@ -273,6 +324,10 @@
 </template>
 
 <script setup lang="ts">
+import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue';
+import {
+  Clapperboard, Home, Film, Tv, Music, Search, Bell, User, ChevronDown,
+  ChevronLeft, ChevronRight, Play, Info, Settings2, X, Plus, Heart,
   Share2, Star, RefreshCw, FolderPlus, Trash2, Loader2
 } from 'lucide-vue-next';
 import axios from 'axios';
@@ -420,14 +475,34 @@ watch(() => desktop.windows.player.isOpen, (isOpen) => {
 });
 
 
-const seriesMedia = computed(() => [
-  { title: 'Código Neural', poster: '/entertainment/posters/neon_vengeance.png', year: '2025', genre: 'Sci-Fi', stars: 5 },
-  { title: 'El Último Legado', poster: '/entertainment/posters/crimson_dynasty.png', year: '2026', genre: 'Drama', stars: 4 },
-  { title: 'Cazadores de Sombras', poster: '/entertainment/posters/shadow_protocol.png', year: '2024', genre: 'Acción', stars: 4 },
-  { title: 'Onda Profunda', poster: '/entertainment/posters/abyss_below.png', year: '2025', genre: 'Terror', stars: 3 },
-  { title: 'Travesía Estelar', poster: '/entertainment/posters/stellar_horizon.png', year: '2026', genre: 'Sci-Fi', stars: 5 },
-  { title: 'Ecos del Pasado', poster: '/entertainment/posters/echo_chamber.png', year: '2025', genre: 'Misterio', stars: 4 },
-]);
+const seriesMedia = computed(() => {
+  const series = filteredMedia.value.filter(m => m.type === 'series');
+  const uniqueSeries: any[] = [];
+  const seenNames = new Set();
+
+  series.forEach(item => {
+    if (!seenNames.has(item.series_name)) {
+      seenNames.add(item.series_name);
+      uniqueSeries.push({
+        ...item,
+        title: item.series_name,
+        isSeriesGroup: true
+      });
+    }
+  });
+
+  return uniqueSeries;
+});
+
+const getEpisodes = (seriesName: string) => {
+  return allMedia.value
+    .filter(m => m.series_name === seriesName)
+    .sort((a, b) => {
+      if (a.season !== b.season) return a.season - b.season;
+      return a.episode - b.episode;
+    });
+};
+
 
 const scanning = ref(false);
 const scanLibraries = async () => {
@@ -463,7 +538,7 @@ const mediaSections = computed(() => [
 ]);
 
 const musicTracks = computed(() => 
-  allMedia.value.filter(m => m.type === 'music').map(m => ({
+  filteredMedia.value.filter(m => m.type === 'music').map(m => ({
     ...m,
     artist: m.genre || 'Artista Desconocido',
     color: `linear-gradient(135deg, hsl(${Math.random() * 360}, 70%, 50%), hsl(${Math.random() * 360}, 70%, 40%))`
@@ -484,12 +559,28 @@ const removeLibrary = async (id: number) => {
 };
 
 
-// --- Genres Filter ---
+// --- Search & Filter ---
+const searchQuery = ref('');
 const genres = ['Todas', 'Sci-Fi', 'Thriller', 'Acción', 'Terror', 'Fantasía', 'Western', 'Psicológico'];
 const activeGenre = ref('Todas');
 
-// --- Search ---
-const searchQuery = ref('');
+const filteredMedia = computed(() => {
+  let result = allMedia.value;
+  
+  if (searchQuery.value) {
+    const q = searchQuery.value.toLowerCase();
+    result = result.filter(m => 
+      m.title.toLowerCase().includes(q) || 
+      (m.series_name && m.series_name.toLowerCase().includes(q))
+    );
+  }
+  
+  if (activeGenre.value !== 'Todas') {
+    result = result.filter(m => m.genre === activeGenre.value);
+  }
+  
+  return result;
+});
 
 // --- Modal ---
 const selectedMedia = ref<any>(null);
@@ -1501,6 +1592,73 @@ onUnmounted(() => {
 
 .spinning {
   animation: spin 1s linear infinite;
+}
+
+/* Series Episodes List in Modal */
+.eos-episodes-list {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.eos-episodes-list h3 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: white;
+  margin-bottom: 0.5rem;
+}
+
+.eos-episode-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.eos-episode-item:hover {
+  background: rgba(245, 158, 11, 0.08);
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+.eos-ep-num {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #f59e0b;
+  min-width: 60px;
+}
+
+.eos-ep-title {
+  flex: 1;
+  font-size: 0.85rem;
+  color: #e2e8f0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.eos-ep-play {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.5;
+}
+
+.eos-episode-item:hover .eos-ep-play {
+  background: #f59e0b;
+  color: #0b1120;
+  opacity: 1;
 }
 
 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
