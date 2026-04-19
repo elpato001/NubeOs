@@ -11,6 +11,8 @@ export interface WindowState {
   isMaximized: boolean;
   x: number;
   y: number;
+  width: number;
+  height: number;
 }
 
 export interface DesktopIcon {
@@ -39,12 +41,12 @@ export const useDesktopStore = defineStore('desktop', {
     return {
       wallpaper: localStorage.getItem('nubeos_wallpaper') || '/wallpapers/wp0.png',
       windows: {
-        files: { id: 'files', title: 'Explorador de Archivos', isOpen: false, zIndex: 10, isMinimized: false, isMaximized: false, x: -1, y: -1 },
-        apps: { id: 'apps', title: 'Centro de Aplicaciones', isOpen: false, zIndex: 10, isMinimized: false, isMaximized: false, x: -1, y: -1 },
-        admin: { id: 'admin', title: 'Panel de Control', isOpen: false, zIndex: 10, isMinimized: false, isMaximized: false, x: -1, y: -1 },
-        settings: { id: 'settings', title: 'Configuración', isOpen: false, zIndex: 10, isMinimized: false, isMaximized: false, x: -1, y: -1 },
-        monitor: { id: 'monitor', title: 'Monitor del Sistema', isOpen: false, zIndex: 10, isMinimized: false, isMaximized: false, x: -1, y: -1 },
-        terminal: { id: 'terminal', title: 'Terminal', isOpen: false, zIndex: 10, isMinimized: false, isMaximized: false, x: -1, y: -1 },
+        files: { id: 'files', title: 'Explorador de Archivos', isOpen: false, zIndex: 10, isMinimized: false, isMaximized: false, x: -1, y: -1, width: 900, height: 600 },
+        apps: { id: 'apps', title: 'Centro de Aplicaciones', isOpen: false, zIndex: 10, isMinimized: false, isMaximized: false, x: -1, y: -1, width: 800, height: 500 },
+        admin: { id: 'admin', title: 'Panel de Control', isOpen: false, zIndex: 10, isMinimized: false, isMaximized: false, x: -1, y: -1, width: 900, height: 650 },
+        settings: { id: 'settings', title: 'Configuración', isOpen: false, zIndex: 10, isMinimized: false, isMaximized: false, x: -1, y: -1, width: 600, height: 500 },
+        monitor: { id: 'monitor', title: 'Monitor del Sistema', isOpen: false, zIndex: 10, isMinimized: false, isMaximized: false, x: -1, y: -1, width: 700, height: 500 },
+        terminal: { id: 'terminal', title: 'Terminal', isOpen: false, zIndex: 10, isMinimized: false, isMaximized: false, x: -1, y: -1, width: 800, height: 500 },
       } as Record<WindowApp, WindowState>,
       desktopIcons: savedIcons ? JSON.parse(savedIcons) : defaultIcons as Record<string, DesktopIcon>,
       dynamicIcons: {} as Record<string, DesktopIcon>,
@@ -61,8 +63,8 @@ export const useDesktopStore = defineStore('desktop', {
       win.isMaximized = false;
       // Center window if no position set
       if (win.x === -1) {
-        win.x = Math.max(0, (window.innerWidth - 900) / 2);
-        win.y = Math.max(0, (window.innerHeight - 600) / 2);
+        win.x = Math.max(0, (window.innerWidth - win.width) / 2);
+        win.y = Math.max(0, (window.innerHeight - win.height) / 2);
       }
       this.focusWindow(app);
     },
@@ -87,6 +89,10 @@ export const useDesktopStore = defineStore('desktop', {
     moveWindow(app: WindowApp, x: number, y: number) {
       this.windows[app].x = x;
       this.windows[app].y = y;
+    },
+    resizeWindow(app: WindowApp, width: number, height: number) {
+      this.windows[app].width = width;
+      this.windows[app].height = height;
     },
     moveIcon(id: string, x: number, y: number) {
       const icon = this.desktopIcons[id];

@@ -57,9 +57,58 @@ const onDragEnd = () => {
   document.removeEventListener('mouseup', onDragEnd);
 };
 
+// --- Resize logic ---
+const isResizing = ref<'br' | 'b' | 'r' | null>(null);
+let resizeStartWidth = 0;
+let resizeStartHeight = 0;
+let resizeStartX = 0;
+let resizeStartY = 0;
+
+const onResizeStart = (type: 'br' | 'b' | 'r', e: MouseEvent) => {
+  if (win.isMaximized) return;
+  e.preventDefault();
+  e.stopPropagation();
+  
+  isResizing.value = type;
+  resizeStartWidth = win.width;
+  resizeStartHeight = win.height;
+  resizeStartX = e.clientX;
+  resizeStartY = e.clientY;
+
+  document.addEventListener('mousemove', onResizeMove);
+  document.addEventListener('mouseup', onResizeEnd);
+};
+
+const onResizeMove = (e: MouseEvent) => {
+  if (!isResizing.value) return;
+
+  const deltaX = e.clientX - resizeStartX;
+  const deltaY = e.clientY - resizeStartY;
+
+  let newWidth = resizeStartWidth;
+  let newHeight = resizeStartHeight;
+
+  if (isResizing.value === 'r' || isResizing.value === 'br') {
+    newWidth = Math.max(300, resizeStartWidth + deltaX);
+  }
+  if (isResizing.value === 'b' || isResizing.value === 'br') {
+    newHeight = Math.max(200, resizeStartHeight + deltaY);
+  }
+
+  desktop.resizeWindow(props.appId, newWidth, newHeight);
+};
+
+const onResizeEnd = () => {
+  isResizing.value = null;
+  document.removeEventListener('mousemove', onResizeMove);
+  document.removeEventListener('mouseup', onResizeEnd);
+};
+
 onUnmounted(() => {
   document.removeEventListener('mousemove', onDragMove);
   document.removeEventListener('mouseup', onDragEnd);
+  document.removeEventListener('mousemove', onResizeMove);
+  document.removeEventListener('mouseup', onResizeEnd);
 });
 </script>
 
@@ -67,11 +116,13 @@ onUnmounted(() => {
   <div 
     v-if="win.isOpen" 
     class="window-frame glass"
-    :class="{ hidden: win.isMinimized, maximized: win.isMaximized, dragging: isDragging }"
+    :class="{ hidden: win.isMinimized, maximized: win.isMaximized, dragging: isDragging || isResizing }"
     :style="{ 
       zIndex: win.zIndex,
       left: win.isMaximized ? '0px' : win.x + 'px',
-      top: win.isMaximized ? '0px' : win.y + 'px'
+      top: win.isMaximized ? '0px' : win.y + 'px',
+      width: win.isMaximized ? '100%' : win.width + 'px',
+      height: win.isMaximized ? '100%' : win.height + 'px'
     }"
     @mousedown="handleFocus"
   >
@@ -86,20 +137,24 @@ onUnmounted(() => {
     <div class="window-content" :class="{ 'no-padding': noPadding }">
       <slot></slot>
     </div>
+
+    <!-- Resizing handles -->
+    <div v-if="!win.isMaximized" class="resize-handle r" @mousedown="onResizeStart('r', $event)"></div>
+    <div v-if="!win.isMaximized" class="resize-handle b" @mousedown="onResizeStart('b', $event)"></div>
+    <div v-if="!win.isMaximized" class="resize-handle br" @mousedown="onResizeStart('br', $event)"></div>
   </div>
 </template>
 
 <style scoped>
 .window-frame {
   position: absolute;
-  width: 900px;
-  height: 600px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   box-shadow: 0 20px 50px rgba(0,0,0,0.5);
   border: 1px solid rgba(255,255,255,0.1);
-  transition: width 0.3s, height 0.3s, box-shadow 0.3s, border-radius 0.3s, border 0.3s, opacity 0.2s;
+  transition: box-shadow 0.3s, border-radius 0.3s, border 0.3s, opacity 0.2s;
+  border-radius: 12px;
 }
 
 /* Disable transition during drag for instant response */
@@ -180,5 +235,24 @@ onUnmounted(() => {
 
 .window-content.no-padding {
   padding: 0;
+}
+
+/* Resize Handles */
+.resize-handle {
+  position: absolute;
+  z-index: 100;
+  background: transparent;
+}
+.resize-handle.r {
+  top: 0; right: 0; width: 6px; height: 100%;
+  cursor: ew-resize;
+}
+.resize-handle.b {
+  bottom: 0; left: 0; width: 100%; height: 6px;
+  cursor: ns-resize;
+}
+.resize-handle.br {
+  bottom: 0; right: 0; width: 12px; height: 12px;
+  cursor: nwse-resize;
 }
 </style>
