@@ -124,6 +124,19 @@ const generateEpisodeNfo = (media) => {
   return xml;
 };
 
+const generateMusicNfo = (media) => {
+  let xml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<musicvideo>
+  <title>${escapeXml(media.title)}</title>
+  <artist>${escapeXml(media.director || '')}</artist>
+  <album>${escapeXml(media.studio || '')}</album>
+  <year>${media.year || ''}</year>
+  <plot>${escapeXml(media.description || '')}</plot>
+  <genre>${escapeXml(media.genre || '')}</genre>
+</musicvideo>\n`;
+  return xml;
+};
+
 // ---- NFO PARSING ----
 
 /**
@@ -166,6 +179,10 @@ const parseNfo = (nfoContent) => {
       metadata.series_name = getTag(nfoContent, 'showtitle');
       metadata.season = getTag(nfoContent, 'season') ? parseInt(getTag(nfoContent, 'season')) : null;
       metadata.episode = getTag(nfoContent, 'episode') ? parseInt(getTag(nfoContent, 'episode')) : null;
+    } else if (nfoContent.includes('<musicvideo>')) {
+      metadata.type = 'music';
+      metadata.director = getTag(nfoContent, 'artist');
+      metadata.studio = getTag(nfoContent, 'album');
     }
 
     return metadata;
@@ -199,6 +216,10 @@ const writeNfoForMedia = (media) => {
       // TV Show NFO: tvshow.nfo in the show's directory
       nfoContent = generateTvShowNfo(media);
       nfoPath = path.join(path.dirname(filePath), 'tvshow.nfo');
+    } else if (media.type === 'music') {
+      // Music NFO: same name as audio file
+      nfoContent = generateMusicNfo(media);
+      nfoPath = filePath.replace(path.extname(filePath), '.nfo');
     } else {
       // Movie NFO: same name as video file
       nfoContent = generateMovieNfo(media);
@@ -266,6 +287,7 @@ module.exports = {
   generateMovieNfo,
   generateTvShowNfo,
   generateEpisodeNfo,
+  generateMusicNfo,
   parseNfo,
   writeNfoForMedia,
   readNfoForMedia,

@@ -6,6 +6,7 @@ const db = require('../config/db');
 const { authMiddleware } = require('../middleware/auth');
 const { getSafePath } = require('../utils/fileHelper');
 const tmdbService = require('../services/tmdbService');
+const musicService = require('../services/musicService');
 const nfoService = require('../services/nfoService');
 const { downloadImage, downloadImageToMediaDir } = require('../utils/imageDownloader');
 
@@ -128,22 +129,33 @@ const processFile = async (filePath, lib) => {
   }
   const yearMatch = fileNameNoExt.match(/\((19|20)\d{2}\)|(19|20)\d{2}/);
   const year = yearMatch ? parseInt(yearMatch[0].replace(/[()]/g, '')) : new Date().getFullYear();
-  
   // Music logic: Try to parse Artist - Title
   let artist = 'Unknown Artist';
   let album = lib.name || 'Unknown Album';
   if (type === 'music') {
-    // If filename has a dash, assume Artist - Title
+    // 1. Try to parse from filename
     if (fileNameNoExt.includes(' - ')) {
       const parts = fileNameNoExt.split(' - ');
       artist = parts[0].trim();
       title = parts[1].trim();
     } else {
-      // If no dash, check if parent folder is an artist folder (common)
-      const parentDirName = path.basename(path.dirname(filePath));
-      if (parentDirName !== path.basename(lib.path)) {
-        artist = parentDirName;
+      // 2. Try to parse from folder structure (Artist/Album/Song.mp3)
+      const relPath = path.relative(lib.path, filePath);
+      const parts = relPath.split(path.sep);
+      if (parts.length >= 3) {
+        artist = parts[0];
+        album = parts[1];
+      } else if (parts.length >= 2) {
+        artist = parts[0];
       }
+    }
+
+    // 3. Try to find better metadata from MusicBrainz if we have a basic artist/title
+    if (artist !== 'Unknown Artist') {
+      try {
+        const mbInfo = await musicService.searchArtist(artist);
+        if (mbInfo) artist = mbInfo.name;
+      } catch (err) {}
     }
   }
 
@@ -562,13 +574,30 @@ router.post('/admin/config', authMiddleware, (req, res) => {
   }
 });
 
-// 14b. Admin - Search TMDB
+// 14b. Admin - Search TMDB & MusicBrainz
 router.get('/admin/tmdb/search', authMiddleware, async (req, res) => {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' });
   try {
     const { query, type } = req.query;
     if (!query) return res.status(400).json({ error: 'Query es requerido' });
     
+    if (type === 'music') {
+      const mbArtist = await musicService.searchArtist(query);
+      if (mbArtist) {
+        return res.json([{
+          id: -1, // MB artists don't use numeric IDs in the same way, we use -1 to trigger the code
+          mbid: mbArtist.id,
+          title: mbArtist.name,
+          year: mbArtist['life-span']?.begin?.split('-')[0] || '',
+          poster: null,
+          description: mbArtist.disambiguation || 'Artista de MusicBrainz',
+          rating: 'N/A',
+          type: 'music'
+        }]);
+      }
+      return res.json([]);
+    }
+
     // Use multi-search if no type specified, otherwise type-specific search
     let results;
     if (!type || type === 'all') {
@@ -586,20 +615,48 @@ router.get('/admin/tmdb/search', authMiddleware, async (req, res) => {
 router.post('/admin/media/identify', authMiddleware, async (req, res) => {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' });
   try {
-    const { mediaId, tmdbId, type } = req.body;
-    if (!mediaId || !tmdbId) return res.status(400).json({ error: 'Faltan parámetros' });
+    const { mediaId, tmdbId, type, title: manualTitle } = req.body;
+    if (!mediaId || (tmdbId === undefined && type !== 'music')) return res.status(400).json({ error: 'Faltan parámetros' });
 
-    const tmdbData = await tmdbService.getMediaDetails(tmdbId, type || 'movie');
-    if (!tmdbData) return res.status(404).json({ error: 'No se encontraron datos en TMDB' });
+    let metadata = null;
+    if (type === 'music') {
+      const mbArtist = await musicService.searchArtist(manualTitle || '');
+      if (mbArtist) {
+        metadata = {
+          title: mbArtist.name,
+          description: mbArtist.disambiguation || 'Artista identificado',
+          genres: '',
+          year: mbArtist['life-span']?.begin?.split('-')[0] || '',
+          rating: 'N/A',
+          posterPath: null,
+          bannerPath: null,
+          tagline: mbArtist.country,
+          certification: null,
+          runtime: null,
+          trailerUrl: null,
+          imdbId: null,
+          tmdbId: -1,
+          director: mbArtist.name,
+          writer: null,
+          studio: '',
+          country: mbArtist.country,
+          setName: null
+        };
+      }
+    } else {
+      metadata = await tmdbService.getMediaDetails(tmdbId, type || 'movie');
+    }
+
+    if (!metadata) return res.status(404).json({ error: 'No se encontraron datos' });
 
     const media = db.prepare('SELECT * FROM eo_media WHERE id = ?').get(mediaId);
-    if (!media) return res.status(404).json({ error: 'Media no encontrada en la base de datos' });
+    if (!media) return res.status(404).json({ error: 'Media no encontrada' });
     
     let videoFilePath = media.file_path;
 
     // For movies: organize into folder "Title (Year)/Title (Year).ext"
-    if ((type || media.type) === 'movie' && tmdbData.title && tmdbData.year) {
-      const newFilePath = organizeMovieIntoFolder(videoFilePath, tmdbData.title, tmdbData.year);
+    if ((type || media.type) === 'movie' && metadata.title && metadata.year) {
+      const newFilePath = organizeMovieIntoFolder(videoFilePath, metadata.title, metadata.year);
       if (newFilePath !== videoFilePath) {
         // Update the file_path in DB before downloading images
         db.prepare('UPDATE eo_media SET file_path = ? WHERE id = ?').run(newFilePath, mediaId);
@@ -611,8 +668,8 @@ router.post('/admin/media/identify', authMiddleware, async (req, res) => {
     let posterPath = null;
     let bannerPath = null;
     if (videoFilePath) {
-      posterPath = await downloadImageToMediaDir(tmdbData.posterPath, videoFilePath, 'poster');
-      bannerPath = await downloadImageToMediaDir(tmdbData.bannerPath, videoFilePath, 'fanart');
+      posterPath = await downloadImageToMediaDir(metadata.posterPath, videoFilePath, 'poster');
+      bannerPath = await downloadImageToMediaDir(metadata.bannerPath, videoFilePath, 'fanart');
     }
 
     // Update with ALL enhanced metadata
@@ -623,24 +680,24 @@ router.post('/admin/media/identify', authMiddleware, async (req, res) => {
           director = ?, writer = ?, studio = ?, country = ?, set_name = ?
       WHERE id = ?
     `).run(
-      tmdbData.title, 
-      tmdbData.description, 
-      tmdbData.genres || 'Unknown', 
-      tmdbData.year, 
-      tmdbData.rating, 
-      posterPath, 
-      bannerPath,
-      tmdbData.tagline,
-      tmdbData.certification,
-      tmdbData.runtime,
-      tmdbData.trailerUrl,
-      tmdbData.imdbId,
-      tmdbData.tmdbId,
-      tmdbData.director,
-      tmdbData.writer,
-      tmdbData.studio,
-      tmdbData.country,
-      tmdbData.setName,
+      metadata.title, 
+      metadata.description, 
+      metadata.genres || metadata.genre || media.genre, 
+      metadata.year, 
+      metadata.rating, 
+      posterPath || media.poster_path, 
+      bannerPath || media.banner_path,
+      metadata.tagline,
+      metadata.certification,
+      metadata.runtime,
+      metadata.trailerUrl || metadata.trailer_url,
+      metadata.imdbId || metadata.imdb_id,
+      metadata.tmdbId || metadata.tmdb_id,
+      metadata.director,
+      metadata.writer,
+      metadata.studio || media.studio,
+      metadata.country,
+      metadata.setName || metadata.set_name,
       mediaId
     );
 
@@ -678,61 +735,112 @@ router.post('/admin/media/identify', authMiddleware, async (req, res) => {
 router.post('/admin/media/bulk-identify', authMiddleware, async (req, res) => {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' });
   try {
-    const unidentified = db.prepare("SELECT * FROM eo_media WHERE tmdb_id IS NULL AND type != 'music'").all();
+    const unidentified = db.prepare("SELECT * FROM eo_media WHERE tmdb_id IS NULL").all();
     let identified = 0;
     let failed = 0;
 
     for (const media of unidentified) {
       try {
-        const searchTitle = media.series_name || media.title;
-        
-        // Use searchMedia first to find tmdbId
-        const searchResult = await tmdbService.searchMedia(searchTitle, media.year, media.type);
-        if (!searchResult) { failed++; continue; }
-
-        // Then get full details
-        const fullData = await tmdbService.getMediaDetails(searchResult.tmdbId, media.type);
-        if (!fullData) { failed++; continue; }
-
         let currentFilePath = media.file_path;
+        let updateData = null;
 
-        // For movies: organize into folder
-        if (media.type === 'movie' && fullData.title && fullData.year) {
-          const newFilePath = organizeMovieIntoFolder(currentFilePath, fullData.title, fullData.year);
-          if (newFilePath !== currentFilePath) {
-            db.prepare('UPDATE eo_media SET file_path = ? WHERE id = ?').run(newFilePath, media.id);
-            currentFilePath = newFilePath;
+        if (media.type === 'music') {
+          // Music Identification (MusicBrainz)
+          const searchTitle = media.director || media.title;
+          const mbArtist = await musicService.searchArtist(searchTitle);
+          if (mbArtist) {
+            updateData = {
+              title: media.title,
+              description: mbArtist.disambiguation || 'Artista identificado vía MusicBrainz',
+              genre: media.genre,
+              year: media.year,
+              rating: 'N/A',
+              poster_path: media.poster_path,
+              banner_path: media.banner_path,
+              tagline: mbArtist.country || null,
+              certification: null,
+              runtime: null,
+              trailer_url: null,
+              imdb_id: null,
+              tmdb_id: -1, // Mark as identified for music
+              director: mbArtist.name,
+              writer: null,
+              studio: media.studio,
+              country: mbArtist.country,
+              set_name: null
+            };
+          } else {
+            failed++; continue;
           }
+        } else {
+          // TMDB Logic (Movies/Series)
+          const searchTitle = media.series_name || media.title;
+          const searchResult = await tmdbService.searchMedia(searchTitle, media.year, media.type);
+          if (!searchResult) { failed++; continue; }
+
+          const fullData = await tmdbService.getMediaDetails(searchResult.tmdbId, media.type);
+          if (!fullData) { failed++; continue; }
+
+          // For movies: organize into folder
+          if (media.type === 'movie' && fullData.title && fullData.year) {
+            const newFilePath = organizeMovieIntoFolder(currentFilePath, fullData.title, fullData.year);
+            if (newFilePath !== currentFilePath) {
+              db.prepare('UPDATE eo_media SET file_path = ? WHERE id = ?').run(newFilePath, media.id);
+              currentFilePath = newFilePath;
+            }
+          }
+
+          // Download images
+          const posterPath = await downloadImageToMediaDir(fullData.posterPath, currentFilePath, 'poster');
+          const bannerPath = await downloadImageToMediaDir(fullData.bannerPath, currentFilePath, 'fanart');
+
+          updateData = {
+            title: fullData.title,
+            description: fullData.description,
+            genre: fullData.genres,
+            year: fullData.year,
+            rating: fullData.rating,
+            poster_path: posterPath || media.poster_path,
+            banner_path: bannerPath || media.banner_path,
+            tagline: fullData.tagline,
+            certification: fullData.certification,
+            runtime: fullData.runtime,
+            trailer_url: fullData.trailerUrl,
+            imdb_id: fullData.imdbId,
+            tmdb_id: fullData.tmdbId,
+            director: fullData.director,
+            writer: fullData.writer,
+            studio: fullData.studio,
+            country: fullData.country,
+            set_name: fullData.setName
+          };
         }
 
-        // Download images to the movie/media folder
-        const posterPath = await downloadImageToMediaDir(fullData.posterPath, currentFilePath, 'poster');
-        const bannerPath = await downloadImageToMediaDir(fullData.bannerPath, currentFilePath, 'fanart');
+        if (updateData) {
+          db.prepare(`
+            UPDATE eo_media 
+            SET title = ?, description = ?, genre = ?, year = ?, rating = ?, poster_path = ?, banner_path = ?,
+                tagline = ?, certification = ?, runtime = ?, trailer_url = ?, imdb_id = ?, tmdb_id = ?,
+                director = ?, writer = ?, studio = ?, country = ?, nfo_path = ?, set_name = ?
+            WHERE id = ?
+          `).run(
+            updateData.title, updateData.description, updateData.genre, updateData.year, updateData.rating,
+            updateData.poster_path, updateData.banner_path,
+            updateData.tagline, updateData.certification, updateData.runtime, updateData.trailer_url,
+            updateData.imdb_id, updateData.tmdb_id, updateData.director, updateData.writer,
+            updateData.studio, updateData.country, media.nfo_path, updateData.set_name, media.id
+          );
 
-        db.prepare(`
-          UPDATE eo_media 
-          SET title = ?, description = ?, genre = ?, year = ?, rating = ?, poster_path = ?, banner_path = ?,
-              tagline = ?, certification = ?, runtime = ?, trailer_url = ?, imdb_id = ?, tmdb_id = ?,
-              director = ?, writer = ?, studio = ?, country = ?, set_name = ?
-          WHERE id = ?
-        `).run(
-          fullData.title, fullData.description, fullData.genres, fullData.year, fullData.rating,
-          posterPath || media.poster_path, bannerPath || media.banner_path,
-          fullData.tagline, fullData.certification, fullData.runtime, fullData.trailerUrl,
-          fullData.imdbId, fullData.tmdbId, fullData.director, fullData.writer,
-          fullData.studio, fullData.country, fullData.setName, media.id
-        );
-
-        // Write NFO
-        const updatedMedia = db.prepare('SELECT * FROM eo_media WHERE id = ?').get(media.id);
-        if (updatedMedia) {
-          const nfoPath = nfoService.writeNfoForMedia(updatedMedia);
-          if (nfoPath) {
-            db.prepare('UPDATE eo_media SET nfo_path = ? WHERE id = ?').run(nfoPath, media.id);
+          // Write NFO
+          const updatedMedia = db.prepare('SELECT * FROM eo_media WHERE id = ?').get(media.id);
+          if (updatedMedia) {
+            const nfoPath = nfoService.writeNfoForMedia(updatedMedia);
+            if (nfoPath) {
+              db.prepare('UPDATE eo_media SET nfo_path = ? WHERE id = ?').run(nfoPath, media.id);
+            }
           }
+          identified++;
         }
-
-        identified++;
       } catch (itemErr) {
         console.warn(`Bulk identify failed for ${media.title}:`, itemErr.message);
         failed++;

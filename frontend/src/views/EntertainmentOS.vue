@@ -930,6 +930,7 @@
                   <option value="all">Todo</option>
                   <option value="movie">Película</option>
                   <option value="series">Serie</option>
+                  <option value="music">Música</option>
                 </select>
                 <button @click="searchTmdb" class="eos-btn-primary mini">Buscar</button>
               </div>
