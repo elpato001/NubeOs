@@ -256,14 +256,51 @@ const formatGB = (bytes: number) => {
   return (bytes / (1024 ** 3)).toFixed(1) + ' GB';
 };
 
+const fetchDrives = async () => {
+  try {
+    const res = await axios.get('/api/system/external-drives');
+    const drives = res.data;
+    
+    // Convert drives to desktop icons
+    const icons = drives.map((drive: any, index: number) => ({
+      id: `drive-${drive.mountPoint.replace(/[^a-z0-9]/gi, '_')}`,
+      label: drive.label || `Disco (${drive.mountPoint})`,
+      icon: 'HardDrive',
+      color: 'orange',
+      x: 240, // Second column
+      y: 20 + (index * 120),
+      type: 'drive',
+      path: drive.mountPoint
+    }));
+
+    // Simple diff to notify new drives
+    const currentDriveIds = Object.keys(desktop.dynamicIcons);
+    icons.forEach(icon => {
+      if (!currentDriveIds.includes(icon.id)) {
+        notification.success('Nuevo Dispositivo', `Se ha montado ${icon.label}`);
+      }
+    });
+
+    desktop.setDynamicIcons(icons);
+  } catch (err) {
+    console.error('Error fetching external drives:', err);
+  }
+};
+
 // Lifecycle
 let statsTimer: any;
+let drivesTimer: any;
 onMounted(() => {
   auth.init();
   fetchStats();
+  fetchDrives();
   statsTimer = setInterval(fetchStats, 5000);
+  drivesTimer = setInterval(fetchDrives, 10000);
 });
-onUnmounted(() => { clearInterval(statsTimer); });
+onUnmounted(() => { 
+  clearInterval(statsTimer); 
+  clearInterval(drivesTimer);
+});
 </script>
 
 <style scoped>
