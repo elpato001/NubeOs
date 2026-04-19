@@ -52,7 +52,7 @@ export const useDesktopStore = defineStore('desktop', {
         entertainment: { id: 'entertainment', title: 'EntertainmentOS', isOpen: false, zIndex: 10, isMinimized: false, isMaximized: false, x: -1, y: -1, width: 1100, height: 700 },
       } as Record<WindowApp, WindowState>,
       currentVideo: '',
-      desktopIcons: savedIcons ? JSON.parse(savedIcons) : defaultIcons as Record<string, DesktopIcon>,
+      desktopIcons: { ...defaultIcons, ...(savedIcons ? JSON.parse(savedIcons) : {}) } as Record<string, DesktopIcon>,
       dynamicIcons: {} as Record<string, DesktopIcon>,
       topZIndex: 100,
       gridSize: { x: 110, y: 120 }
