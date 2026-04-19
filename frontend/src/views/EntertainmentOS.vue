@@ -1400,7 +1400,7 @@ watch(activeNav, (val) => {
 .eos-loading-screen { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #0b1120; z-index: 20; color: #64748b; gap: 1rem; }
 .eos-hero { position: relative; height: 400px; overflow: hidden; }
 .eos-hero-slider { display: flex; height: 100%; transition: transform 0.6s ease; }
-.eos-hero-slide { min-width: 100%; background-size: cover; background-position: center; position: relative; display: flex; align-items: flex-end; padding: 3rem; }
+.eos-hero-slide { min-width: 100%; background-size: cover; background-position: center top; position: relative; display: flex; align-items: flex-end; padding: 3rem; }
 .eos-hero-overlay { position: absolute; inset: 0; background: linear-gradient(0deg, #0b1120 0%, transparent 100%); }
 .eos-hero-content { position: relative; z-index: 2; max-width: 500px; }
 .eos-hero-title { font-size: 2.5rem; font-weight: 800; margin-bottom: 0.5rem; }
