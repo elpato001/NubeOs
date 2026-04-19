@@ -19,10 +19,7 @@
         </button>
       </nav>
       <div class="eos-sidebar-footer">
-        <button class="eos-nav-item" @click="showSettings = !showSettings">
-          <Settings2 :size="20" />
-          <span>Ajustes</span>
-        </button>
+        <!-- Footer info or secondary links can go here -->
       </div>
     </aside>
 
@@ -381,55 +378,6 @@
           </div>
         </div>
       </Transition>
-
-      <!-- Settings / Admin Modal -->
-      <Transition name="modal-fade">
-        <div v-if="showSettings" class="eos-modal-overlay" @click.self="showSettings = false">
-          <div class="eos-modal settings-modal">
-            <header class="eos-modal-banner settings-header">
-              <div class="eos-modal-banner-content">
-                <h2>Ajustes de EntertainmentOS</h2>
-                <p>Configura tus librerías y escanea contenido</p>
-              </div>
-              <button class="eos-modal-close" @click="showSettings = false"><X :size="20" /></button>
-            </header>
-            
-            <div class="eos-modal-body">
-              <div class="settings-section">
-                <h3><FolderPlus :size="16" /> Gestionar Librerías</h3>
-                <p class="section-desc">Añade carpetas locales de NubeOS para escanear películas y series.</p>
-                
-                <div class="lib-add-form">
-                  <input v-model="newLibPath" type="text" placeholder="Ruta de la carpeta (ej: C:/Peliculas)" />
-                  <button @click="addLibrary" class="eos-btn-primary">Añadir</button>
-                </div>
-
-                <div class="lib-list">
-                  <div v-for="lib in libraries" :key="lib.id" class="lib-item">
-                    <div class="lib-info">
-                      <div class="lib-name">{{ lib.name }}</div>
-                      <div class="lib-path">{{ lib.path }}</div>
-                    </div>
-                    <button @click="removeLibrary(lib.id)" class="lib-remove-btn"><Trash2 :size="14" /></button>
-                  </div>
-                  <div v-if="libraries.length === 0" class="lib-empty">No hay librerías configuradas.</div>
-                </div>
-              </div>
-
-              <div class="settings-divider"></div>
-
-              <div class="settings-section">
-                <h3><RefreshCw :size="16" /> Escaneo de Contenido</h3>
-                <p class="section-desc">Busca nuevos archivos en todas las librerías configuradas.</p>
-                <button @click="scanLibraries" class="eos-btn-secondary" :disabled="scanning">
-                  <Loader2 v-if="scanning" class="spinning" :size="16" />
-                  <span v-else>Escanear Librerías</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </Transition>
     </div>
   </div>
 </template>
@@ -473,7 +421,7 @@ const filteredMedia = computed(() => {
   if (searchQuery.value) {
     const q = searchQuery.value.toLowerCase();
     result = result.filter(m => 
-      m.title.toLowerCase().includes(q) || 
+      (m.title || '').toLowerCase().includes(q) || 
       (m.series_name && m.series_name.toLowerCase().includes(q))
     );
   }
