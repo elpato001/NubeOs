@@ -19,7 +19,6 @@
         </button>
       </nav>
       <div class="eos-sidebar-footer">
-        <!-- Footer area -->
       </div>
     </aside>
 
@@ -49,14 +48,20 @@
       <!-- Content Area -->
       <div class="eos-content" ref="contentRef">
         
+        <!-- Loading State -->
+        <div v-if="loading && allMedia.length === 0" class="eos-loading-screen">
+          <Loader2 class="spinning" :size="48" />
+          <p>Cargando tu biblioteca...</p>
+        </div>
+
         <!-- Home View -->
-        <template v-if="activeNav === 'home'">
+        <template v-if="activeNav === 'home' && !loading">
           <!-- Hero -->
-          <section class="eos-hero">
+          <section class="eos-hero" v-if="heroItems.length > 0">
             <div class="eos-hero-slider" :style="{ transform: `translateX(-${heroIndex * 100}%)` }">
               <div
                 v-for="(item, i) in heroItems"
-                :key="i"
+                :key="'hero-'+i"
                 class="eos-hero-slide"
                 :style="{ backgroundImage: `url(${item.banner})` }"
               >
@@ -90,10 +95,10 @@
             <div class="eos-section-header">
               <h2>{{ section.title }}</h2>
             </div>
-            <div class="eos-media-row">
+            <div class="eos-media-row" v-if="section.items.length > 0">
               <div
-                v-for="(media, i) in section.items"
-                :key="i"
+                v-for="media in section.items"
+                :key="'sec-'+media.id"
                 class="eos-media-card"
                 @click="openMediaDetail(media)"
               >
@@ -102,13 +107,16 @@
                   <div class="eos-card-overlay">
                     <button class="eos-play-btn"><Play :size="24" /></button>
                   </div>
-                  <span v-if="media.isNew" class="eos-new-badge">NUEVO</span>
+                  <span v-if="media.is_new" class="eos-new-badge">NUEVO</span>
                 </div>
                 <div class="eos-card-info">
                   <div class="eos-card-title">{{ media.title }}</div>
                   <div class="eos-card-meta">{{ media.year }} · {{ media.genre }}</div>
                 </div>
               </div>
+            </div>
+            <div v-else class="eos-empty-section">
+               <p>No hay contenido en esta sección.</p>
             </div>
           </section>
         </template>
@@ -117,10 +125,10 @@
         <template v-if="activeNav === 'movies'">
           <section class="eos-grid-section">
             <h2 class="eos-page-title">Películas</h2>
-            <div class="eos-media-grid">
+            <div class="eos-media-grid" v-if="filteredMedia.filter(m => m.type === 'movie').length > 0">
               <div
-                v-for="(media, i) in filteredMedia.filter(m => m.type === 'movie')"
-                :key="i"
+                v-for="media in filteredMedia.filter(m => m.type === 'movie')"
+                :key="'mov-'+media.id"
                 class="eos-media-card"
                 @click="openMediaDetail(media)"
               >
@@ -136,6 +144,7 @@
                 </div>
               </div>
             </div>
+            <div v-else class="eos-empty-grid">Sin resultados</div>
           </section>
         </template>
 
@@ -143,10 +152,10 @@
         <template v-if="activeNav === 'series'">
           <section class="eos-grid-section">
             <h2 class="eos-page-title">Series</h2>
-            <div class="eos-media-grid">
+            <div class="eos-media-grid" v-if="seriesMedia.length > 0">
               <div
-                v-for="(media, i) in seriesMedia"
-                :key="i"
+                v-for="media in seriesMedia"
+                :key="'ser-'+media.id"
                 class="eos-media-card"
                 @click="openMediaDetail(media)"
               >
@@ -162,6 +171,7 @@
                 </div>
               </div>
             </div>
+            <div v-else class="eos-empty-grid">Sin series disponibles</div>
           </section>
         </template>
 
@@ -169,8 +179,8 @@
         <template v-if="activeNav === 'music'">
           <section class="eos-grid-section">
             <h2 class="eos-page-title">Música</h2>
-            <div class="eos-music-grid">
-              <div v-for="(track, i) in musicTracks" :key="i" class="eos-music-card">
+            <div class="eos-music-grid" v-if="musicTracks.length > 0">
+              <div v-for="track in musicTracks" :key="'mus-'+track.id" class="eos-music-card">
                 <div class="eos-music-cover">
                   <div class="eos-music-cover-art" :style="{ background: track.color }">
                     <Music :size="28" />
@@ -185,6 +195,7 @@
                 </div>
               </div>
             </div>
+            <div v-else class="eos-empty-grid">Sin música</div>
           </section>
         </template>
 
@@ -202,7 +213,6 @@
             </header>
 
             <div class="eos-admin-content">
-              <!-- Overview -->
               <div v-if="activeAdminTab === 'overview'" class="admin-overview">
                 <div class="stats-grid">
                   <div class="stat-card">
@@ -228,7 +238,6 @@
                 </div>
               </div>
 
-              <!-- Media Management -->
               <div v-if="activeAdminTab === 'media'" class="admin-media-table">
                 <div class="table-search">
                   <input v-model="adminSearch" type="text" placeholder="Buscar por título..." />
@@ -244,10 +253,10 @@
                       </tr>
                     </thead>
                     <tbody>
-                      <tr v-for="m in filteredAdminMedia" :key="m.id">
-                        <td>{{ m.title }}</td>
+                      <tr v-for="m in filteredAdminMedia" :key="'adm-'+m.id">
+                        <td>{{ m.title || 'Sin título' }}</td>
                         <td><span class="type-badge">{{ m.type }}</span></td>
-                        <td>{{ m.genre }}</td>
+                        <td>{{ m.genre || 'Desconocido' }}</td>
                         <td class="table-btns">
                           <button @click="editMedia(m)" class="btn-edit" title="Editar"><Star :size="14" /></button>
                           <button @click="deleteMedia(m.id)" class="btn-del" title="Eliminar"><Trash2 :size="14" /></button>
@@ -258,7 +267,6 @@
                 </div>
               </div>
 
-              <!-- Libraries Management -->
               <div v-if="activeAdminTab === 'libraries'" class="admin-libraries">
                 <div class="admin-section-card">
                   <h3>Añadir Nueva Librería</h3>
@@ -267,7 +275,7 @@
                     <button @click="addLibrary" class="eos-btn-primary">Añadir</button>
                   </div>
                   <div class="lib-list">
-                    <div v-for="lib in libraries" :key="lib.id" class="lib-item">
+                    <div v-for="lib in libraries" :key="'lib-'+lib.id" class="lib-item">
                       <div class="lib-info">
                         <div class="lib-name">{{ lib.name }}</div>
                         <div class="lib-path">{{ lib.path }}</div>
@@ -275,7 +283,7 @@
                       <button @click="removeLibrary(lib.id)" class="lib-remove-btn"><Trash2 :size="14" /></button>
                     </div>
                   </div>
-                  <div class="mt-2">
+                  <div class="mt-4">
                     <button @click="scanLibraries" class="eos-btn-secondary" :disabled="scanning">
                       <Loader2 v-if="scanning" class="spinning" :size="16" />
                       <span v-else>Escanear Servidor</span>
@@ -303,7 +311,7 @@
               
               <div v-if="selectedMedia.isSeriesGroup" class="eos-episodes-list">
                 <h3>Episodios</h3>
-                <div v-for="ep in getEpisodes(selectedMedia.series_name)" :key="ep.id" class="eos-episode-item" @click="playMedia(ep)">
+                <div v-for="ep in getEpisodes(selectedMedia.series_name)" :key="'ep-'+ep.id" class="eos-episode-item" @click="playMedia(ep)">
                   <div class="eos-ep-num">T{{ ep.season }} E{{ ep.episode }}</div>
                   <div class="eos-ep-title">{{ ep.title }}</div>
                   <button class="eos-ep-play"><Play :size="14" /></button>
@@ -318,7 +326,6 @@
           </div>
         </div>
       </Transition>
-
     </div>
   </div>
 </template>
@@ -327,8 +334,7 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import {
   Clapperboard, Home, Film, Tv, Music, Search, Bell, User, ChevronDown,
-  ChevronLeft, ChevronRight, Play, Info, Settings2, X, Plus, Heart,
-  Share2, Star, RefreshCw, FolderPlus, Trash2, Loader2
+  ChevronLeft, ChevronRight, Play, Info, Settings2, X, Plus, Star, Loader2, Trash2
 } from 'lucide-vue-next';
 import axios from 'axios';
 import { useDesktopStore } from '../stores/desktop';
@@ -337,8 +343,16 @@ import { useNotificationStore } from '../stores/notification';
 const desktop = useDesktopStore();
 const notification = useNotificationStore();
 
-// Navigation
+// UI State
 const activeNav = ref('home');
+const activeAdminTab = ref('overview');
+const loading = ref(false);
+const scanning = ref(false);
+const searchQuery = ref('');
+const adminSearch = ref('');
+const newLibPath = ref('');
+const selectedMedia = ref<any>(null);
+
 const navItems = [
   { id: 'home', label: 'Inicio', icon: Home },
   { id: 'movies', label: 'Películas', icon: Film },
@@ -347,22 +361,23 @@ const navItems = [
   { id: 'admin', label: 'Dashboard', icon: Settings2 },
 ];
 
-// Media State
+// Data State
 const allMedia = ref<any[]>([]);
-const searchQuery = ref('');
-const activeGenre = ref('Todas');
+const libraries = ref<any[]>([]);
+const adminStats = ref({ movies: 0, series: 0, music: 0, noPoster: 0, lastAdded: [] });
 
+// Computed
 const filteredMedia = computed(() => {
-  let res = allMedia.value;
-  if (searchQuery.value) {
-    const q = searchQuery.value.toLowerCase();
-    res = res.filter(m => (m.title || '').toLowerCase().includes(q) || (m.series_name || '').toLowerCase().includes(q));
-  }
-  return res;
+  if (!searchQuery.value) return allMedia.value;
+  const q = searchQuery.value.toLowerCase();
+  return allMedia.value.filter(m => 
+    (m.title || '').toLowerCase().includes(q) || 
+    (m.series_name || '').toLowerCase().includes(q)
+  );
 });
 
 const seriesMedia = computed(() => {
-  const series = allMedia.value.filter(m => m.type === 'series');
+  const series = filteredMedia.value.filter(m => m.type === 'series');
   const unique: any[] = [];
   const seen = new Set();
   series.forEach(s => {
@@ -374,43 +389,49 @@ const seriesMedia = computed(() => {
   return unique;
 });
 
-const getEpisodes = (name: string) => allMedia.value.filter(m => m.series_name === name).sort((a,b) => a.episode - b.episode);
+const getEpisodes = (name: string) => 
+  allMedia.value.filter(m => m.series_name === name).sort((a,b) => a.episode - b.episode);
 
 const mediaSections = computed(() => [
   { title: 'Agregados Recientemente', items: allMedia.value.filter(m => m.is_new === 1).slice(0, 10) },
-  { title: 'Top Valoradas', items: allMedia.value.filter(m => m.stars >= 4).slice(0, 10) }
+  { title: 'Top Valoradas', items: allMedia.value.filter(m => (m.stars || 0) >= 4).slice(0, 10) }
 ]);
 
 const musicTracks = computed(() => 
-  allMedia.value.filter(m => m.type === 'music').map(m => ({
-    ...m, artist: m.genre || 'Artista', color: `hsl(${Math.random() * 360}, 70%, 40%)`
+  filteredMedia.value.filter(m => m.type === 'music').map(m => ({
+    ...m, artist: m.genre || 'Artista', color: `hsl(${(m.id * 137) % 360}, 60%, 40%)`
   }))
 );
 
-// Hero Logic
+const filteredAdminMedia = computed(() => {
+  if (!adminSearch.value) return allAdminMedia.value;
+  const q = adminSearch.value.toLowerCase();
+  return allAdminMedia.value.filter(m => (m.title || '').toLowerCase().includes(q));
+});
+
+const allAdminMedia = ref<any[]>([]);
+
+// Hero Data
 const heroIndex = ref(0);
 const heroItems = [
   { title: 'Stellar Horizon', banner: '/entertainment/posters/hero_banner.png', rating: 'PG-13', duration: '2h 46m', genre: 'Sci-Fi', year: '2026', description: 'Una odisea espacial sin precedentes.' },
   { title: 'Shadow Protocol', banner: '/entertainment/posters/hero_banner_2.png', rating: 'R', duration: '2h 10m', genre: 'Thriller', year: '2026', description: 'Intriga global en la era digital.' }
 ];
 
-// Admin State
-const activeAdminTab = ref('overview');
-const adminStats = ref({ movies: 0, series: 0, music: 0, noPoster: 0, lastAdded: [] });
-const allAdminMedia = ref<any[]>([]);
-const adminSearch = ref('');
-const libraries = ref<any[]>([]);
-const newLibPath = ref('');
-const scanning = ref(false);
-
+// Methods
 const fetchCatalog = async () => {
+  loading.value = true;
   try {
     const res = await axios.get('/api/entertainment/catalog');
     allMedia.value = res.data.map((m: any) => ({
       ...m,
       poster: m.poster_path ? `/api/entertainment/poster/${m.id}` : '/entertainment/posters/stellar_horizon.png'
     }));
-  } catch (err) { console.error(err); }
+  } catch (err) {
+    notification.error('Error', 'No se pudo cargar el catálogo');
+  } finally {
+    loading.value = false;
+  }
 };
 
 const fetchAdminData = async () => {
@@ -426,11 +447,13 @@ const fetchAdminData = async () => {
   } catch (err) { /* Not admin */ }
 };
 
-const filteredAdminMedia = computed(() => {
-  if (!adminSearch.value) return allAdminMedia.value;
-  const q = adminSearch.value.toLowerCase();
-  return allAdminMedia.value.filter(m => (m.title || '').toLowerCase().includes(q));
-});
+const playMedia = (m: any) => {
+  if (!m.file_path) return notification.error('Error', 'Archivo no encontrado');
+  desktop.playVideo(m.file_path, m.title, m.id, m.progress || 0);
+  selectedMedia.value = null;
+};
+
+const openMediaDetail = (m: any) => selectedMedia.value = m;
 
 const scanLibraries = async () => {
   scanning.value = true;
@@ -438,7 +461,11 @@ const scanLibraries = async () => {
     const res = await axios.post('/api/entertainment/admin/scan');
     notification.success('Escaneo listo', `${res.data.newItems} nuevos encontrados.`);
     fetchCatalog();
-  } finally { scanning.value = false; }
+  } catch (err) {
+    notification.error('Error', 'Fallo al escanear');
+  } finally {
+    scanning.value = false;
+  }
 };
 
 const addLibrary = async () => {
@@ -468,23 +495,21 @@ const deleteMedia = async (id: number) => {
 
 const editMedia = (media: any) => notification.info('Próximamente', 'Editor visual en desarrollo.');
 
-// Modal & Player
-const selectedMedia = ref<any>(null);
-const openMediaDetail = (m: any) => selectedMedia.value = m;
-const playMedia = (m: any) => {
-  if (!m.file_path) return notification.error('Error', 'Sin archivo');
-  desktop.playVideo(m.file_path, m.title, m.id, m.progress || 0);
-  selectedMedia.value = null;
-};
+const prevHero = () => heroIndex.value = (heroIndex.value - 1 + heroItems.length) % heroItems.length;
+const nextHero = () => heroIndex.value = (heroIndex.value + 1) % heroItems.length;
 
+// Lifecycle
 let heroTimer: any;
 onMounted(() => {
   fetchCatalog();
-  fetchAdminData();
-  heroTimer = setInterval(() => heroIndex.value = (heroIndex.value + 1) % heroItems.length, 8000);
+  if (activeNav.value === 'admin') fetchAdminData();
+  heroTimer = setInterval(nextHero, 8000);
 });
 onUnmounted(() => clearInterval(heroTimer));
-watch(activeNav, (val) => { if (val === 'admin') fetchAdminData(); });
+
+watch(activeNav, (val) => {
+  if (val === 'admin') fetchAdminData();
+});
 </script>
 
 <style scoped>
@@ -498,7 +523,8 @@ watch(activeNav, (val) => { if (val === 'admin') fetchAdminData(); });
 .eos-search-box { display: flex; align-items: center; gap: 0.5rem; background: rgba(255, 255, 255, 0.05); border-radius: 8px; padding: 0.5rem 1rem; width: 300px; }
 .eos-search-box input { background: none; border: none; color: white; outline: none; font-size: 0.85rem; width: 100%; }
 .eos-user-pill { display: flex; align-items: center; gap: 0.5rem; background: rgba(255, 255, 255, 0.05); padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.8rem; }
-.eos-content { flex: 1; overflow-y: auto; padding-bottom: 3rem; }
+.eos-content { flex: 1; overflow-y: auto; padding-bottom: 3rem; position: relative; }
+.eos-loading-screen { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #0b1120; z-index: 20; color: #64748b; gap: 1rem; }
 .eos-hero { position: relative; height: 400px; overflow: hidden; }
 .eos-hero-slider { display: flex; height: 100%; transition: transform 0.6s ease; }
 .eos-hero-slide { min-width: 100%; background-size: cover; background-position: center; position: relative; display: flex; align-items: flex-end; padding: 3rem; }
@@ -507,7 +533,7 @@ watch(activeNav, (val) => { if (val === 'admin') fetchAdminData(); });
 .eos-hero-title { font-size: 2.5rem; font-weight: 800; margin-bottom: 0.5rem; }
 .eos-hero-meta { display: flex; gap: 1rem; font-size: 0.8rem; color: #94a3b8; margin-bottom: 1rem; }
 .eos-rating-badge { background: #f59e0b; color: #0b1120; padding: 2px 6px; border-radius: 4px; font-weight: 800; }
-.eos-hero-arrow { position: absolute; top: 50%; width: 40px; height: 40px; background: rgba(0,0,0,0.5); border: none; color: white; border-radius: 50%; cursor: pointer; z-index: 5; }
+.eos-hero-arrow { position: absolute; top: 50%; transform: translateY(-50%); width: 40px; height: 40px; background: rgba(0,0,0,0.5); border: none; color: white; border-radius: 50%; cursor: pointer; z-index: 5; }
 .eos-hero-arrow.left { left: 20px; } .eos-hero-arrow.right { right: 20px; }
 .eos-media-section { padding: 2rem 2rem 0; }
 .eos-media-row { display: flex; gap: 1rem; overflow-x: auto; padding-bottom: 1rem; }
@@ -538,13 +564,14 @@ th, td { padding: 1rem; text-align: left; border-bottom: 1px solid rgba(255,255,
 .type-badge { background: rgba(245, 158, 11, 0.1); color: #f59e0b; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; }
 .table-btns { display: flex; gap: 4px; } .table-btns button { padding: 4px; border: none; border-radius: 4px; cursor: pointer; }
 .eos-modal-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); display: flex; align-items: center; justify-content: center; z-index: 100; }
-.eos-modal { width: 90%; max-width: 600px; background: #111827; border-radius: 20px; overflow: hidden; }
+.eos-modal { width: 90%; max-width: 600px; background: #111827; border-radius: 20px; overflow: hidden; position: relative; }
 .eos-modal-banner { height: 250px; background-size: cover; display: flex; align-items: flex-end; padding: 2rem; position: relative; }
 .eos-modal-body { padding: 2rem; } .eos-modal-desc { color: #94a3b8; font-size: 0.9rem; margin-bottom: 1.5rem; }
 .eos-episodes-list { display: flex; flex-direction: column; gap: 8px; margin-top: 1rem; }
 .eos-episode-item { display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.05); padding: 0.75rem; border-radius: 10px; cursor: pointer; }
 .modal-fade-enter-active, .modal-fade-leave-active { transition: opacity 0.3s; }
 .modal-fade-enter-from, .modal-fade-leave-to { opacity: 0; }
+.mt-4 { margin-top: 1rem; }
 .spinning { animation: spin 1s linear infinite; }
 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 </style>
