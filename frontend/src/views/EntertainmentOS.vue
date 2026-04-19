@@ -19,7 +19,7 @@
         </button>
       </nav>
       <div class="eos-sidebar-footer">
-        <!-- Footer info or secondary links can go here -->
+        <!-- Footer area -->
       </div>
     </aside>
 
@@ -46,62 +46,49 @@
         </div>
       </header>
 
-      <!-- Scrollable Content -->
+      <!-- Content Area -->
       <div class="eos-content" ref="contentRef">
-
-        <!-- Hero Carousel -->
-        <section class="eos-hero" v-if="activeNav === 'home'">
-          <div class="eos-hero-slider" :style="{ transform: `translateX(-${heroIndex * 100}%)` }">
-            <div
-              v-for="(item, i) in heroItems"
-              :key="i"
-              class="eos-hero-slide"
-              :style="{ backgroundImage: `url(${item.banner})` }"
-            >
-              <div class="eos-hero-overlay"></div>
-              <div class="eos-hero-content">
-                <h1 class="eos-hero-title">{{ item.title }}</h1>
-                <div class="eos-hero-meta">
-                  <span class="eos-rating-badge">{{ item.rating }}</span>
-                  <span>{{ item.duration }}</span>
-                  <span>{{ item.genre }}</span>
-                  <span>{{ item.year }}</span>
-                </div>
-                <p class="eos-hero-desc">{{ item.description }}</p>
-                <div class="eos-hero-actions">
-                  <button class="eos-btn-primary" @click="playMedia(heroItems[heroIndex])">
-                    <Play :size="18" /> Reproducir
-                  </button>
-                  <button class="eos-btn-secondary" @click="openMediaDetail(heroItems[heroIndex])">
-                    <Info :size="18" /> Más Info
-                  </button>
+        
+        <!-- Home View -->
+        <template v-if="activeNav === 'home'">
+          <!-- Hero -->
+          <section class="eos-hero">
+            <div class="eos-hero-slider" :style="{ transform: `translateX(-${heroIndex * 100}%)` }">
+              <div
+                v-for="(item, i) in heroItems"
+                :key="i"
+                class="eos-hero-slide"
+                :style="{ backgroundImage: `url(${item.banner})` }"
+              >
+                <div class="eos-hero-overlay"></div>
+                <div class="eos-hero-content">
+                  <h1 class="eos-hero-title">{{ item.title }}</h1>
+                  <div class="eos-hero-meta">
+                    <span class="eos-rating-badge">{{ item.rating }}</span>
+                    <span>{{ item.duration }}</span>
+                    <span>{{ item.genre }}</span>
+                    <span>{{ item.year }}</span>
+                  </div>
+                  <p class="eos-hero-desc">{{ item.description }}</p>
+                  <div class="eos-hero-actions">
+                    <button class="eos-btn-primary" @click="playMedia(item)">
+                      <Play :size="18" /> Reproducir
+                    </button>
+                    <button class="eos-btn-secondary" @click="openMediaDetail(item)">
+                      <Info :size="18" /> Más Info
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-          <button class="eos-hero-arrow left" @click="prevHero"><ChevronLeft :size="28" /></button>
-          <button class="eos-hero-arrow right" @click="nextHero"><ChevronRight :size="28" /></button>
-          <div class="eos-hero-dots">
-            <span
-              v-for="(_, i) in heroItems"
-              :key="i"
-              class="eos-dot"
-              :class="{ active: heroIndex === i }"
-              @click="heroIndex = i"
-            ></span>
-          </div>
-          <!-- Progress bar -->
-          <div class="eos-hero-progress">
-            <div class="eos-hero-progress-fill" :style="{ width: heroProgress + '%' }"></div>
-          </div>
-        </section>
+            <button class="eos-hero-arrow left" @click="prevHero"><ChevronLeft :size="28" /></button>
+            <button class="eos-hero-arrow right" @click="nextHero"><ChevronRight :size="28" /></button>
+          </section>
 
-        <!-- Media Rows -->
-        <template v-if="activeNav === 'home'">
+          <!-- Sections -->
           <section class="eos-media-section" v-for="section in mediaSections" :key="section.title">
             <div class="eos-section-header">
               <h2>{{ section.title }}</h2>
-              <button class="eos-see-all">Ver todo <ChevronRight :size="14" /></button>
             </div>
             <div class="eos-media-row">
               <div
@@ -115,10 +102,7 @@
                   <div class="eos-card-overlay">
                     <button class="eos-play-btn"><Play :size="24" /></button>
                   </div>
-                  <span v-if="media.isNew" class="eos-new-badge">NEW</span>
-                  <div v-if="media.progress" class="eos-card-progress">
-                    <div class="eos-card-progress-fill" :style="{ width: media.progress + '%' }"></div>
-                  </div>
+                  <span v-if="media.isNew" class="eos-new-badge">NUEVO</span>
                 </div>
                 <div class="eos-card-info">
                   <div class="eos-card-title">{{ media.title }}</div>
@@ -133,15 +117,6 @@
         <template v-if="activeNav === 'movies'">
           <section class="eos-grid-section">
             <h2 class="eos-page-title">Películas</h2>
-            <div class="eos-filter-bar">
-              <button
-                v-for="genre in genres"
-                :key="genre"
-                class="eos-filter-chip"
-                :class="{ active: activeGenre === genre }"
-                @click="activeGenre = genre"
-              >{{ genre }}</button>
-            </div>
             <div class="eos-media-grid">
               <div
                 v-for="(media, i) in filteredMedia.filter(m => m.type === 'movie')"
@@ -154,7 +129,6 @@
                   <div class="eos-card-overlay">
                     <button class="eos-play-btn"><Play :size="24" /></button>
                   </div>
-                  <span v-if="media.isNew" class="eos-new-badge">NEW</span>
                 </div>
                 <div class="eos-card-info">
                   <div class="eos-card-title">{{ media.title }}</div>
@@ -181,11 +155,10 @@
                   <div class="eos-card-overlay">
                     <button class="eos-play-btn"><Play :size="24" /></button>
                   </div>
-                  <span class="eos-new-badge">SERIE</span>
                 </div>
                 <div class="eos-card-info">
                   <div class="eos-card-title">{{ media.title }}</div>
-                  <div class="eos-card-meta">{{ media.year }} · {{ media.genre }}</div>
+                  <div class="eos-card-meta">{{ media.genre }}</div>
                 </div>
               </div>
             </div>
@@ -219,17 +192,17 @@
         <template v-if="activeNav === 'admin'">
           <div class="eos-admin-container">
             <header class="eos-admin-header">
-              <h1><Settings2 :size="24" /> Panel de Control EntertainmentOS</h1>
+              <h1><Settings2 :size="24" /> Panel de Administración</h1>
               <div class="admin-tabs">
                 <button v-for="tab in ['overview', 'media', 'libraries']" :key="tab" 
                         :class="{ active: activeAdminTab === tab }" @click="activeAdminTab = tab">
-                  {{ tab === 'overview' ? 'Resumen' : tab === 'media' ? 'Gestionar Medios' : 'Bibliotecas' }}
+                  {{ tab === 'overview' ? 'Resumen' : tab === 'media' ? 'Gestión' : 'Librerías' }}
                 </button>
               </div>
             </header>
 
             <div class="eos-admin-content">
-              <!-- Overview Tab -->
+              <!-- Overview -->
               <div v-if="activeAdminTab === 'overview'" class="admin-overview">
                 <div class="stats-grid">
                   <div class="stat-card">
@@ -253,20 +226,11 @@
                     <div class="stat-label">Sin Poster</div>
                   </div>
                 </div>
-
-                <div class="admin-section-card mt-2">
-                  <h3>Últimas Incorporaciones</h3>
-                  <div class="last-added-list">
-                    <div v-for="item in adminStats.lastAdded" :key="item.title" class="last-added-item">
-                      {{ item.title }}
-                    </div>
-                  </div>
-                </div>
               </div>
 
-              <!-- Media Management Tab -->
+              <!-- Media Management -->
               <div v-if="activeAdminTab === 'media'" class="admin-media-table">
-                <div class="table-actions">
+                <div class="table-search">
                   <input v-model="adminSearch" type="text" placeholder="Buscar por título..." />
                 </div>
                 <div class="eos-scroll-table">
@@ -276,7 +240,6 @@
                         <th>Título</th>
                         <th>Tipo</th>
                         <th>Género</th>
-                        <th>Año</th>
                         <th>Acciones</th>
                       </tr>
                     </thead>
@@ -285,10 +248,9 @@
                         <td>{{ m.title }}</td>
                         <td><span class="type-badge">{{ m.type }}</span></td>
                         <td>{{ m.genre }}</td>
-                        <td>{{ m.year }}</td>
                         <td class="table-btns">
-                          <button @click="editMedia(m)" class="btn-edit"><Star :size="14" /></button>
-                          <button @click="deleteMedia(m.id)" class="btn-del"><Trash2 :size="14" /></button>
+                          <button @click="editMedia(m)" class="btn-edit" title="Editar"><Star :size="14" /></button>
+                          <button @click="deleteMedia(m.id)" class="btn-del" title="Eliminar"><Trash2 :size="14" /></button>
                         </td>
                       </tr>
                     </tbody>
@@ -296,94 +258,73 @@
                 </div>
               </div>
 
-              <!-- Original Libraries section moved here -->
+              <!-- Libraries Management -->
               <div v-if="activeAdminTab === 'libraries'" class="admin-libraries">
-                 <div class="admin-section-card">
-                    <h3>Gestionar Librerías</h3>
-                    <p class="section-desc">Añade carpetas locales de NubeOS para escanear contenido.</p>
-                    <div class="lib-add-form">
-                      <input v-model="newLibPath" type="text" placeholder="Ruta: C:/Videos" />
-                      <button @click="addLibrary" class="eos-btn-primary">Añadir</button>
-                    </div>
-                    <div class="lib-list">
-                      <div v-for="lib in libraries" :key="lib.id" class="lib-item">
-                        <div class="lib-info">
-                          <div class="lib-name">{{ lib.name }}</div>
-                          <div class="lib-path">{{ lib.path }}</div>
-                        </div>
-                        <button @click="removeLibrary(lib.id)" class="lib-remove-btn"><Trash2 :size="14" /></button>
+                <div class="admin-section-card">
+                  <h3>Añadir Nueva Librería</h3>
+                  <div class="lib-add-form">
+                    <input v-model="newLibPath" type="text" placeholder="Ruta: C:/Videos" />
+                    <button @click="addLibrary" class="eos-btn-primary">Añadir</button>
+                  </div>
+                  <div class="lib-list">
+                    <div v-for="lib in libraries" :key="lib.id" class="lib-item">
+                      <div class="lib-info">
+                        <div class="lib-name">{{ lib.name }}</div>
+                        <div class="lib-path">{{ lib.path }}</div>
                       </div>
+                      <button @click="removeLibrary(lib.id)" class="lib-remove-btn"><Trash2 :size="14" /></button>
                     </div>
-                    <div class="mt-2">
-                      <button @click="scanLibraries" class="eos-btn-secondary" :disabled="scanning">
-                        <Loader2 v-if="scanning" class="spinning" :size="16" />
-                        <span v-else>Escanear Todo</span>
-                      </button>
-                    </div>
-                 </div>
+                  </div>
+                  <div class="mt-2">
+                    <button @click="scanLibraries" class="eos-btn-secondary" :disabled="scanning">
+                      <Loader2 v-if="scanning" class="spinning" :size="16" />
+                      <span v-else>Escanear Servidor</span>
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </template>
-
       </div>
 
-      <!-- Media Detail Modal -->
+      <!-- Detail Modal -->
       <Transition name="modal-fade">
         <div v-if="selectedMedia" class="eos-modal-overlay" @click.self="selectedMedia = null">
           <div class="eos-modal">
             <button class="eos-modal-close" @click="selectedMedia = null"><X :size="20" /></button>
             <div class="eos-modal-banner" :style="{ backgroundImage: `url(${selectedMedia.poster})` }">
-              <div class="eos-modal-banner-overlay"></div>
               <div class="eos-modal-banner-content">
                 <h2>{{ selectedMedia.title }}</h2>
-                <div class="eos-hero-meta">
-                  <span class="eos-rating-badge">{{ selectedMedia.rating || 'PG-13' }}</span>
-                  <span v-if="selectedMedia.duration">{{ selectedMedia.duration }}</span>
-                  <span>{{ selectedMedia.genre }}</span>
-                </div>
               </div>
             </div>
             <div class="eos-modal-body">
-              <p class="eos-modal-desc">{{ selectedMedia.description || (selectedMedia.isSeriesGroup ? 'Esta serie te llevará por un viaje épico a través de múltiples temporadas.' : 'Una experiencia cinematográfica intensa que explora los límites de la imaginación humana.') }}</p>
+              <p class="eos-modal-desc">{{ selectedMedia.description || 'Sin descripción disponible.' }}</p>
               
-              <!-- Episodes list if it's a series -->
               <div v-if="selectedMedia.isSeriesGroup" class="eos-episodes-list">
                 <h3>Episodios</h3>
                 <div v-for="ep in getEpisodes(selectedMedia.series_name)" :key="ep.id" class="eos-episode-item" @click="playMedia(ep)">
                   <div class="eos-ep-num">T{{ ep.season }} E{{ ep.episode }}</div>
-                  <div class="eos-ep-title">{{ ep.title || 'Capítulo ' + ep.episode }}</div>
+                  <div class="eos-ep-title">{{ ep.title }}</div>
                   <button class="eos-ep-play"><Play :size="14" /></button>
                 </div>
               </div>
 
               <div v-else class="eos-modal-actions">
                 <button class="eos-btn-primary" @click="playMedia(selectedMedia)"><Play :size="18" /> Reproducir</button>
-                <button class="eos-btn-secondary"><Plus :size="18" /> Mi Lista</button>
-                <button class="eos-btn-icon"><Heart :size="18" /></button>
-                <button class="eos-btn-icon"><Share2 :size="18" /></button>
-              </div>
-
-              <div class="eos-modal-details">
-                <div class="eos-detail-row">
-                  <span class="eos-detail-label">Género</span>
-                  <span>{{ selectedMedia.genre }}</span>
-                </div>
-                <div class="eos-detail-row" v-if="!selectedMedia.isSeriesGroup">
-                  <span class="eos-detail-label">Año</span>
-                  <span>{{ selectedMedia.year }}</span>
-                </div>
+                <button class="eos-btn-secondary"><Plus :size="18" /> Favoritos</button>
               </div>
             </div>
           </div>
         </div>
       </Transition>
+
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import {
   Clapperboard, Home, Film, Tv, Music, Search, Bell, User, ChevronDown,
   ChevronLeft, ChevronRight, Play, Info, Settings2, X, Plus, Heart,
@@ -396,7 +337,7 @@ import { useNotificationStore } from '../stores/notification';
 const desktop = useDesktopStore();
 const notification = useNotificationStore();
 
-// --- Navigation ---
+// Navigation
 const activeNav = ref('home');
 const navItems = [
   { id: 'home', label: 'Inicio', icon: Home },
@@ -406,1512 +347,204 @@ const navItems = [
   { id: 'admin', label: 'Dashboard', icon: Settings2 },
 ];
 
-// --- Search & Filter ---
+// Media State
+const allMedia = ref<any[]>([]);
 const searchQuery = ref('');
-const genres = ['Todas', 'Sci-Fi', 'Thriller', 'Acción', 'Terror', 'Fantasía', 'Western', 'Psicológico'];
 const activeGenre = ref('Todas');
 
-// --- Media Data & Loading ---
-const allMedia = ref<any[]>([]);
-const loading = ref(false);
-
 const filteredMedia = computed(() => {
-  let result = allMedia.value;
-  
+  let res = allMedia.value;
   if (searchQuery.value) {
     const q = searchQuery.value.toLowerCase();
-    result = result.filter(m => 
-      (m.title || '').toLowerCase().includes(q) || 
-      (m.series_name && m.series_name.toLowerCase().includes(q))
-    );
+    res = res.filter(m => (m.title || '').toLowerCase().includes(q) || (m.series_name || '').toLowerCase().includes(q));
   }
-  
-  if (activeGenre.value !== 'Todas') {
-    result = result.filter(m => m.genre === activeGenre.value);
-  }
-  
-  return result;
+  return res;
 });
 
-// --- Hero Carousel ---
-const heroIndex = ref(0);
-const heroProgress = ref(0);
-let heroTimer: any = null;
-let progressTimer: any = null;
-
-const heroItems = [
-  {
-    title: 'Stellar Horizon',
-    rating: 'PG-13',
-    duration: '2h 46m',
-    genre: 'Sci-Fi',
-    year: '2026',
-    description: 'En los confines del espacio conocido, una tripulación se enfrenta a lo desconocido mientras busca el origen de una señal que podría cambiar el destino de la humanidad.',
-    banner: '/entertainment/posters/hero_banner.png'
-  },
-  {
-    title: 'Shadow Protocol',
-    rating: 'R',
-    duration: '2h 10m',
-    genre: 'Thriller',
-    year: '2026',
-    description: 'Un agente encubierto descubre una conspiración global que amenaza con desestabilizar el orden mundial. La línea entre aliado y enemigo se vuelve invisible.',
-    banner: '/entertainment/posters/hero_banner_2.png'
-  },
-  {
-    title: 'Crimson Dynasty',
-    rating: 'PG-13',
-    duration: '2h 35m',
-    genre: 'Fantasía',
-    year: '2025',
-    description: 'Una reina guerrera debe reclamar su trono perdido mientras enfrenta las fuerzas oscuras que amenazan con destruir todo lo que conoce.',
-    banner: '/entertainment/posters/crimson_dynasty.png'
-  }
-];
-
-const startHeroAutoplay = () => {
-  clearInterval(heroTimer);
-  clearInterval(progressTimer);
-  heroProgress.value = 0;
-  const SLIDE_DURATION = 8000;
-  const TICK = 50;
-  progressTimer = setInterval(() => {
-    heroProgress.value += (TICK / SLIDE_DURATION) * 100;
-    if (heroProgress.value >= 100) heroProgress.value = 100;
-  }, TICK);
-  heroTimer = setInterval(() => {
-    heroIndex.value = (heroIndex.value + 1) % heroItems.length;
-    heroProgress.value = 0;
-  }, SLIDE_DURATION);
-};
-
-const nextHero = () => {
-  heroIndex.value = (heroIndex.value + 1) % heroItems.length;
-  heroProgress.value = 0;
-  startHeroAutoplay();
-};
-
-const prevHero = () => {
-  heroIndex.value = (heroIndex.value - 1 + heroItems.length) % heroItems.length;
-  heroProgress.value = 0;
-  startHeroAutoplay();
-};
-
-// --- API Calls ---
-const fetchCatalog = async () => {
-  loading.value = true;
-  try {
-    const res = await axios.get('/api/entertainment/catalog');
-    allMedia.value = res.data.map((m: any) => ({
-      ...m,
-      stars: m.stars || 5,
-      isNew: m.is_new === 1,
-      poster: m.poster_path ? `/api/entertainment/poster/${m.id}` : '/entertainment/posters/stellar_horizon.png',
-      banner: m.banner_path || '/entertainment/posters/hero_banner.png',
-      progress: m.progress || 0 // Progress in seconds
-    }));
-  } catch (err) {
-    console.error('Error fetching catalog:', err);
-  } finally {
-    loading.value = false;
-  }
-};
-
-const libraries = ref<any[]>([]);
-const newLibPath = ref('');
-const fetchLibraries = async () => {
-  try {
-    const res = await axios.get('/api/entertainment/admin/libraries');
-    libraries.value = res.data;
-  } catch (err) { /* ignore if not admin */ }
-};
-
-const addLibrary = async () => {
-  if (!newLibPath.value) return;
-  try {
-    await axios.post('/api/entertainment/admin/libraries', {
-      path: newLibPath.value,
-      name: newLibPath.value.split('/').pop() || 'Nueva Librería'
-    });
-    newLibPath.value = '';
-    fetchLibraries();
-    notification.success('Éxito', 'Librería añadida correctamente');
-  } catch (err) {
-    notification.error('Error', 'No se pudo añadir la librería');
-  }
-};
-
-const scanning = ref(false);
-const scanLibraries = async () => {
-  scanning.value = true;
-  try {
-    const res = await axios.post('/api/entertainment/admin/scan');
-    notification.success('Escaneo Finalizado', `${res.data.newItems} nuevos elementos encontrados.`);
-    fetchCatalog();
-  } catch (err) {
-    notification.error('Error', 'No se pudo realizar el escaneo');
-  } finally {
-    scanning.value = false;
-  }
-};
-
-const removeLibrary = async (id: number) => {
-  if (!confirm('¿Seguro que deseas eliminar esta librería? No se borrarán los archivos, solo el acceso.')) return;
-  try {
-    await axios.delete(`/api/entertainment/admin/libraries/${id}`);
-    fetchLibraries();
-    notification.success('Eliminado', 'Librería eliminada');
-  } catch (err) {
-    notification.error('Error', 'No se pudo eliminar la librería');
-  }
-};
-
-// --- Player Logic ---
-const playMedia = (media: any) => {
-  if (!media.file_path) {
-    notification.error('Error', 'Este elemento no tiene un archivo de video asociado.');
-    return;
-  }
-  desktop.playVideo(media.file_path, media.title, media.id, media.progress || 0);
-  selectedMedia.value = null;
-};
-
-watch(() => desktop.windows.player.isOpen, (isOpen) => {
-  if (!isOpen) {
-    fetchCatalog();
-  }
-});
-
-// --- Computed Sections ---
 const seriesMedia = computed(() => {
-  const series = filteredMedia.value.filter(m => m.type === 'series');
-  const uniqueSeries: any[] = [];
-  const seenNames = new Set();
-  series.forEach(item => {
-    if (!seenNames.has(item.series_name)) {
-      seenNames.add(item.series_name);
-      uniqueSeries.push({
-        ...item,
-        title: item.series_name,
-        isSeriesGroup: true
-      });
+  const series = allMedia.value.filter(m => m.type === 'series');
+  const unique: any[] = [];
+  const seen = new Set();
+  series.forEach(s => {
+    if (!seen.has(s.series_name)) {
+      seen.add(s.series_name);
+      unique.push({ ...s, title: s.series_name, isSeriesGroup: true });
     }
   });
-  return uniqueSeries;
+  return unique;
 });
 
-const getEpisodes = (seriesName: string) => {
-  return allMedia.value
-    .filter(m => m.series_name === seriesName)
-    .sort((a, b) => {
-      if (a.season !== b.season) return a.season - b.season;
-      return a.episode - b.episode;
-    });
-};
+const getEpisodes = (name: string) => allMedia.value.filter(m => m.series_name === name).sort((a,b) => a.episode - b.episode);
 
 const mediaSections = computed(() => [
-  {
-    title: 'Seguir Viendo',
-    items: allMedia.value.filter(m => m.progress > 0)
-  },
-  {
-    title: 'Agregados Recientemente',
-    items: allMedia.value.filter(m => m.isNew)
-  },
-  {
-    title: 'Vistos Recientemente',
-    items: [...allMedia.value].reverse().slice(0, 6)
-  },
-  {
-    title: 'Top Valoradas',
-    items: [...allMedia.value].filter(m => m.type === 'movie').sort((a, b) => (b.stars || 0) - (a.stars || 0)).slice(0, 6)
-  }
+  { title: 'Agregados Recientemente', items: allMedia.value.filter(m => m.is_new === 1).slice(0, 10) },
+  { title: 'Top Valoradas', items: allMedia.value.filter(m => m.stars >= 4).slice(0, 10) }
 ]);
 
 const musicTracks = computed(() => 
-  filteredMedia.value.filter(m => m.type === 'music').map(m => ({
-    ...m,
-    artist: m.genre || 'Artista Desconocido',
-    color: `linear-gradient(135deg, hsl(${Math.random() * 360}, 70%, 50%), hsl(${Math.random() * 360}, 70%, 40%))`
+  allMedia.value.filter(m => m.type === 'music').map(m => ({
+    ...m, artist: m.genre || 'Artista', color: `hsl(${Math.random() * 360}, 70%, 40%)`
   }))
 );
 
-// --- UI State ---
-const selectedMedia = ref<any>(null);
-const showSettings = ref(false);
-const contentRef = ref<HTMLElement | null>(null);
+// Hero Logic
+const heroIndex = ref(0);
+const heroItems = [
+  { title: 'Stellar Horizon', banner: '/entertainment/posters/hero_banner.png', rating: 'PG-13', duration: '2h 46m', genre: 'Sci-Fi', year: '2026', description: 'Una odisea espacial sin precedentes.' },
+  { title: 'Shadow Protocol', banner: '/entertainment/posters/hero_banner_2.png', rating: 'R', duration: '2h 10m', genre: 'Thriller', year: '2026', description: 'Intriga global en la era digital.' }
+];
 
-const openMediaDetail = (media: any) => {
-  selectedMedia.value = media;
-};
-
-// --- Admin State ---
+// Admin State
 const activeAdminTab = ref('overview');
 const adminStats = ref({ movies: 0, series: 0, music: 0, noPoster: 0, lastAdded: [] });
 const allAdminMedia = ref<any[]>([]);
 const adminSearch = ref('');
+const libraries = ref<any[]>([]);
+const newLibPath = ref('');
+const scanning = ref(false);
+
+const fetchCatalog = async () => {
+  try {
+    const res = await axios.get('/api/entertainment/catalog');
+    allMedia.value = res.data.map((m: any) => ({
+      ...m,
+      poster: m.poster_path ? `/api/entertainment/poster/${m.id}` : '/entertainment/posters/stellar_horizon.png'
+    }));
+  } catch (err) { console.error(err); }
+};
 
 const fetchAdminData = async () => {
   try {
-    const [statsRes, mediaRes] = await Promise.all([
+    const [stats, media, libs] = await Promise.all([
       axios.get('/api/entertainment/admin/stats'),
-      axios.get('/api/entertainment/admin/media')
+      axios.get('/api/entertainment/admin/media'),
+      axios.get('/api/entertainment/admin/libraries')
     ]);
-    adminStats.value = statsRes.data;
-    allAdminMedia.value = mediaRes.data;
+    adminStats.value = stats.data;
+    allAdminMedia.value = media.data;
+    libraries.value = libs.data;
   } catch (err) { /* Not admin */ }
 };
 
 const filteredAdminMedia = computed(() => {
   if (!adminSearch.value) return allAdminMedia.value;
-  return allAdminMedia.value.filter(m => m.title.toLowerCase().includes(adminSearch.value.toLowerCase()));
+  const q = adminSearch.value.toLowerCase();
+  return allAdminMedia.value.filter(m => (m.title || '').toLowerCase().includes(q));
 });
 
+const scanLibraries = async () => {
+  scanning.value = true;
+  try {
+    const res = await axios.post('/api/entertainment/admin/scan');
+    notification.success('Escaneo listo', `${res.data.newItems} nuevos encontrados.`);
+    fetchCatalog();
+  } finally { scanning.value = false; }
+};
+
+const addLibrary = async () => {
+  if (!newLibPath.value) return;
+  try {
+    await axios.post('/api/entertainment/admin/libraries', { path: newLibPath.value, name: 'Nueva' });
+    newLibPath.value = '';
+    fetchAdminData();
+  } catch (err) { notification.error('Error', 'No se pudo añadir'); }
+};
+
+const removeLibrary = async (id: number) => {
+  try {
+    await axios.delete(`/api/entertainment/admin/libraries/${id}`);
+    fetchAdminData();
+  } catch (err) { notification.error('Error', 'No se pudo eliminar'); }
+};
+
 const deleteMedia = async (id: number) => {
-  if (!confirm('¿Eliminar este contenido del catálogo? No borrará el archivo físico.')) return;
+  if (!confirm('¿Eliminar del catálogo?')) return;
   try {
     await axios.delete(`/api/entertainment/admin/media/${id}`);
     fetchAdminData();
     fetchCatalog();
-    notification.success('Eliminado', 'Contenido borrado del catálogo');
-  } catch (err) {
-    notification.error('Error', 'No se pudo eliminar');
-  }
+  } catch (err) { notification.error('Error', 'No se pudo borrar'); }
 };
 
-const editMedia = (media: any) => {
-  notification.info('Info', 'El editor visual de metadatos se abrirá en la próxima actualización.');
+const editMedia = (media: any) => notification.info('Próximamente', 'Editor visual en desarrollo.');
+
+// Modal & Player
+const selectedMedia = ref<any>(null);
+const openMediaDetail = (m: any) => selectedMedia.value = m;
+const playMedia = (m: any) => {
+  if (!m.file_path) return notification.error('Error', 'Sin archivo');
+  desktop.playVideo(m.file_path, m.title, m.id, m.progress || 0);
+  selectedMedia.value = null;
 };
 
-// --- Lifecycle ---
+let heroTimer: any;
 onMounted(() => {
-  startHeroAutoplay();
   fetchCatalog();
-  fetchLibraries();
   fetchAdminData();
+  heroTimer = setInterval(() => heroIndex.value = (heroIndex.value + 1) % heroItems.length, 8000);
 });
-
-onUnmounted(() => {
-  clearInterval(heroTimer);
-  clearInterval(progressTimer);
-});
-
-watch(activeNav, (newNav) => {
-  if (newNav === 'admin') fetchAdminData();
-});
+onUnmounted(() => clearInterval(heroTimer));
+watch(activeNav, (val) => { if (val === 'admin') fetchAdminData(); });
 </script>
 
 <style scoped>
-/* ===== ROOT ===== */
-.eos-container {
-  display: flex;
-  width: 100%;
-  height: 100%;
-  background: #0b1120;
-  color: #e2e8f0;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  overflow: hidden;
-}
-
-/* ===== SIDEBAR ===== */
-.eos-sidebar {
-  width: 68px;
-  min-width: 68px;
-  background: rgba(8, 15, 30, 0.95);
-  border-right: 1px solid rgba(255, 255, 255, 0.05);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 1rem 0;
-  gap: 0.5rem;
-  backdrop-filter: blur(10px);
-  z-index: 10;
-}
-
-.eos-sidebar-logo {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.4rem;
-  color: #f59e0b;
-  margin-bottom: 1.5rem;
-  cursor: pointer;
-}
-
-.eos-sidebar-logo span {
-  font-size: 0.5rem;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  opacity: 0.7;
-}
-
-.eos-sidebar-nav {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  flex: 1;
-}
-
-.eos-nav-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.3rem;
-  padding: 0.65rem 0.5rem;
-  border-radius: 12px;
-  color: #64748b;
-  cursor: pointer;
-  transition: all 0.25s ease;
-  background: transparent;
-  border: none;
-  font-size: 0.6rem;
-  font-weight: 500;
-  width: 56px;
-}
-
-.eos-nav-item:hover {
-  color: #e2e8f0;
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.eos-nav-item.active {
-  color: #f59e0b;
-  background: rgba(245, 158, 11, 0.1);
-  box-shadow: inset 3px 0 0 #f59e0b;
-  border-radius: 0 12px 12px 0;
-}
-
-.eos-sidebar-footer {
-  margin-top: auto;
-}
-
-/* ===== MAIN ===== */
-.eos-main {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-/* ===== TOP BAR ===== */
-.eos-topbar {
-  height: 56px;
-  min-height: 56px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 1.5rem;
-  background: rgba(11, 17, 32, 0.8);
-  backdrop-filter: blur(15px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-  z-index: 5;
-}
-
-.eos-search-box {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 10px;
-  padding: 0.5rem 1rem;
-  width: 340px;
-  transition: all 0.3s ease;
-  color: #64748b;
-}
-
-.eos-search-box:focus-within {
-  border-color: rgba(245, 158, 11, 0.4);
-  background: rgba(255, 255, 255, 0.08);
-  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.08);
-}
-
-.eos-search-box input {
-  background: none;
-  border: none;
-  outline: none;
-  color: #e2e8f0;
-  font-size: 0.85rem;
-  width: 100%;
-}
-
-.eos-search-box input::placeholder {
-  color: #475569;
-}
-
-.eos-topbar-right {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.eos-icon-btn {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.05);
-  border: none;
-  color: #94a3b8;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.eos-icon-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: white;
-}
-
-.eos-badge {
-  position: absolute;
-  top: -3px;
-  right: -3px;
-  width: 16px;
-  height: 16px;
-  background: #ef4444;
-  border-radius: 50%;
-  font-size: 0.6rem;
-  font-weight: 700;
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.eos-user-pill {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.35rem 0.75rem 0.35rem 0.35rem;
-  border-radius: 24px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  cursor: pointer;
-  transition: all 0.2s;
-  font-size: 0.85rem;
-}
-
-.eos-user-pill:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.eos-user-avatar {
-  width: 28px;
-  height: 28px;
-  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-}
-
-/* ===== CONTENT SCROLL ===== */
-.eos-content {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
-  scroll-behavior: smooth;
-}
-
-.eos-content::-webkit-scrollbar {
-  width: 6px;
-}
-
-.eos-content::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.eos-content::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 3px;
-}
-
-/* ===== HERO CAROUSEL ===== */
-.eos-hero {
-  position: relative;
-  width: 100%;
-  height: 420px;
-  overflow: hidden;
-  border-radius: 0 0 0 0;
-}
-
-.eos-hero-slider {
-  display: flex;
-  height: 100%;
-  transition: transform 0.7s cubic-bezier(0.65, 0, 0.35, 1);
-}
-
-.eos-hero-slide {
-  min-width: 100%;
-  height: 100%;
-  background-size: cover;
-  background-position: center top;
-  position: relative;
-  display: flex;
-  align-items: flex-end;
-}
-
-.eos-hero-overlay {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(0deg, #0b1120 0%, rgba(11, 17, 32, 0.6) 40%, rgba(11, 17, 32, 0.2) 100%);
-}
-
-.eos-hero-content {
-  position: relative;
-  z-index: 2;
-  padding: 2.5rem;
-  max-width: 600px;
-}
-
-.eos-hero-title {
-  font-size: 2.5rem;
-  font-weight: 800;
-  color: white;
-  margin-bottom: 0.75rem;
-  text-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-  letter-spacing: -0.02em;
-}
-
-.eos-hero-meta {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  font-size: 0.85rem;
-  color: #94a3b8;
-  margin-bottom: 0.75rem;
-}
-
-.eos-rating-badge {
-  background: rgba(245, 158, 11, 0.2);
-  color: #f59e0b;
-  padding: 0.15rem 0.5rem;
-  border-radius: 4px;
-  font-weight: 700;
-  font-size: 0.75rem;
-  border: 1px solid rgba(245, 158, 11, 0.3);
-}
-
-.eos-hero-desc {
-  font-size: 0.9rem;
-  color: #94a3b8;
-  line-height: 1.5;
-  margin-bottom: 1.25rem;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.eos-hero-actions {
-  display: flex;
-  gap: 0.75rem;
-}
-
-.eos-btn-primary {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.65rem 1.5rem;
-  background: linear-gradient(135deg, #f59e0b, #d97706);
-  color: #0b1120;
-  font-weight: 700;
-  font-size: 0.9rem;
-  border: none;
-  border-radius: 10px;
-  cursor: pointer;
-  transition: all 0.25s ease;
-  box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);
-}
-
-.eos-btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 25px rgba(245, 158, 11, 0.45);
-}
-
-.eos-btn-secondary {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.65rem 1.5rem;
-  background: rgba(255, 255, 255, 0.1);
-  color: white;
-  font-weight: 600;
-  font-size: 0.9rem;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 10px;
-  cursor: pointer;
-  transition: all 0.25s ease;
-  backdrop-filter: blur(8px);
-}
-
-.eos-btn-secondary:hover {
-  background: rgba(255, 255, 255, 0.18);
-  transform: translateY(-2px);
-}
-
-.eos-btn-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #94a3b8;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.eos-btn-icon:hover {
-  background: rgba(255, 255, 255, 0.15);
-  color: white;
-}
-
-.eos-hero-arrow {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  background: rgba(0, 0, 0, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  color: white;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 3;
-  transition: all 0.3s ease;
-  backdrop-filter: blur(6px);
-  opacity: 0;
-}
-
-.eos-hero:hover .eos-hero-arrow {
-  opacity: 1;
-}
-
-.eos-hero-arrow:hover {
-  background: rgba(245, 158, 11, 0.3);
-  border-color: rgba(245, 158, 11, 0.5);
-  transform: translateY(-50%) scale(1.1);
-}
-
-.eos-hero-arrow.left { left: 16px; }
-.eos-hero-arrow.right { right: 16px; }
-
-.eos-hero-dots {
-  position: absolute;
-  bottom: 50px;
-  right: 2.5rem;
-  display: flex;
-  gap: 8px;
-  z-index: 3;
-}
-
-.eos-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.3);
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.eos-dot.active {
-  background: #f59e0b;
-  width: 24px;
-  border-radius: 4px;
-  box-shadow: 0 0 8px rgba(245, 158, 11, 0.5);
-}
-
-.eos-hero-progress {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: rgba(255, 255, 255, 0.08);
-  z-index: 3;
-}
-
-.eos-hero-progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #f59e0b, #fbbf24);
-  transition: width 0.05s linear;
-  border-radius: 0 2px 2px 0;
-}
-
-/* ===== MEDIA SECTIONS ===== */
-.eos-media-section {
-  padding: 1.75rem 2rem 0.5rem;
-}
-
-.eos-section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem;
-}
-
-.eos-section-header h2 {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: white;
-}
-
-.eos-see-all {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  color: #64748b;
-  font-size: 0.8rem;
-  font-weight: 500;
-  background: none;
-  border: none;
-  cursor: pointer;
-  transition: color 0.2s;
-}
-
-.eos-see-all:hover {
-  color: #f59e0b;
-}
-
-/* ===== MEDIA ROW (Horizontal Scroll) ===== */
-.eos-media-row {
-  display: flex;
-  gap: 1rem;
-  overflow-x: auto;
-  padding-bottom: 1rem;
-  scroll-snap-type: x mandatory;
-  -webkit-overflow-scrolling: touch;
-}
-
-.eos-media-row::-webkit-scrollbar {
-  height: 4px;
-}
-
-.eos-media-row::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.eos-media-row::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 2px;
-}
-
-/* ===== MEDIA CARD ===== */
-.eos-media-card {
-  min-width: 165px;
-  max-width: 165px;
-  cursor: pointer;
-  scroll-snap-align: start;
-  transition: transform 0.3s ease;
-}
-
-.eos-media-card:hover {
-  transform: translateY(-6px);
-}
-
-.eos-card-poster {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 2 / 3;
-  border-radius: 12px;
-  overflow: hidden;
-  background: #1e293b;
-}
-
-.eos-card-poster img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.4s ease;
-}
-
-.eos-media-card:hover .eos-card-poster img {
-  transform: scale(1.05);
-}
-
-.eos-card-overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
-.eos-media-card:hover .eos-card-overlay {
-  opacity: 1;
-}
-
-.eos-play-btn {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  background: rgba(245, 158, 11, 0.9);
-  border: none;
-  color: #0b1120;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: transform 0.2s;
-  box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4);
-}
-
-.eos-play-btn:hover {
-  transform: scale(1.15);
-}
-
-.eos-new-badge {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  background: linear-gradient(135deg, #22c55e, #16a34a);
-  color: white;
-  font-size: 0.6rem;
-  font-weight: 800;
-  padding: 0.2rem 0.5rem;
-  border-radius: 4px;
-  letter-spacing: 0.05em;
-  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.4);
-}
-
-.eos-card-progress {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 4px;
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.eos-card-progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #f59e0b, #fbbf24);
-  border-radius: 0 2px 2px 0;
-}
-
-.eos-card-info {
-  padding: 0.65rem 0.25rem 0;
-}
-
-.eos-card-title {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: white;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.eos-card-meta {
-  font-size: 0.72rem;
-  color: #64748b;
-  margin-top: 0.2rem;
-}
-
-/* ===== GRID SECTION (Movies/Series) ===== */
-.eos-grid-section {
-  padding: 2rem;
-}
-
-.eos-page-title {
-  font-size: 1.75rem;
-  font-weight: 800;
-  color: white;
-  margin-bottom: 1.25rem;
-}
-
-.eos-filter-bar {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-  margin-bottom: 1.5rem;
-}
-
-.eos-filter-chip {
-  padding: 0.4rem 1rem;
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: #94a3b8;
-  font-size: 0.8rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.25s ease;
-}
-
-.eos-filter-chip:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: white;
-}
-
-.eos-filter-chip.active {
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(217, 119, 6, 0.2));
-  border-color: rgba(245, 158, 11, 0.4);
-  color: #f59e0b;
-}
-
-.eos-media-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(155px, 1fr));
-  gap: 1.25rem;
-}
-
-.eos-media-grid .eos-media-card {
-  min-width: unset;
-  max-width: unset;
-}
-
-/* ===== MUSIC GRID ===== */
-.eos-music-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 1.25rem;
-}
-
-.eos-music-card {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 14px;
-  padding: 0.85rem;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.eos-music-card:hover {
-  background: rgba(255, 255, 255, 0.06);
-  transform: translateY(-4px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
-}
-
-.eos-music-cover {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 1;
-  border-radius: 10px;
-  overflow: hidden;
-  margin-bottom: 0.75rem;
-}
-
-.eos-music-cover-art {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: rgba(255, 255, 255, 0.6);
-}
-
-.eos-music-play-overlay {
-  position: absolute;
-  bottom: 8px;
-  right: 8px;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: #f59e0b;
-  color: #0b1120;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  transform: translateY(8px);
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
-}
-
-.eos-music-card:hover .eos-music-play-overlay {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.eos-music-title {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: white;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.eos-music-artist {
-  font-size: 0.75rem;
-  color: #64748b;
-  margin-top: 0.15rem;
-}
-
-/* ===== MODAL ===== */
-.eos-modal-overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(6px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-}
-
-.eos-modal {
-  width: 90%;
-  max-width: 600px;
-  max-height: 85%;
-  background: #111827;
-  border-radius: 16px;
-  overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.6);
-  display: flex;
-  flex-direction: column;
-}
-
-.eos-modal-close {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: rgba(0, 0, 0, 0.5);
-  border: none;
-  color: white;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 5;
-  transition: all 0.2s;
-}
-
-.eos-modal-close:hover {
-  background: rgba(239, 68, 68, 0.6);
-}
-
-.eos-modal-banner {
-  position: relative;
-  width: 100%;
-  height: 220px;
-  background-size: cover;
-  background-position: center;
-  display: flex;
-  align-items: flex-end;
-}
-
-.eos-modal-banner-overlay {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(0deg, #111827 0%, rgba(17, 24, 39, 0.5) 50%, transparent 100%);
-}
-
-.eos-modal-banner-content {
-  position: relative;
-  z-index: 2;
-  padding: 1.5rem;
-}
-
-.eos-modal-banner-content h2 {
-  font-size: 1.5rem;
-  font-weight: 800;
-  color: white;
-  margin-bottom: 0.5rem;
-}
-
-.eos-modal-body {
-  padding: 1.5rem;
-  overflow-y: auto;
-}
-
-.eos-modal-desc {
-  color: #94a3b8;
-  font-size: 0.9rem;
-  line-height: 1.6;
-  margin-bottom: 1.25rem;
-}
-
-.eos-modal-actions {
-  display: flex;
-  gap: 0.75rem;
-  margin-bottom: 1.5rem;
-  flex-wrap: wrap;
-}
-
-.eos-modal-details {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  padding-top: 1rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-.eos-detail-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 0.85rem;
-}
-
-.eos-detail-label {
-  color: #64748b;
-  font-weight: 500;
-}
-
-.eos-stars {
-  display: flex;
-  gap: 2px;
-  color: #334155;
-}
-
-.eos-stars .filled {
-  color: #f59e0b;
-}
-
-/* ===== SETTINGS MODAL ===== */
-.settings-modal {
-  max-width: 500px;
-}
-
-.settings-header {
-  height: 140px;
-  background: linear-gradient(135deg, #1e293b, #0f172a);
-}
-
-.settings-section {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.settings-section h3 {
-  font-size: 1rem;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: white;
-}
-
-.section-desc {
-  font-size: 0.8rem;
-  color: #64748b;
-}
-
-.lib-add-form {
-  display: flex;
-  gap: 0.5rem;
-  margin-top: 0.5rem;
-}
-
-.lib-add-form input {
-  flex: 1;
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 8px;
-  padding: 0.5rem 0.75rem;
-  color: white;
-  font-size: 0.85rem;
-}
-
-.lib-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  margin-top: 1rem;
-}
-
-.lib-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.75rem;
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.06);
-  border-radius: 10px;
-}
-
-.lib-name {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: #e2e8f0;
-}
-
-.lib-path {
-  font-size: 0.7rem;
-  color: #64748b;
-  margin-top: 0.1rem;
-}
-
-.lib-remove-btn {
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(239, 68, 68, 0.1);
-  color: #f87171;
-  border-radius: 6px;
-  border: none;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.lib-remove-btn:hover {
-  background: #ef4444;
-  color: white;
-}
-
-.lib-empty {
-  text-align: center;
-  padding: 2rem;
-  font-size: 0.8rem;
-  color: #475569;
-  border: 2px dashed rgba(255,255,255,0.05);
-  border-radius: 12px;
-}
-
-.settings-divider {
-  height: 1px;
-  background: rgba(255,255,255,0.05);
-  margin: 1.5rem 0;
-}
-
-.spinning {
-  animation: spin 1s linear infinite;
-}
-
-/* Series Episodes List in Modal */
-.eos-episodes-list {
-  margin-top: 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.eos-episodes-list h3 {
-  font-size: 0.95rem;
-  font-weight: 700;
-  color: white;
-  margin-bottom: 0.5rem;
-}
-
-.eos-episode-item {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 0.75rem;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 10px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.eos-episode-item:hover {
-  background: rgba(245, 158, 11, 0.08);
-  border-color: rgba(245, 158, 11, 0.3);
-}
-
-.eos-ep-num {
-  font-size: 0.75rem;
-  font-weight: 800;
-  color: #f59e0b;
-  min-width: 60px;
-}
-
-.eos-ep-title {
-  flex: 1;
-  font-size: 0.85rem;
-  color: #e2e8f0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.eos-ep-play {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.1);
-  border: none;
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0.5;
-}
-
-.eos-episode-item:hover .eos-ep-play {
-  background: #f59e0b;
-  color: #0b1120;
-  opacity: 1;
-}
-
-/* ===== ADMIN PANEL ===== */
-.eos-admin-container {
-  padding: 2rem;
-  background: #0f172a;
-  min-height: 100%;
-}
-
-.eos-admin-header {
-  margin-bottom: 2rem;
-}
-
-.eos-admin-header h1 {
-  font-size: 1.5rem;
-  font-weight: 800;
-  color: white;
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 1.5rem;
-}
-
-.admin-tabs {
-  display: flex;
-  gap: 1rem;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
-}
-
-.admin-tabs button {
-  padding: 0.75rem 1rem;
-  background: none;
-  border: none;
-  border-bottom: 2px solid transparent;
-  color: #64748b;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.admin-tabs button.active {
-  color: #f59e0b;
-  border-bottom-color: #f59e0b;
-}
-
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1.5rem;
-  margin-bottom: 2rem;
-}
-
-.stat-card {
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.05);
-  border-radius: 16px;
-  padding: 1.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  color: #94a3b8;
-}
-
-.stat-card.warning {
-  border-color: rgba(239, 68, 68, 0.3);
-  background: rgba(239, 68, 68, 0.05);
-  color: #f87171;
-}
-
-.stat-val {
-  font-size: 2rem;
-  font-weight: 900;
-  color: white;
-}
-
-.stat-label {
-  font-size: 0.8rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.admin-section-card {
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.05);
-  border-radius: 16px;
-  padding: 1.5rem;
-}
-
-.admin-section-card h3 {
-  font-size: 1rem;
-  margin-bottom: 1rem;
-  color: white;
-}
-
-.last-added-item {
-  padding: 0.5rem 0;
-  border-bottom: 1px solid rgba(255,255,255,0.03);
-  font-size: 0.85rem;
-  color: #cbd5e1;
-}
-
-.eos-scroll-table {
-  overflow-x: auto;
-  background: rgba(255,255,255,0.02);
-  border-radius: 12px;
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-th, td {
-  padding: 1rem;
-  text-align: left;
-  border-bottom: 1px solid rgba(255,255,255,0.03);
-  font-size: 0.85rem;
-}
-
-th {
-  background: rgba(255,255,255,0.05);
-  color: #94a3b8;
-  font-weight: 600;
-}
-
-.type-badge {
-  padding: 0.2rem 0.5rem;
-  background: rgba(245, 158, 11, 0.1);
-  color: #f59e0b;
-  border-radius: 4px;
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  font-weight: 700;
-}
-
-.table-btns {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.btn-edit, .btn-del {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.btn-edit { background: rgba(59, 130, 246, 0.1); color: #60a5fa; }
-.btn-del { background: rgba(239, 68, 68, 0.1); color: #f87171; }
-
-.btn-edit:hover { background: #3b82f6; color: white; }
-.btn-del:hover { background: #ef4444; color: white; }
-
-.mt-2 { margin-top: 2rem; }
+.eos-container { display: flex; width: 100%; height: 100%; background: #0b1120; color: #e2e8f0; font-family: 'Inter', sans-serif; overflow: hidden; }
+.eos-sidebar { width: 70px; background: rgba(8, 15, 30, 0.95); border-right: 1px solid rgba(255, 255, 255, 0.05); display: flex; flex-direction: column; align-items: center; padding: 1rem 0; z-index: 10; }
+.eos-sidebar-logo { color: #f59e0b; margin-bottom: 2rem; display: flex; flex-direction: column; align-items: center; font-size: 0.5rem; gap: 4px; }
+.eos-nav-item { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 0.75rem 0.5rem; color: #64748b; background: none; border: none; cursor: pointer; font-size: 0.6rem; transition: all 0.2s; width: 60px; }
+.eos-nav-item.active { color: #f59e0b; background: rgba(245, 158, 11, 0.1); border-radius: 12px; }
+.eos-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.eos-topbar { height: 60px; display: flex; align-items: center; justify-content: space-between; padding: 0 2rem; background: rgba(11, 17, 32, 0.8); backdrop-filter: blur(10px); border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
+.eos-search-box { display: flex; align-items: center; gap: 0.5rem; background: rgba(255, 255, 255, 0.05); border-radius: 8px; padding: 0.5rem 1rem; width: 300px; }
+.eos-search-box input { background: none; border: none; color: white; outline: none; font-size: 0.85rem; width: 100%; }
+.eos-user-pill { display: flex; align-items: center; gap: 0.5rem; background: rgba(255, 255, 255, 0.05); padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.8rem; }
+.eos-content { flex: 1; overflow-y: auto; padding-bottom: 3rem; }
+.eos-hero { position: relative; height: 400px; overflow: hidden; }
+.eos-hero-slider { display: flex; height: 100%; transition: transform 0.6s ease; }
+.eos-hero-slide { min-width: 100%; background-size: cover; background-position: center; position: relative; display: flex; align-items: flex-end; padding: 3rem; }
+.eos-hero-overlay { position: absolute; inset: 0; background: linear-gradient(0deg, #0b1120 0%, transparent 100%); }
+.eos-hero-content { position: relative; z-index: 2; max-width: 500px; }
+.eos-hero-title { font-size: 2.5rem; font-weight: 800; margin-bottom: 0.5rem; }
+.eos-hero-meta { display: flex; gap: 1rem; font-size: 0.8rem; color: #94a3b8; margin-bottom: 1rem; }
+.eos-rating-badge { background: #f59e0b; color: #0b1120; padding: 2px 6px; border-radius: 4px; font-weight: 800; }
+.eos-hero-arrow { position: absolute; top: 50%; width: 40px; height: 40px; background: rgba(0,0,0,0.5); border: none; color: white; border-radius: 50%; cursor: pointer; z-index: 5; }
+.eos-hero-arrow.left { left: 20px; } .eos-hero-arrow.right { right: 20px; }
+.eos-media-section { padding: 2rem 2rem 0; }
+.eos-media-row { display: flex; gap: 1rem; overflow-x: auto; padding-bottom: 1rem; }
+.eos-media-card { min-width: 160px; max-width: 160px; transition: transform 0.3s; cursor: pointer; }
+.eos-media-card:hover { transform: scale(1.05); }
+.eos-card-poster { position: relative; aspect-ratio: 2/3; border-radius: 12px; overflow: hidden; background: #1e293b; }
+.eos-card-poster img { width: 100%; height: 100%; object-fit: cover; }
+.eos-card-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; opacity: 0; transition: 0.3s; }
+.eos-media-card:hover .eos-card-overlay { opacity: 1; }
+.eos-new-badge { position: absolute; top: 8px; right: 8px; background: #22c55e; color: white; font-size: 0.6rem; padding: 2px 6px; border-radius: 4px; font-weight: 800; }
+.eos-card-info { margin-top: 0.5rem; font-size: 0.85rem; }
+.eos-card-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.eos-card-meta { color: #64748b; font-size: 0.75rem; }
+.eos-media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 1.5rem; }
+.eos-music-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 1.5rem; padding: 2rem; }
+.eos-music-card { background: rgba(255,255,255,0.03); padding: 1rem; border-radius: 12px; text-align: center; }
+.eos-music-cover { aspect-ratio: 1; background: #1e293b; border-radius: 8px; margin-bottom: 0.5rem; display: flex; align-items: center; justify-content: center; }
+.eos-admin-container { padding: 2rem; }
+.admin-tabs { display: flex; gap: 1rem; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 2rem; }
+.admin-tabs button { padding: 0.5rem 1rem; background: none; border: none; color: #64748b; cursor: pointer; border-bottom: 2px solid transparent; }
+.admin-tabs button.active { color: #f59e0b; border-bottom-color: #f59e0b; }
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; }
+.stat-card { background: rgba(255,255,255,0.03); padding: 1.5rem; border-radius: 12px; }
+.stat-val { font-size: 1.5rem; font-weight: 800; }
+.eos-scroll-table { overflow-x: auto; margin-top: 1rem; }
+table { width: 100%; border-collapse: collapse; }
+th, td { padding: 1rem; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 0.8rem; }
+.type-badge { background: rgba(245, 158, 11, 0.1); color: #f59e0b; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; }
+.table-btns { display: flex; gap: 4px; } .table-btns button { padding: 4px; border: none; border-radius: 4px; cursor: pointer; }
+.eos-modal-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); display: flex; align-items: center; justify-content: center; z-index: 100; }
+.eos-modal { width: 90%; max-width: 600px; background: #111827; border-radius: 20px; overflow: hidden; }
+.eos-modal-banner { height: 250px; background-size: cover; display: flex; align-items: flex-end; padding: 2rem; position: relative; }
+.eos-modal-body { padding: 2rem; } .eos-modal-desc { color: #94a3b8; font-size: 0.9rem; margin-bottom: 1.5rem; }
+.eos-episodes-list { display: flex; flex-direction: column; gap: 8px; margin-top: 1rem; }
+.eos-episode-item { display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.05); padding: 0.75rem; border-radius: 10px; cursor: pointer; }
+.modal-fade-enter-active, .modal-fade-leave-active { transition: opacity 0.3s; }
+.modal-fade-enter-from, .modal-fade-leave-to { opacity: 0; }
+.spinning { animation: spin 1s linear infinite; }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 </style>
