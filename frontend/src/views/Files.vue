@@ -10,7 +10,7 @@ import {
   Download, X, Copy, Scissors, Edit2, Info, ClipboardPaste,
   Search, ArrowLeft, ArrowRight, Layout, 
   ChevronDown, HardDrive, Clock, Star,
-  FileSearch, Table, SortAsc, RotateCcw
+  FileSearch, Table, SortAsc, RotateCcw, Film
 } from 'lucide-vue-next';
 
 const fileStore = useFileStore();
@@ -314,6 +314,9 @@ const currentItemMetadata = computed(() => {
         <header>Acceso rápido</header>
         <button class="nav-item" :class="{ active: fileStore.currentPath === '' }" @click="navigateTo('')">
           <HardDrive :size="16" /> <span>Este equipo</span>
+        </button>
+        <button class="nav-item" :class="{ active: fileStore.currentPath === 'Multimedia' || fileStore.currentPath.startsWith('Multimedia/') }" @click="navigateTo('Multimedia')">
+          <Film :size="16" color="#f43f5e" /> <span>Multimedia</span>
         </button>
         <button class="nav-item">
           <Star :size="16" /> <span>Favoritos</span>

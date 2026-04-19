@@ -39,9 +39,26 @@ router.get('/list', authMiddleware, (req, res) => {
         isDirectory: item.isDirectory(),
         size: stats.size,
         modified: stats.mtime,
-        extension: path.extname(item.name).toLowerCase()
+        extension: path.extname(item.name).toLowerCase(),
+        relativePath: relPath ? `${relPath}/${item.name}` : item.name
       };
     });
+
+    // Inject Virtual Multimedia Folder if at root
+    if (relPath === '') {
+      const { MULTIMEDIA_DIR } = require('../utils/fileHelper');
+      if (fs.existsSync(MULTIMEDIA_DIR)) {
+        const mStats = fs.statSync(MULTIMEDIA_DIR);
+        result.unshift({
+          name: 'Multimedia',
+          isDirectory: true,
+          size: mStats.size,
+          modified: mStats.mtime,
+          extension: '',
+          relativePath: 'Multimedia'
+        });
+      }
+    }
 
     res.json({
       currentPath: relPath,

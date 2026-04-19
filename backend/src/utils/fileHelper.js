@@ -2,6 +2,7 @@ const path = require('path');
 const fs = require('fs');
 
 const DATA_DIR = path.resolve(__dirname, '../../../data/users');
+const MULTIMEDIA_DIR = path.resolve(__dirname, '../../../data/multimedia');
 
 const getUserRoot = (username) => {
   const userPath = path.join(DATA_DIR, username);
@@ -12,6 +13,18 @@ const getUserRoot = (username) => {
 };
 
 const getSafePath = (username, requestedPath = '') => {
+  // Handle Global Multimedia Library
+  if (requestedPath === 'Multimedia' || requestedPath.startsWith('Multimedia/')) {
+    const internalPath = requestedPath === 'Multimedia' ? '' : requestedPath.replace('Multimedia/', '');
+    const fullPath = path.resolve(MULTIMEDIA_DIR, internalPath);
+    
+    // Security check: ensure the path is within the multimedia directory
+    if (!fullPath.startsWith(MULTIMEDIA_DIR)) {
+      throw new Error('Acceso denegado: Intento de escape de directorio multimedia.');
+    }
+    return fullPath;
+  }
+
   const root = getUserRoot(username);
   
   // Allow access to /media/nubeos for external drives
