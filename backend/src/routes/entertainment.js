@@ -7,7 +7,7 @@ const { authMiddleware } = require('../middleware/auth');
 const { getSafePath } = require('../utils/fileHelper');
 const tmdbService = require('../services/tmdbService');
 const nfoService = require('../services/nfoService');
-const { downloadImage } = require('../utils/imageDownloader');
+const { downloadImage, downloadImageToMediaDir } = require('../utils/imageDownloader');
 
 const NUBEOS_ROOT = path.resolve(__dirname, '../../../..');
 
@@ -93,9 +93,9 @@ const processFile = async (filePath, lib) => {
       description = tmdbData.description; 
       rating = tmdbData.rating;
       tmdb_id = tmdbData.tmdbId;
-      const timestamp = Date.now();
-      posterPath = await downloadImage(tmdbData.posterPath, `poster_${timestamp}_${Math.random().toString(36).substring(7)}`);
-      bannerPath = await downloadImage(tmdbData.bannerPath, `banner_${timestamp}_${Math.random().toString(36).substring(7)}`);
+      // Download images to the same folder as the video file
+      posterPath = await downloadImageToMediaDir(tmdbData.posterPath, filePath, 'poster');
+      bannerPath = await downloadImageToMediaDir(tmdbData.bannerPath, filePath, 'fanart');
     }
   }
   
@@ -498,10 +498,15 @@ router.post('/admin/media/identify', authMiddleware, async (req, res) => {
     const tmdbData = await tmdbService.getMediaDetails(tmdbId, type || 'movie');
     if (!tmdbData) return res.status(404).json({ error: 'No se encontraron datos en TMDB' });
 
-    // Download images locally
-    const timestamp = Date.now();
-    const posterPath = await downloadImage(tmdbData.posterPath, `poster_man_${mediaId}_${timestamp}`);
-    const bannerPath = await downloadImage(tmdbData.bannerPath, `banner_man_${mediaId}_${timestamp}`);
+    // Download images to the same folder as the video file
+    const media = db.prepare('SELECT file_path FROM eo_media WHERE id = ?').get(mediaId);
+    const videoFilePath = media ? media.file_path : null;
+    let posterPath = null;
+    let bannerPath = null;
+    if (videoFilePath) {
+      posterPath = await downloadImageToMediaDir(tmdbData.posterPath, videoFilePath, 'poster');
+      bannerPath = await downloadImageToMediaDir(tmdbData.bannerPath, videoFilePath, 'fanart');
+    }
 
     // Update with ALL enhanced metadata
     db.prepare(`
@@ -583,9 +588,9 @@ router.post('/admin/media/bulk-identify', authMiddleware, async (req, res) => {
         const fullData = await tmdbService.getMediaDetails(searchResult.tmdbId, media.type);
         if (!fullData) { failed++; continue; }
 
-        const timestamp = Date.now();
-        const posterPath = await downloadImage(fullData.posterPath, `poster_bulk_${media.id}_${timestamp}`);
-        const bannerPath = await downloadImage(fullData.bannerPath, `banner_bulk_${media.id}_${timestamp}`);
+        // Download images to the same folder as the video file
+        const posterPath = await downloadImageToMediaDir(fullData.posterPath, media.file_path, 'poster');
+        const bannerPath = await downloadImageToMediaDir(fullData.bannerPath, media.file_path, 'fanart');
 
         db.prepare(`
           UPDATE eo_media 
