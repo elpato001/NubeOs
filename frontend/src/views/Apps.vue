@@ -26,6 +26,7 @@ interface StoreApp {
   ports: Record<string, number>;
   webPort?: number;
   webPath?: string;
+  webProtocol?: string;
   container?: any;
 }
 
@@ -164,7 +165,8 @@ const openAppUrl = (app: StoreApp) => {
   if (!app.webPort) return;
   const host = window.location.hostname;
   const path = app.webPath || '';
-  window.open(`http://${host}:${app.webPort}${path}`, '_blank');
+  const protocol = app.webProtocol || 'http';
+  window.open(`${protocol}://${host}:${app.webPort}${path}`, '_blank');
 };
 </script>
 

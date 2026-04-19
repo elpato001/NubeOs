@@ -192,7 +192,8 @@ const getAvailableApps = () => {
         PGID: '1000',
         TZ: 'America/Santiago'
       },
-      webPort: 3100
+      webPort: 3101,
+      webProtocol: 'https'
     },
 
     // ── Productividad ──
