@@ -1202,7 +1202,7 @@ const identifyItem = async (tmdbId: number) => {
   if (!identifyingMedia.value) return;
   loading.value = true;
   try {
-    const res = await axios.post('/api/entertainment/media/identify', {
+    const res = await axios.post('/api/entertainment/admin/media/identify', {
       mediaId: identifyingMedia.value.id,
       tmdbId,
       type: identifyingMedia.value.type
