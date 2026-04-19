@@ -584,9 +584,11 @@ import {
 import axios from 'axios';
 import { useDesktopStore } from '../stores/desktop';
 import { useNotificationStore } from '../stores/notification';
+import { useAuthStore } from '../stores/auth';
 
 const desktop = useDesktopStore();
 const notification = useNotificationStore();
+const auth = useAuthStore();
 
 // UI State
 const activeNav = ref('home');
@@ -600,7 +602,7 @@ const selectedLibType = ref('movie');
 const selectedMedia = ref<any>(null);
 const tmdbKey = ref('');
 const configData = ref<any>({});
-const isAdmin = computed(() => true); // Simplificado para este contexto
+const isAdmin = computed(() => auth.isAdmin);
 
 // IPTV State
 const iptvLists = ref<any[]>([]);
@@ -630,6 +632,7 @@ const navItems = [
 
 // Data State
 const allMedia = ref<any[]>([]);
+const allAdminMedia = ref<any[]>([]);
 const libraries = ref<any[]>([]);
 const adminStats = ref({ movies: 0, series: 0, music: 0, noPoster: 0, lastAdded: [] });
 
@@ -675,8 +678,6 @@ const filteredAdminMedia = computed(() => {
   const q = adminSearch.value.toLowerCase();
   return allAdminMedia.value.filter(m => (m.title || '').toLowerCase().includes(q));
 });
-
-const allAdminMedia = ref<any[]>([]);
 
 // Hero Data
 const heroIndex = ref(0);
@@ -731,7 +732,7 @@ const selectIptvList = async (list: any) => {
   try {
     const res = await axios.get(`/api/entertainment/iptv/parse/${list.id}`);
     parsedIptvData.value = res.data;
-    if (res.data.categories.length > 0) {
+    if (res.data?.categories?.length > 0) {
       selectedIptvCat.value = res.data.categories[0];
     }
   } catch (err) {
@@ -766,7 +767,8 @@ const deleteIptvList = async (id: number) => {
 };
 
 const playIptv = (ch: any) => {
-  desktop.playVideo(ch.url, ch.name, 'iptv-' + ch.name, 0);
+  // We pass undefined as the 3rd argument (mediaId) because IPTV channels are not in the 'eo_media' DB table
+  desktop.playVideo(ch.url, ch.name, undefined, 0);
 };
 
 const fetchConfig = async () => {
@@ -962,7 +964,6 @@ th, td { padding: 1rem; text-align: left; border-bottom: 1px solid rgba(255,255,
 .eos-episode-item { display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.05); padding: 0.75rem; border-radius: 10px; cursor: pointer; }
 .modal-fade-enter-active, .modal-fade-leave-active { transition: opacity 0.3s; }
 .modal-fade-enter-from, .modal-fade-leave-to { opacity: 0; }
-.mt-4 { margin-top: 1rem; }
 .mt-4 { margin-top: 1rem; }
 .ml-auto { margin-left: auto; }
 
