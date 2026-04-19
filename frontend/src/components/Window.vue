@@ -58,13 +58,15 @@ const onDragEnd = () => {
 };
 
 // --- Resize logic ---
-const isResizing = ref<'br' | 'b' | 'r' | null>(null);
+const isResizing = ref<'t' | 'b' | 'l' | 'r' | 'tl' | 'tr' | 'bl' | 'br' | null>(null);
 let resizeStartWidth = 0;
 let resizeStartHeight = 0;
 let resizeStartX = 0;
 let resizeStartY = 0;
+let resizeStartXPos = 0;
+let resizeStartYPos = 0;
 
-const onResizeStart = (type: 'br' | 'b' | 'r', e: MouseEvent) => {
+const onResizeStart = (type: 't' | 'b' | 'l' | 'r' | 'tl' | 'tr' | 'bl' | 'br', e: MouseEvent) => {
   if (win.isMaximized) return;
   e.preventDefault();
   e.stopPropagation();
@@ -74,6 +76,8 @@ const onResizeStart = (type: 'br' | 'b' | 'r', e: MouseEvent) => {
   resizeStartHeight = win.height;
   resizeStartX = e.clientX;
   resizeStartY = e.clientY;
+  resizeStartXPos = win.x;
+  resizeStartYPos = win.y;
 
   document.addEventListener('mousemove', onResizeMove);
   document.addEventListener('mouseup', onResizeEnd);
@@ -87,15 +91,39 @@ const onResizeMove = (e: MouseEvent) => {
 
   let newWidth = resizeStartWidth;
   let newHeight = resizeStartHeight;
+  let newX = win.x;
+  let newY = win.y;
 
-  if (isResizing.value === 'r' || isResizing.value === 'br') {
+  // Handle Horizontal
+  if (['r', 'tr', 'br'].includes(isResizing.value)) {
     newWidth = Math.max(300, resizeStartWidth + deltaX);
+  } else if (['l', 'tl', 'bl'].includes(isResizing.value)) {
+    const potentialWidth = resizeStartWidth - deltaX;
+    if (potentialWidth > 300) {
+      newWidth = potentialWidth;
+      newX = resizeStartXPos + deltaX;
+    }
   }
-  if (isResizing.value === 'b' || isResizing.value === 'br') {
+
+  // Handle Vertical
+  if (['b', 'bl', 'br'].includes(isResizing.value)) {
     newHeight = Math.max(200, resizeStartHeight + deltaY);
+  } else if (['t', 'tl', 'tr'].includes(isResizing.value)) {
+    const potentialHeight = resizeStartHeight - deltaY;
+    if (potentialHeight > 200) {
+      newHeight = potentialHeight;
+      newY = resizeStartYPos + deltaY;
+    }
   }
 
   desktop.resizeWindow(props.appId, newWidth, newHeight);
+  desktop.moveWindow(props.appId, newX, newY);
+};
+
+const onResizeEnd = () => {
+  isResizing.value = null;
+  document.removeEventListener('mousemove', onResizeMove);
+  document.removeEventListener('mouseup', onResizeEnd);
 };
 
 const onResizeEnd = () => {
@@ -139,9 +167,16 @@ onUnmounted(() => {
     </div>
 
     <!-- Resizing handles -->
-    <div v-if="!win.isMaximized" class="resize-handle r" @mousedown="onResizeStart('r', $event)"></div>
-    <div v-if="!win.isMaximized" class="resize-handle b" @mousedown="onResizeStart('b', $event)"></div>
-    <div v-if="!win.isMaximized" class="resize-handle br" @mousedown="onResizeStart('br', $event)"></div>
+    <template v-if="!win.isMaximized">
+      <div class="resize-handle t" @mousedown="onResizeStart('t', $event)"></div>
+      <div class="resize-handle b" @mousedown="onResizeStart('b', $event)"></div>
+      <div class="resize-handle l" @mousedown="onResizeStart('l', $event)"></div>
+      <div class="resize-handle r" @mousedown="onResizeStart('r', $event)"></div>
+      <div class="resize-handle tl" @mousedown="onResizeStart('tl', $event)"></div>
+      <div class="resize-handle tr" @mousedown="onResizeStart('tr', $event)"></div>
+      <div class="resize-handle bl" @mousedown="onResizeStart('bl', $event)"></div>
+      <div class="resize-handle br" @mousedown="onResizeStart('br', $event)"></div>
+    </template>
   </div>
 </template>
 
@@ -243,16 +278,40 @@ onUnmounted(() => {
   z-index: 100;
   background: transparent;
 }
-.resize-handle.r {
-  top: 0; right: 0; width: 6px; height: 100%;
-  cursor: ew-resize;
-}
-.resize-handle.b {
-  bottom: 0; left: 0; width: 100%; height: 6px;
+.resize-handle.t {
+  top: 0; left: 0; width: 100%; height: 4px;
   cursor: ns-resize;
 }
-.resize-handle.br {
-  bottom: 0; right: 0; width: 12px; height: 12px;
+.resize-handle.b {
+  bottom: 0; left: 0; width: 100%; height: 4px;
+  cursor: ns-resize;
+}
+.resize-handle.l {
+  top: 0; left: 0; width: 4px; height: 100%;
+  cursor: ew-resize;
+}
+.resize-handle.r {
+  top: 0; right: 0; width: 4px; height: 100%;
+  cursor: ew-resize;
+}
+.resize-handle.tl {
+  top: 0; left: 0; width: 10px; height: 10px;
   cursor: nwse-resize;
+  z-index: 101;
+}
+.resize-handle.tr {
+  top: 0; right: 0; width: 10px; height: 10px;
+  cursor: nesw-resize;
+  z-index: 101;
+}
+.resize-handle.bl {
+  bottom: 0; left: 0; width: 10px; height: 10px;
+  cursor: nesw-resize;
+  z-index: 101;
+}
+.resize-handle.br {
+  bottom: 0; right: 0; width: 10px; height: 10px;
+  cursor: nwse-resize;
+  z-index: 101;
 }
 </style>
