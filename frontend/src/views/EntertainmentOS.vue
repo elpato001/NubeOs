@@ -345,7 +345,7 @@
                         <tbody>
                           <tr v-for="m in filteredAdminMedia" :key="'admmedia-'+m.id">
                             <td class="td-poster">
-                              <div class="mini-poster" :style="{ backgroundImage: `url(${m.poster_path ? '/api/entertainment/poster/' + m.id : '/entertainment/posters/stellar_horizon.png'})` }"></div>
+                              <div class="mini-poster" :style="{ backgroundImage: `url(${m.poster_path ? '/api/entertainment/poster/' + m.id + '?token=' + token : '/entertainment/posters/stellar_horizon.png'})` }"></div>
                             </td>
                             <td>
                               <div class="media-title-stack">
@@ -421,7 +421,7 @@
                             <tbody>
                               <tr v-for="m in filteredLibraryMedia" :key="'libmedia-'+m.id">
                                 <td class="td-poster">
-                                  <div class="mini-poster" :style="{ backgroundImage: `url(${m.poster_path ? '/api/entertainment/poster/' + m.id : '/entertainment/posters/stellar_horizon.png'})` }"></div>
+                                  <div class="mini-poster" :style="{ backgroundImage: `url(${m.poster_path ? '/api/entertainment/poster/' + m.id + '?token=' + token : '/entertainment/posters/stellar_horizon.png'})` }"></div>
                                 </td>
                                 <td>
                                   <div class="media-title-stack">
@@ -759,6 +759,7 @@ import { useAuthStore } from '../stores/auth';
 const desktop = useDesktopStore();
 const notification = useNotificationStore();
 const auth = useAuthStore();
+const token = localStorage.getItem('nubeos_token');
 
 // UI State
 const activeNav = ref('home');
@@ -901,7 +902,7 @@ const fetchCatalog = async () => {
     const res = await axios.get('/api/entertainment/catalog');
     allMedia.value = res.data.map((m: any) => ({
       ...m,
-      poster: m.poster_path ? `/api/entertainment/poster/${m.id}` : '/entertainment/posters/stellar_horizon.png'
+      poster: m.poster_path ? `/api/entertainment/poster/${m.id}?token=${token}` : '/entertainment/posters/stellar_horizon.png'
     }));
   } catch (err) {
     notification.error('Error', 'No se pudo cargar el catálogo');
