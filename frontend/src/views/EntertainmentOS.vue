@@ -378,7 +378,7 @@
               </div>
               <template v-else>
                 <!-- Parent Directory -->
-                <div v-if="currentBrowserPath !== browserParent" 
+                <div v-if="!isBrowserRoot && browserParent" 
                      class="browser-item parent" @click="fetchFsDir(browserParent)">
                   <Folder :size="18" />
                   <span>.. (Subir nivel)</span>
@@ -435,6 +435,7 @@ const showFolderPicker = ref(false);
 const currentBrowserPath = ref('');
 const browserFolders = ref<any[]>([]);
 const browserParent = ref('');
+const isBrowserRoot = ref(false);
 const browsingLoading = ref(false);
 
 const navItems = [
@@ -582,6 +583,7 @@ const editMedia = (media: any) => notification.info('Próximamente', 'Editor vis
 // Folder Browsing
 const openFolderPicker = () => {
   showFolderPicker.value = true;
+  // If no path defined, let backend decide (it will use NUBEOS_ROOT)
   fetchFsDir(currentBrowserPath.value || '');
 };
 
@@ -592,6 +594,7 @@ const fetchFsDir = async (path: string) => {
     browserFolders.value = res.data.folders;
     currentBrowserPath.value = res.data.currentPath;
     browserParent.value = res.data.parentPath;
+    isBrowserRoot.value = res.data.isRoot;
   } catch (err) {
     notification.error('Error', 'No se pudo leer el directorio');
   } finally {

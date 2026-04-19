@@ -6,6 +6,8 @@ const db = require('../config/db');
 const { authMiddleware } = require('../middleware/auth');
 const { getSafePath } = require('../utils/fileHelper');
 
+const NUBEOS_ROOT = path.resolve(__dirname, '../../../..');
+
 // 1. Get Catalog (Media + User Progress)
 router.get('/catalog', authMiddleware, (req, res) => {
   try {
@@ -296,27 +298,31 @@ router.delete('/admin/media/:id', authMiddleware, (req, res) => {
 router.get('/admin/browse-fs', authMiddleware, (req, res) => {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' });
   try {
-    // En Linux empezamos en / , en Windows detectamos la raíz del sistema o permitimos especificar.
-    // Usamos path.resolve para normalizar la ruta
-    const targetPath = req.query.path || (process.platform === 'win32' ? 'C:/' : '/');
+    let requestedPath = req.query.path || NUBEOS_ROOT;
+    let currentPath = path.resolve(requestedPath);
     
-    if (!fs.existsSync(targetPath)) {
-      return res.status(404).json({ error: 'Ruta no encontrada' });
+    if (!currentPath.startsWith(NUBEOS_ROOT)) {
+      currentPath = NUBEOS_ROOT;
     }
 
-    const items = fs.readdirSync(targetPath, { withFileTypes: true });
+    if (!fs.existsSync(currentPath)) {
+      currentPath = NUBEOS_ROOT;
+    }
+
+    const items = fs.readdirSync(currentPath, { withFileTypes: true });
     const folders = items
       .filter(item => item.isDirectory())
       .map(item => ({
         name: item.name,
-        path: path.join(targetPath, item.name).replace(/\\/g, '/')
+        path: path.join(currentPath, item.name).replace(/\\/g, '/')
       }))
       .sort((a, b) => a.name.localeCompare(b.name));
 
     res.json({
-      currentPath: targetPath.replace(/\\/g, '/'),
-      parentPath: path.dirname(targetPath).replace(/\\/g, '/'),
-      folders
+      currentPath: currentPath.replace(/\\/g, '/'),
+      parentPath: currentPath === NUBEOS_ROOT ? null : path.dirname(currentPath).replace(/\\/g, '/'),
+      folders,
+      isRoot: currentPath === NUBEOS_ROOT
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
