@@ -857,6 +857,9 @@ const tmdbSearchQuery = ref('');
 const tmdbSearchResults = ref<any[]>([]);
 const tmdbSearchLoading = ref(false);
 
+const cacheNonce = ref(Date.now());
+const updateCacheNonce = () => cacheNonce.value = Date.now();
+
 // Edit Modal State
 const showEditModal = ref(false);
 const editingMedia = ref<any>(null);
@@ -959,7 +962,7 @@ const fetchCatalog = async () => {
     const res = await axios.get('/api/entertainment/catalog');
     allMedia.value = res.data.map((m: any) => ({
       ...m,
-      poster: m.poster_path ? `/api/entertainment/poster/${m.id}?token=${token}` : '/entertainment/posters/stellar_horizon.png'
+      poster: m.poster_path ? `/api/entertainment/poster/${m.id}?token=${token}&v=${cacheNonce.value}` : '/entertainment/posters/stellar_horizon.png'
     }));
   } catch (err) {
     notification.error('Error', 'No se pudo cargar el catálogo');
@@ -969,6 +972,7 @@ const fetchCatalog = async () => {
 };
 
 const fetchAdminData = async () => {
+  updateCacheNonce();
   try {
     const [stats, media, libs] = await Promise.all([
       axios.get('/api/entertainment/admin/stats'),
@@ -1243,6 +1247,7 @@ const saveMediaEdit = async () => {
   try {
     await axios.put(`/api/entertainment/admin/media/${editingMedia.value.id}`, editingMedia.value);
     notification.success('Actualizado', 'La información se ha guardado.');
+    updateCacheNonce();
     showEditModal.value = false;
     fetchCatalog();
     fetchAdminData();
@@ -1310,6 +1315,7 @@ const identifyItem = async (tmdbId: number) => {
       type: identifyingMedia.value.type
     });
     notification.success('Identificado', 'Metadatos actualizados correctamente.');
+    updateCacheNonce();
     showIdentifyModal.value = false;
     
     // Refresh lists
@@ -1369,6 +1375,13 @@ const getLibIcon = (name: string) => {
 const prevHero = () => heroIndex.value = (heroIndex.value - 1 + heroItems.value.length) % heroItems.value.length;
 const nextHero = () => heroIndex.value = (heroIndex.value + 1) % heroItems.value.length;
 
+const featuredBanners = computed(() => {
+  return heroItems.value.map(item => ({
+    ...item,
+    bannerUrl: item.banner.includes('v=') ? item.banner : `${item.banner}&v=${cacheNonce.value}`
+  }));
+});
+
 // Lifecycle
 let heroTimer: any;
 onMounted(() => {
@@ -1400,7 +1413,7 @@ watch(activeNav, (val) => {
 .eos-loading-screen { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #0b1120; z-index: 20; color: #64748b; gap: 1rem; }
 .eos-hero { position: relative; height: 400px; overflow: hidden; }
 .eos-hero-slider { display: flex; height: 100%; transition: transform 0.6s ease; }
-.eos-hero-slide { min-width: 100%; background-size: cover; background-position: center top; position: relative; display: flex; align-items: flex-end; padding: 3rem; }
+.eos-hero-slide { min-width: 100%; background-size: cover; background-position: center 25%; position: relative; display: flex; align-items: flex-end; padding: 3rem; }
 .eos-hero-overlay { position: absolute; inset: 0; background: linear-gradient(0deg, #0b1120 0%, transparent 100%); }
 .eos-hero-content { position: relative; z-index: 2; max-width: 500px; }
 .eos-hero-title { font-size: 2.5rem; font-weight: 800; margin-bottom: 0.5rem; }
