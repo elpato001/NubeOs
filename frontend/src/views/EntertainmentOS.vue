@@ -890,10 +890,27 @@ const filteredLibraryMedia = computed(() => {
 
 // Hero Data
 const heroIndex = ref(0);
-const heroItems = [
-  { title: 'Stellar Horizon', banner: '/entertainment/posters/hero_banner.png', rating: 'PG-13', duration: '2h 46m', genre: 'Sci-Fi', year: '2026', description: 'Una odisea espacial sin precedentes.' },
-  { title: 'Shadow Protocol', banner: '/entertainment/posters/hero_banner_2.png', rating: 'R', duration: '2h 10m', genre: 'Thriller', year: '2026', description: 'Intriga global en la era digital.' }
-];
+const heroItems = computed(() => {
+  // Get up to 5 movies that have a banner
+  const featured = allMedia.value
+    .filter(m => m.type === 'movie' && m.banner_path)
+    .sort((a, b) => b.id - a.id)
+    .slice(0, 5)
+    .map(m => ({
+      ...m,
+      banner: `/api/entertainment/banner/${m.id}?token=${token}`,
+      duration: '2h 15m' // Placeholder for now
+    }));
+
+  // Fallback if no banners identified yet
+  if (featured.length === 0) {
+    return [
+      { title: 'Stellar Horizon', banner: '/entertainment/posters/hero_banner.png', rating: 'PG-13', duration: '2h 46m', genre: 'Sci-Fi', year: '2026', description: 'Una odisea espacial sin precedentes.' },
+      { title: 'Shadow Protocol', banner: '/entertainment/posters/hero_banner_2.png', rating: 'R', duration: '2h 10m', genre: 'Thriller', year: '2026', description: 'Intriga global en la era digital.' }
+    ];
+  }
+  return featured;
+});
 
 // Methods
 const fetchCatalog = async () => {
@@ -1265,8 +1282,8 @@ const getLibIcon = (name: string) => {
   return Folder;
 };
 
-const prevHero = () => heroIndex.value = (heroIndex.value - 1 + heroItems.length) % heroItems.length;
-const nextHero = () => heroIndex.value = (heroIndex.value + 1) % heroItems.length;
+const prevHero = () => heroIndex.value = (heroIndex.value - 1 + heroItems.value.length) % heroItems.value.length;
+const nextHero = () => heroIndex.value = (heroIndex.value + 1) % heroItems.value.length;
 
 // Lifecycle
 let heroTimer: any;
