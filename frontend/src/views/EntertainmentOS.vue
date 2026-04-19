@@ -203,25 +203,31 @@
 
         <!-- Music View -->
         <template v-if="activeNav === 'music'">
-          <section class="eos-grid-section">
+          <section class="eos-grid-section music-section">
             <h2 class="eos-page-title">Música</h2>
-            <div class="eos-music-grid" v-if="musicTracks.length > 0">
-              <div v-for="track in musicTracks" :key="'mus-'+track.id" class="eos-music-card">
-                <div class="eos-music-cover">
-                  <div class="eos-music-cover-art" :style="{ background: track.color }">
-                    <Music :size="28" />
+            
+            <div v-if="Object.keys(groupedMusic).length > 0" class="eos-music-container">
+              <div v-for="(tracks, artist) in groupedMusic" :key="artist" class="eos-music-artist-section">
+                <h3 class="eos-artist-title"><Music :size="18" /> {{ artist }}</h3>
+                <div class="eos-music-grid">
+                  <div v-for="track in tracks" :key="'mus-'+track.id" class="eos-music-card" @click="playMedia(track)">
+                    <div class="eos-music-cover">
+                      <div class="eos-music-cover-art" :style="{ background: track.color }">
+                        <Music :size="28" />
+                      </div>
+                      <div class="eos-music-play-overlay">
+                        <Play :size="22" />
+                      </div>
+                    </div>
+                    <div class="eos-music-info">
+                      <div class="eos-music-title" :title="track.title">{{ track.title }}</div>
+                      <div class="eos-music-artist">{{ track.album }}</div>
+                    </div>
                   </div>
-                  <div class="eos-music-play-overlay">
-                    <Play :size="22" />
-                  </div>
-                </div>
-                <div class="eos-music-info">
-                  <div class="eos-music-title">{{ track.title }}</div>
-                  <div class="eos-music-artist">{{ track.artist }}</div>
                 </div>
               </div>
             </div>
-            <div v-else class="eos-empty-grid">Sin música</div>
+            <div v-else class="eos-empty-grid">Sin música en la biblioteca</div>
           </section>
         </template>
 
@@ -1103,9 +1109,22 @@ const mediaSections = computed(() => [
 
 const musicTracks = computed(() => 
   filteredMedia.value.filter(m => m.type === 'music').map(m => ({
-    ...m, artist: m.genre || 'Artista', color: `hsl(${(m.id * 137) % 360}, 60%, 40%)`
+    ...m, 
+    artist: m.director || 'Unknown Artist', 
+    album: m.studio || 'Unknown Album',
+    color: `hsl(${(m.id * 137) % 360}, 60%, 40%)`
   }))
 );
+
+const groupedMusic = computed(() => {
+  const groups: Record<string, any[]> = {};
+  musicTracks.value.forEach(track => {
+    const artist = track.artist;
+    if (!groups[artist]) groups[artist] = [];
+    groups[artist].push(track);
+  });
+  return groups;
+});
 
 const filteredAdminMedia = computed(() => {
   if (!adminSearch.value) return allAdminMedia.value;
@@ -1680,10 +1699,29 @@ watch(activeNav, (val) => {
 .eos-card-info { margin-top: 0.5rem; font-size: 0.85rem; }
 .eos-card-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .eos-card-meta { color: #64748b; font-size: 0.75rem; }
-.eos-media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 1.5rem; }
-.eos-music-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 1.5rem; padding: 2rem; }
-.eos-music-card { background: rgba(255,255,255,0.03); padding: 1rem; border-radius: 12px; text-align: center; }
-.eos-music-cover { aspect-ratio: 1; background: #1e293b; border-radius: 8px; margin-bottom: 0.5rem; display: flex; align-items: center; justify-content: center; }
+.eos-grid-section { padding: 2rem; }
+.eos-music-container { padding: 0 1rem; }
+.eos-music-artist-section { margin-bottom: 3rem; }
+.eos-artist-title { 
+  font-size: 1.1rem; 
+  font-weight: 700; 
+  color: #f59e0b; 
+  margin-bottom: 1.25rem; 
+  padding-bottom: 0.5rem; 
+  border-bottom: 1px solid rgba(245, 158, 11, 0.1); 
+  display: flex; 
+  align-items: center; 
+  gap: 0.75rem; 
+}
+.eos-music-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 1.5rem; }
+.eos-music-card { background: rgba(255,255,255,0.03); padding: 1rem; border-radius: 12px; text-align: center; cursor: pointer; transition: all 0.2s; border: 1px solid transparent; }
+.eos-music-card:hover { background: rgba(255,255,255,0.07); transform: translateY(-4px); border-color: rgba(255,255,255,0.05); }
+.eos-music-cover { aspect-ratio: 1; background: #1e293b; border-radius: 8px; margin-bottom: 0.75rem; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; }
+.eos-music-cover-art { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; opacity: 0.6; }
+.eos-music-play-overlay { position: absolute; inset: 0; background: rgba(245, 158, 11, 0.4); display: flex; align-items: center; justify-content: center; opacity: 0; transition: 0.2s; }
+.eos-music-card:hover .eos-music-play-overlay { opacity: 1; }
+.eos-music-title { font-weight: 600; font-size: 0.85rem; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.eos-music-artist { font-size: 0.75rem; color: #64748b; margin-top: 2px; }
 .eos-admin-container { padding: 2rem; }
 .admin-tabs { display: flex; gap: 1rem; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 2rem; }
 .admin-tabs button { padding: 0.5rem 1rem; background: none; border: none; color: #64748b; cursor: pointer; border-bottom: 2px solid transparent; }

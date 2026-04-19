@@ -129,6 +129,24 @@ const processFile = async (filePath, lib) => {
   const yearMatch = fileNameNoExt.match(/\((19|20)\d{2}\)|(19|20)\d{2}/);
   const year = yearMatch ? parseInt(yearMatch[0].replace(/[()]/g, '')) : new Date().getFullYear();
   
+  // Music logic: Try to parse Artist - Title
+  let artist = 'Unknown Artist';
+  let album = lib.name || 'Unknown Album';
+  if (type === 'music') {
+    // If filename has a dash, assume Artist - Title
+    if (fileNameNoExt.includes(' - ')) {
+      const parts = fileNameNoExt.split(' - ');
+      artist = parts[0].trim();
+      title = parts[1].trim();
+    } else {
+      // If no dash, check if parent folder is an artist folder (common)
+      const parentDirName = path.basename(path.dirname(filePath));
+      if (parentDirName !== path.basename(lib.path)) {
+        artist = parentDirName;
+      }
+    }
+  }
+
   // Check for existing NFO file first (MediaElch compatibility)
   const nfoData = nfoService.readNfoForMedia(filePath);
   let posterPath = null, bannerPath = null, description = null, rating = null;
@@ -172,6 +190,10 @@ const processFile = async (filePath, lib) => {
   }
   
   const genre = lib.name || 'Desconocido';
+  // Use artist/album for music, director/studio otherwise
+  const d = type === 'music' ? artist : director;
+  const s = type === 'music' ? album : studio;
+
   if (existing) {
     db.prepare(`UPDATE eo_media SET title = ?, description = ?, rating = ?, poster_path = ?, banner_path = ?, genre = ?,
       tagline = ?, certification = ?, runtime = ?, trailer_url = ?, imdb_id = ?, tmdb_id = ?,
@@ -179,14 +201,14 @@ const processFile = async (filePath, lib) => {
       WHERE id = ?`)
       .run(title, description, rating, posterPath || existing.poster_path, bannerPath, genre,
         tagline, certification, runtime, trailer_url, imdb_id, tmdb_id,
-        director, writer, studio, country, nfo_path, set_name, existing.id);
+        d, writer, s, country, nfo_path, set_name, existing.id);
     return false;
   } else {
     db.prepare(`INSERT INTO eo_media (title, series_name, season, episode, type, file_path, genre, year, poster_path, banner_path, description, rating, is_new,
       tagline, certification, runtime, trailer_url, imdb_id, tmdb_id, director, writer, studio, country, nfo_path, set_name) 
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
       .run(title, seriesName, season, episode, type, filePath, genre, year, posterPath, bannerPath, description, rating,
-        tagline, certification, runtime, trailer_url, imdb_id, tmdb_id, director, writer, studio, country, nfo_path, set_name);
+        tagline, certification, runtime, trailer_url, imdb_id, tmdb_id, d, writer, s, country, nfo_path, set_name);
     return true;
   }
 };
