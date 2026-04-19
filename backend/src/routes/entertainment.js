@@ -27,6 +27,78 @@ const getAllFiles = (dirPath, arrayOfFiles) => {
   return arrayOfFiles;
 };
 
+/**
+ * Sanitize a string for use in file/folder names.
+ * Removes characters invalid in Windows/Linux filenames.
+ */
+const sanitizeFilename = (name) => {
+  return name
+    .replace(/[<>:"/\\|?*]/g, '') // Remove invalid chars
+    .replace(/\s+/g, ' ')          // Normalize spaces
+    .trim();
+};
+
+/**
+ * Organizes a movie file into its own folder: "Title (Year)/Title (Year).ext"
+ * Only applies to movies (not series or music).
+ * Returns the new file_path if moved, or the original if no move needed.
+ */
+const organizeMovieIntoFolder = (currentFilePath, title, year) => {
+  try {
+    if (!currentFilePath || !fs.existsSync(currentFilePath)) return currentFilePath;
+    
+    const ext = path.extname(currentFilePath);
+    const parentDir = path.dirname(currentFilePath);
+    const folderName = sanitizeFilename(`${title} (${year || 'Sin Año'})`);
+    const fileName = `${folderName}${ext}`;
+    
+    // Check if already in a properly named folder
+    const currentFolderName = path.basename(parentDir);
+    if (currentFolderName === folderName) {
+      // Already organized, just rename the file if needed
+      const currentFileName = path.basename(currentFilePath);
+      if (currentFileName !== fileName) {
+        const newFilePath = path.join(parentDir, fileName);
+        fs.renameSync(currentFilePath, newFilePath);
+        console.log(`📝 Archivo renombrado: ${currentFileName} → ${fileName}`);
+        return newFilePath.replace(/\\/g, '/');
+      }
+      return currentFilePath;
+    }
+    
+    // Create the movie folder inside the library directory
+    const movieFolder = path.join(parentDir, folderName);
+    if (!fs.existsSync(movieFolder)) {
+      fs.mkdirSync(movieFolder, { recursive: true });
+    }
+    
+    // Move the video file
+    const newFilePath = path.join(movieFolder, fileName);
+    fs.renameSync(currentFilePath, newFilePath);
+    console.log(`📂 Película organizada: ${path.basename(currentFilePath)} → ${folderName}/${fileName}`);
+    
+    // Also move any existing artwork/nfo files that accompanied the video
+    const baseName = path.parse(currentFilePath).name;
+    const siblingFiles = fs.readdirSync(parentDir);
+    for (const sibling of siblingFiles) {
+      if (sibling.startsWith(baseName + '-') || sibling.startsWith(baseName + '.nfo')) {
+        const oldSibPath = path.join(parentDir, sibling);
+        // Rename sibling to match new name
+        const sibExt = path.extname(sibling);
+        const sibSuffix = sibling.substring(baseName.length); // e.g. "-poster.jpg" or ".nfo"
+        const newSibName = `${folderName}${sibSuffix}`;
+        const newSibPath = path.join(movieFolder, newSibName);
+        fs.renameSync(oldSibPath, newSibPath);
+      }
+    }
+    
+    return newFilePath.replace(/\\/g, '/');
+  } catch (error) {
+    console.error('Error organizing movie:', error.message);
+    return currentFilePath;
+  }
+};
+
 const processFile = async (filePath, lib) => {
   const file = path.basename(filePath);
   const ext = path.extname(file).toLowerCase();
@@ -498,9 +570,22 @@ router.post('/admin/media/identify', authMiddleware, async (req, res) => {
     const tmdbData = await tmdbService.getMediaDetails(tmdbId, type || 'movie');
     if (!tmdbData) return res.status(404).json({ error: 'No se encontraron datos en TMDB' });
 
-    // Download images to the same folder as the video file
-    const media = db.prepare('SELECT file_path FROM eo_media WHERE id = ?').get(mediaId);
-    const videoFilePath = media ? media.file_path : null;
+    const media = db.prepare('SELECT * FROM eo_media WHERE id = ?').get(mediaId);
+    if (!media) return res.status(404).json({ error: 'Media no encontrada en la base de datos' });
+    
+    let videoFilePath = media.file_path;
+
+    // For movies: organize into folder "Title (Year)/Title (Year).ext"
+    if ((type || media.type) === 'movie' && tmdbData.title && tmdbData.year) {
+      const newFilePath = organizeMovieIntoFolder(videoFilePath, tmdbData.title, tmdbData.year);
+      if (newFilePath !== videoFilePath) {
+        // Update the file_path in DB before downloading images
+        db.prepare('UPDATE eo_media SET file_path = ? WHERE id = ?').run(newFilePath, mediaId);
+        videoFilePath = newFilePath;
+      }
+    }
+
+    // Download images to the movie folder
     let posterPath = null;
     let bannerPath = null;
     if (videoFilePath) {
@@ -578,7 +663,6 @@ router.post('/admin/media/bulk-identify', authMiddleware, async (req, res) => {
     for (const media of unidentified) {
       try {
         const searchTitle = media.series_name || media.title;
-        const tmdbData = await tmdbService.getMediaDetails(null, media.type);
         
         // Use searchMedia first to find tmdbId
         const searchResult = await tmdbService.searchMedia(searchTitle, media.year, media.type);
@@ -588,9 +672,20 @@ router.post('/admin/media/bulk-identify', authMiddleware, async (req, res) => {
         const fullData = await tmdbService.getMediaDetails(searchResult.tmdbId, media.type);
         if (!fullData) { failed++; continue; }
 
-        // Download images to the same folder as the video file
-        const posterPath = await downloadImageToMediaDir(fullData.posterPath, media.file_path, 'poster');
-        const bannerPath = await downloadImageToMediaDir(fullData.bannerPath, media.file_path, 'fanart');
+        let currentFilePath = media.file_path;
+
+        // For movies: organize into folder
+        if (media.type === 'movie' && fullData.title && fullData.year) {
+          const newFilePath = organizeMovieIntoFolder(currentFilePath, fullData.title, fullData.year);
+          if (newFilePath !== currentFilePath) {
+            db.prepare('UPDATE eo_media SET file_path = ? WHERE id = ?').run(newFilePath, media.id);
+            currentFilePath = newFilePath;
+          }
+        }
+
+        // Download images to the movie/media folder
+        const posterPath = await downloadImageToMediaDir(fullData.posterPath, currentFilePath, 'poster');
+        const bannerPath = await downloadImageToMediaDir(fullData.bannerPath, currentFilePath, 'fanart');
 
         db.prepare(`
           UPDATE eo_media 
