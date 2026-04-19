@@ -48,6 +48,9 @@
             </div>
           </Transition>
         </div>
+        <div class="widget-toggle" @click="state.showStatus = !state.showStatus" :class="{ active: state.showStatus }" title="Monitor de Sistema">
+          <Activity :size="18" />
+        </div>
         <div class="time">{{ new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }}</div>
       </div>
     </header>
@@ -446,7 +449,7 @@ onUnmounted(() => {
 }
 
 .syno-widget {
-  position: absolute; top: 1.5rem; right: 1.5rem; width: 280px;
+  position: absolute; bottom: 1.5rem; right: 1.5rem; width: 280px;
   background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(20px);
   border-radius: 16px; border: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7); z-index: 100; color: white;
@@ -474,6 +477,17 @@ onUnmounted(() => {
   border-top: 1px solid rgba(255, 255, 255, 0.05);
 }
 .storage-path { font-size: 0.7rem; color: #f97316; font-weight: 600; }
+
+.info-row .val { color: #e2e8f0; font-weight: 500; }
+
+.widget-toggle {
+  display: flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px; border-radius: 8px;
+  cursor: pointer; color: #94a3b8; transition: all 0.2s;
+  background: rgba(255,255,255,0.05);
+}
+.widget-toggle:hover { background: rgba(255,255,255,0.1); color: white; }
+.widget-toggle.active { color: #3b82f6; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.2); }
 
 .time { font-size: 0.9rem; font-weight: 600; color: white; margin-left: 1rem; }
 
