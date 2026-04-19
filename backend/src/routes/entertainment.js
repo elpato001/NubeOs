@@ -313,9 +313,9 @@ router.put('/admin/media/:id', authMiddleware, (req, res) => {
     const { title, description, genre, year, stars } = req.body;
     db.prepare(`
       UPDATE eo_media 
-      SET title = ?, description = ?, genre = ?, year = ?, stars = ?
+      SET title = ?, description = ?, genre = ?, year = ?, stars = ?, poster_path = ?, banner_path = ?, rating = ?
       WHERE id = ?
-    `).run(title, description, genre, year, stars, req.params.id);
+    `).run(title, description, genre, year, stars, req.body.poster_path, req.body.banner_path, req.body.rating, req.params.id);
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -389,6 +389,52 @@ router.post('/admin/config', authMiddleware, (req, res) => {
     const { tmdb_api_key } = req.body;
     db.prepare("INSERT OR REPLACE INTO system_config (key, value) VALUES ('tmdb_api_key', ?)").run(tmdb_api_key);
     res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 14b. Admin - Search TMDB
+router.get('/admin/tmdb/search', authMiddleware, async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' });
+  try {
+    const { query, type } = req.query;
+    if (!query) return res.status(400).json({ error: 'Query es requerido' });
+    
+    // Using tmdbService to get raw results or structured search
+    const results = await tmdbService.searchTmdbRaw(query, type || 'movie');
+    res.json(results);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 14c. Admin - Identify Media (Apply TMDB ID)
+router.post('/admin/media/identify', authMiddleware, async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' });
+  try {
+    const { mediaId, tmdbId, type } = req.body;
+    if (!mediaId || !tmdbId) return res.status(400).json({ error: 'Faltan parámetros' });
+
+    const tmdbData = await tmdbService.getMediaDetails(tmdbId, type || 'movie');
+    if (!tmdbData) return res.status(404).json({ error: 'No se encontraron datos en TMDB' });
+
+    db.prepare(`
+      UPDATE eo_media 
+      SET title = ?, description = ?, genre = ?, year = ?, rating = ?, poster_path = ?, banner_path = ?
+      WHERE id = ?
+    `).run(
+      tmdbData.title, 
+      tmdbData.description, 
+      tmdbData.genres || 'Unknown', 
+      tmdbData.year, 
+      tmdbData.rating, 
+      tmdbData.posterPath, 
+      tmdbData.bannerPath, 
+      mediaId
+    );
+
+    res.json({ success: true, metadata: tmdbData });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

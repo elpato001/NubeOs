@@ -46,4 +46,57 @@ const searchMedia = async (title, year, type = 'movie') => {
   }
 };
 
-module.exports = { searchMedia };
+const searchTmdbRaw = async (query, type = 'movie') => {
+  const apiKey = getApiKey();
+  if (!apiKey) return [];
+
+  try {
+    const endpoint = type === 'series' ? '/search/tv' : '/search/movie';
+    const params = new URLSearchParams({
+      api_key: apiKey,
+      query: query,
+      language: 'es-ES'
+    });
+
+    const response = await fetch(`${BASE_URL}${endpoint}?${params.toString()}`);
+    const data = await response.json();
+    
+    return (data.results || []).map(entry => ({
+      id: entry.id,
+      title: entry.title || entry.name,
+      year: (entry.release_date || entry.first_air_date || '').split('-')[0],
+      poster: entry.poster_path ? `${IMAGE_BASE_URL}${entry.poster_path}` : null,
+      description: entry.overview
+    }));
+  } catch (error) {
+    return [];
+  }
+};
+
+const getMediaDetails = async (tmdbId, type = 'movie') => {
+  const apiKey = getApiKey();
+  if (!apiKey) return null;
+
+  try {
+    const endpoint = type === 'series' ? `/tv/${tmdbId}` : `/movie/${tmdbId}`;
+    const response = await fetch(`${BASE_URL}${endpoint}?api_key=${apiKey}&language=es-ES`);
+    const data = await response.json();
+
+    if (!data.id) return null;
+
+    return {
+      tmdbId: data.id,
+      title: data.title || data.name,
+      description: data.overview,
+      rating: (data.vote_average || 0).toFixed(1),
+      year: (data.release_date || data.first_air_date || '').split('-')[0],
+      posterPath: data.poster_path ? `${IMAGE_BASE_URL}${data.poster_path}` : null,
+      bannerPath: data.backdrop_path ? `${BACKDROP_BASE_URL}${data.backdrop_path}` : null,
+      genres: (data.genres || []).map(g => g.name).join(', ')
+    };
+  } catch (error) {
+    return null;
+  }
+};
+
+module.exports = { searchMedia, searchTmdbRaw, getMediaDetails };

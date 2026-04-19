@@ -415,7 +415,7 @@
                                 <td><span class="type-tag">{{ m.type }}</span></td>
                                 <td><code class="file-path-code" :title="m.file_path">{{ m.file_path.split('/').pop() }}</code></td>
                                 <td class="table-btns">
-                                  <button @click="editMedia(m)" class="btn-edit" title="Editar"><Settings2 :size="14" /></button>
+                                  <button @click="openIdentify(m)" class="btn-edit" title="Identificar (TMDB)"><Search :size="14" /></button>
                                   <button @click="deleteItem(m.id)" class="btn-del" title="Eliminar"><Trash2 :size="14" /></button>
                                 </td>
                               </tr>
@@ -674,6 +674,49 @@
           </div>
         </div>
       </Transition>
+
+      <!-- Identify Media Modal (TMDB) -->
+      <Transition name="modal-fade">
+        <div v-if="showIdentifyModal" class="eos-modal-overlay" @click.self="showIdentifyModal = false">
+          <div class="eos-modal identify-modal">
+            <header class="eos-modal-header-simple">
+              <h3>Identificar Medios</h3>
+              <button class="eos-modal-close-small" @click="showIdentifyModal = false"><X :size="18" /></button>
+            </header>
+            
+            <div class="identify-body">
+              <div class="identify-search-box">
+                <Search :size="18" class="text-slate-400" />
+                <input 
+                  v-model="tmdbSearchQuery" 
+                  type="text" 
+                  placeholder="Escribre el nombre de la película o serie..."
+                  @keyup.enter="searchTmdb"
+                />
+                <button @click="searchTmdb" class="eos-btn-primary mini">Buscar</button>
+              </div>
+
+              <div class="identify-results">
+                <div v-if="tmdbSearchLoading" class="loading-full"><Loader2 class="spinning" /></div>
+                <div v-else-if="tmdbSearchResults.length === 0" class="no-results">
+                  Busca por título para identificar el archivo: <code>{{ identifyingMedia?.file_path.split('/').pop() }}</code>
+                </div>
+                <div v-else class="tmdb-results-list">
+                   <div v-for="res in tmdbSearchResults" :key="'tmdb-'+res.id" class="tmdb-res-card" @click="identifyItem(res.id)">
+                      <img :src="res.poster || '/entertainment/posters/stellar_horizon.png'" class="res-poster" />
+                      <div class="res-info">
+                        <span class="res-title">{{ res.title }}</span>
+                        <span class="res-year">{{ res.year }}</span>
+                        <p class="res-desc">{{ res.description ? res.description.substring(0, 100) + '...' : 'Sin descripción' }}</p>
+                      </div>
+                      <button class="btn-link-tmdb">Vincular</button>
+                   </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Transition>
     </div>
   </div>
 </template>
@@ -749,6 +792,13 @@ const browserFolders = ref<any[]>([]);
 const browserParent = ref('');
 const isBrowserRoot = ref(false);
 const browsingLoading = ref(false);
+
+// Identify Modal State
+const showIdentifyModal = ref(false);
+const identifyingMedia = ref<any>(null);
+const tmdbSearchQuery = ref('');
+const tmdbSearchResults = ref<any[]>([]);
+const tmdbSearchLoading = ref(false);
 
 const navItems = [
   { id: 'home', label: 'Inicio', icon: Home },
@@ -1057,14 +1107,13 @@ const saveInternalProgress = async (isFinished = false) => {
 const handleInternalTimeUpdate = () => saveInternalProgress();
 const handleInternalEnded = () => saveInternalProgress(true);
 
-const openMediaDetail = (m: any) => selectedMedia.value = m;
-
 const scanLibraries = async () => {
   scanning.value = true;
   try {
     const res = await axios.post('/api/entertainment/admin/scan');
     notification.success('Escaneo listo', `${res.data.newItems} nuevos encontrados.`);
     fetchCatalog();
+    fetchAdminData();
   } catch (err) {
     notification.error('Error', 'Fallo al escanear');
   } finally {
@@ -1099,7 +1148,56 @@ const deleteMedia = async (id: number) => {
     await axios.delete(`/api/entertainment/admin/media/${id}`);
     fetchAdminData();
     fetchCatalog();
-  } catch (err) { notification.error('Error', 'No se pudo borrar'); }
+  } catch (err) { notification.error('Error', 'No se pudo eliminar'); }
+};
+
+const openMediaDetail = (m: any) => selectedMedia.value = m;
+
+const openIdentify = (media: any) => {
+  identifyingMedia.value = media;
+  tmdbSearchQuery.value = media.title;
+  tmdbSearchResults.value = [];
+  showIdentifyModal.value = true;
+};
+
+const searchTmdb = async () => {
+  if (!tmdbSearchQuery.value) return;
+  tmdbSearchLoading.value = true;
+  try {
+    const res = await axios.get('/api/entertainment/admin/tmdb/search', {
+      params: { query: tmdbSearchQuery.value, type: identifyingMedia.value?.type }
+    });
+    tmdbSearchResults.value = res.data;
+  } catch (err) {
+    notification.error('Error', 'No se pudo buscar en TMDB');
+  } finally {
+    tmdbSearchLoading.value = false;
+  }
+};
+
+const identifyItem = async (tmdbId: number) => {
+  if (!identifyingMedia.value) return;
+  loading.value = true;
+  try {
+    const res = await axios.post('/api/entertainment/media/identify', {
+      mediaId: identifyingMedia.value.id,
+      tmdbId,
+      type: identifyingMedia.value.type
+    });
+    notification.success('Identificado', 'Metadatos actualizados correctamente.');
+    showIdentifyModal.value = false;
+    
+    // Refresh lists
+    if (selectedAdminLibrary.value) {
+      enterLibraryDetail(selectedAdminLibrary.value);
+    }
+    fetchCatalog();
+    fetchAdminData();
+  } catch (err) {
+    notification.error('Error', 'No se pudo identificar el archivo');
+  } finally {
+    loading.value = false;
+  }
 };
 
 const editMedia = (media: any) => notification.info('Próximamente', 'Editor visual en desarrollo.');
@@ -1358,4 +1456,24 @@ th, td { padding: 1rem; text-align: left; border-bottom: 1px solid rgba(255,255,
 
 .spinning { animation: spin 1s linear infinite; }
 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+/* Identify Modal Styles */
+.identify-modal { max-width: 700px; height: 80vh; display: flex; flex-direction: column; }
+.identify-body { flex: 1; overflow: hidden; display: flex; flex-direction: column; padding: 1.5rem; gap: 1.5rem; }
+.identify-search-box { display: flex; align-items: center; gap: 1rem; background: rgba(0,0,0,0.3); padding: 0.5rem 1rem; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); }
+.identify-search-box input { flex: 1; background: none; border: none; color: white; outline: none; font-size: 1rem; }
+.identify-results { flex: 1; overflow-y: auto; }
+.tmdb-results-list { display: flex; flex-direction: column; gap: 1rem; }
+.tmdb-res-card { display: flex; gap: 1rem; background: rgba(255,255,255,0.03); padding: 1rem; border-radius: 12px; cursor: pointer; transition: all 0.2s; border: 1px solid transparent; align-items: center; }
+.tmdb-res-card:hover { background: rgba(255,255,255,0.06); border-color: rgba(245, 158, 11, 0.3); }
+.res-poster { width: 60px; aspect-ratio: 2/3; border-radius: 6px; object-fit: cover; }
+.res-info { flex: 1; display: flex; flex-direction: column; gap: 4px; overflow: hidden; }
+.res-title { font-weight: 600; color: white; }
+.res-year { font-size: 0.8rem; color: #64748b; }
+.res-desc { font-size: 0.75rem; color: #94a3b8; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.btn-link-tmdb { background: rgba(245, 158, 11, 0.1); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.2); padding: 0.4rem 0.8rem; border-radius: 6px; font-size: 0.75rem; font-weight: 600; }
+.eos-btn-primary.mini { padding: 0.4rem 1rem; font-size: 0.8rem; }
+.loading-full { display: flex; align-items: center; justify-content: center; height: 100%; color: #f59e0b; }
+.no-results { color: #64748b; text-align: center; padding: 2rem; font-size: 0.9rem; }
+.no-results code { display: block; margin-top: 1rem; color: #94a3b8; font-family: monospace; }
 </style>
