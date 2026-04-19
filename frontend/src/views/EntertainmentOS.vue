@@ -268,29 +268,57 @@
               </div>
 
               <div v-if="activeAdminTab === 'libraries'" class="admin-libraries">
-                <div class="admin-section-card">
-                  <h3>Añadir Nueva Librería</h3>
-                  <div class="lib-add-form">
-                    <input v-model="newLibPath" type="text" placeholder="Ruta: /mnt/videos" />
-                    <button @click="openFolderPicker" class="eos-btn-info" title="Explorar Sistema">
-                      <Folder :size="18" />
-                    </button>
-                    <button @click="addLibrary" class="eos-btn-primary">Añadir</button>
+                <!-- Add Library Section -->
+                <div class="admin-setup-banner">
+                  <div class="banner-content">
+                    <h3>Añadir Nueva Librería</h3>
+                    <p>Conecta tus carpetas locales para que EntertainmentOS las organice por ti.</p>
                   </div>
-                  <div class="lib-list">
-                    <div v-for="lib in libraries" :key="'lib-'+lib.id" class="lib-item">
-                      <div class="lib-info">
-                        <div class="lib-name">{{ lib.name }}</div>
-                        <div class="lib-path">{{ lib.path }}</div>
-                      </div>
-                      <button @click="removeLibrary(lib.id)" class="lib-remove-btn"><Trash2 :size="14" /></button>
+                  <div class="lib-add-form-premium">
+                    <div class="input-group">
+                      <input v-model="newLibPath" type="text" placeholder="Ej: /mnt/media/peliculas" />
+                      <button @click="openFolderPicker" class="browse-btn" title="Explorar Sistema">
+                        <Folder :size="18" />
+                      </button>
                     </div>
-                  </div>
-                  <div class="mt-4">
-                    <button @click="scanLibraries" class="eos-btn-secondary" :disabled="scanning">
-                      <Loader2 v-if="scanning" class="spinning" :size="16" />
-                      <span v-else>Escanear Servidor</span>
+                    <button @click="addLibrary" class="eos-btn-primary">
+                      <Plus :size="18" /> <span>Añadir</span>
                     </button>
+                  </div>
+                </div>
+
+                <!-- Existing Libraries Grid -->
+                <div class="lib-grid-container">
+                  <header class="section-header">
+                    <h3>Bibliotecas Actuales</h3>
+                    <button @click="scanLibraries" class="scan-action-btn" :disabled="scanning">
+                      <Loader2 v-if="scanning" class="spinning" :size="16" />
+                      <RotateCcw v-else :size="16" />
+                      <span>{{ scanning ? 'Escaneando...' : 'Escanear Servidor' }}</span>
+                    </button>
+                  </header>
+
+                  <div class="lib-grid">
+                    <div v-for="lib in libraries" :key="'lib-'+lib.id" class="lib-card">
+                      <div class="lib-card-icon">
+                        <component :is="getLibIcon(lib.name)" :size="32" />
+                      </div>
+                      <div class="lib-card-body">
+                        <h4>{{ lib.name }}</h4>
+                        <code title="Ruta absoluta">{{ lib.path }}</code>
+                      </div>
+                      <div class="lib-card-actions">
+                        <button @click="removeLibrary(lib.id)" class="item-action-btn delete" title="Eliminar Biblioteca">
+                          <Trash2 :size="16" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- Empty State -->
+                    <div v-if="libraries.length === 0" class="lib-empty-state">
+                      <Folder :size="48" opacity="0.2" />
+                      <p>No hay librerías configuradas.</p>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -580,6 +608,14 @@ const confirmFolder = () => {
   showFolderPicker.value = false;
 };
 
+const getLibIcon = (name: string) => {
+  const n = name.toLowerCase();
+  if (n.includes('peli')) return Film;
+  if (n.includes('serie')) return Tv;
+  if (n.includes('músic') || n.includes('music')) return Music;
+  return Folder;
+};
+
 const prevHero = () => heroIndex.value = (heroIndex.value - 1 + heroItems.length) % heroItems.length;
 const nextHero = () => heroIndex.value = (heroIndex.value + 1) % heroItems.length;
 
@@ -676,6 +712,37 @@ th, td { padding: 1rem; text-align: left; border-bottom: 1px solid rgba(255,255,
 .eos-modal-footer { padding: 1rem 1.5rem; border-top: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: flex-end; gap: 1rem; }
 .eos-btn-info { background: rgba(59, 130, 246, 0.1); color: #60a5fa; border: none; padding: 0.5rem; border-radius: 8px; cursor: pointer; }
 .eos-btn-info:hover { background: #3b82f6; color: white; }
+
+/* Libraries Redesign */
+.admin-setup-banner { background: linear-gradient(135deg, rgba(30, 41, 59, 0.4), rgba(15, 23, 42, 0.4)); border: 1px solid rgba(255,255,255,0.05); border-radius: 16px; padding: 2rem; margin-bottom: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.banner-content h3 { font-size: 1.25rem; color: white; margin-bottom: 0.5rem; }
+.banner-content p { color: #94a3b8; font-size: 0.9rem; }
+.lib-add-form-premium { display: flex; gap: 1rem; align-items: center; max-width: 600px; }
+.lib-add-form-premium .input-group { flex: 1; display: flex; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; overflow: hidden; }
+.lib-add-form-premium input { flex: 1; background: transparent; border: none; padding: 0.75rem 1rem; color: white; font-size: 0.9rem; }
+.browse-btn { background: rgba(255,255,255,0.05); border: none; border-left: 1px solid rgba(255,255,255,0.1); color: #94a3b8; padding: 0 1rem; cursor: pointer; transition: all 0.2s; }
+.browse-btn:hover { color: white; background: rgba(255,255,255,0.1); }
+
+.lib-grid-container { display: flex; flex-direction: column; gap: 1.5rem; }
+.section-header { display: flex; justify-content: space-between; align-items: center; }
+.section-header h3 { color: #94a3b8; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; }
+.scan-action-btn { display: flex; align-items: center; gap: 0.5rem; background: rgba(245, 158, 11, 0.1); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.2); padding: 0.5rem 1rem; border-radius: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+.scan-action-btn:hover:not(:disabled) { background: #f59e0b; color: #1e293b; }
+.scan-action-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.lib-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem; }
+.lib-card { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; padding: 1.25rem; display: flex; align-items: center; gap: 1.25rem; transition: all 0.3s; position: relative; overflow: hidden; }
+.lib-card:hover { border-color: rgba(99, 102, 241, 0.3); background: rgba(255,255,255,0.04); transform: translateY(-2px); }
+.lib-card-icon { width: 56px; height: 56px; border-radius: 10px; background: rgba(99, 102, 241, 0.1); color: #818cf8; display: flex; align-items: center; justify-content: center; }
+.lib-card-body { flex: 1; overflow: hidden; }
+.lib-card-body h4 { color: white; margin-bottom: 0.25rem; font-size: 1rem; }
+.lib-card-body code { color: #64748b; font-size: 0.75rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+.lib-card-actions { opacity: 0; transition: opacity 0.2s; }
+.lib-card:hover .lib-card-actions { opacity: 1; }
+.item-action-btn { background: none; border: none; padding: 0.5rem; border-radius: 6px; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; }
+.item-action-btn.delete { color: #f43f5e; }
+.item-action-btn.delete:hover { background: rgba(244, 63, 94, 0.1); }
+.lib-empty-state { grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 4rem; background: rgba(255,255,255,0.01); border: 2px dashed rgba(255,255,255,0.05); border-radius: 16px; color: #64748b; gap: 1rem; }
 
 .spinning { animation: spin 1s linear infinite; }
 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
