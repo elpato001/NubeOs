@@ -6,6 +6,7 @@ const db = require('../config/db');
 const { authMiddleware } = require('../middleware/auth');
 const { getSafePath } = require('../utils/fileHelper');
 const tmdbService = require('../services/tmdbService');
+const { downloadImage } = require('../utils/imageDownloader');
 
 const NUBEOS_ROOT = path.resolve(__dirname, '../../../..');
 
@@ -247,8 +248,11 @@ router.post('/admin/scan', authMiddleware, async (req, res) => {
             title = tmdbData.title || title;
             description = tmdbData.description;
             rating = tmdbData.rating;
-            posterPath = tmdbData.posterPath || posterPath;
-            bannerPath = tmdbData.bannerPath;
+            
+            // Download images locally
+            const timestamp = Date.now();
+            posterPath = await downloadImage(tmdbData.posterPath, `poster_${timestamp}_${Math.random().toString(36).substring(7)}`) || posterPath;
+            bannerPath = await downloadImage(tmdbData.bannerPath, `banner_${timestamp}_${Math.random().toString(36).substring(7)}`);
           }
 
           try {
@@ -421,6 +425,11 @@ router.post('/admin/media/identify', authMiddleware, async (req, res) => {
     const tmdbData = await tmdbService.getMediaDetails(tmdbId, type || 'movie');
     if (!tmdbData) return res.status(404).json({ error: 'No se encontraron datos en TMDB' });
 
+    // Download images locally
+    const timestamp = Date.now();
+    const posterPath = await downloadImage(tmdbData.posterPath, `poster_man_${mediaId}_${timestamp}`);
+    const bannerPath = await downloadImage(tmdbData.bannerPath, `banner_man_${mediaId}_${timestamp}`);
+
     db.prepare(`
       UPDATE eo_media 
       SET title = ?, description = ?, genre = ?, year = ?, rating = ?, poster_path = ?, banner_path = ?
@@ -431,8 +440,8 @@ router.post('/admin/media/identify', authMiddleware, async (req, res) => {
       tmdbData.genres || 'Unknown', 
       tmdbData.year, 
       tmdbData.rating, 
-      tmdbData.posterPath, 
-      tmdbData.bannerPath, 
+      posterPath, 
+      bannerPath, 
       mediaId
     );
 
