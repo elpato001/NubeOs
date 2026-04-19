@@ -234,6 +234,15 @@ router.get('/download', authMiddleware, (req, res) => {
   }
 });
 
+// In-memory task tracking
+const activeTasks = {};
+
+// 0. Get active tasks
+router.get('/tasks', authMiddleware, (req, res) => {
+  const userTasks = Object.values(activeTasks).filter(t => t.user === req.user.username);
+  res.json(userTasks);
+});
+
 // 7. Rename item
 router.post('/rename', authMiddleware, async (req, res) => {
   try {
@@ -252,39 +261,83 @@ router.post('/rename', authMiddleware, async (req, res) => {
   }
 });
 
-// 8. Copy item
+// 8. Copy item (Background)
 router.post('/copy', authMiddleware, async (req, res) => {
   try {
     const { fromPath, toPath, name } = req.body;
-    const source = getSafePath(req.user.username, path.join(fromPath || '', name));
-    const destination = getSafePath(req.user.username, path.join(toPath || '', name));
+    const taskId = `copy_${Date.now()}`;
+    
+    activeTasks[taskId] = { 
+      id: taskId, 
+      user: req.user.username, 
+      name, 
+      type: 'copy', 
+      label: 'Copiando', 
+      progress: 0, 
+      status: 'pumping' 
+    };
 
-    if (fs.existsSync(destination)) {
-      return res.status(400).json({ error: 'Ya existe un archivo con ese nombre en el destino' });
-    }
+    // Responder inmediatamente
+    res.json({ message: 'Copia iniciada en el servidor', taskId });
 
-    const fsExtra = require('fs-extra');
-    await fsExtra.copy(source, destination);
-    res.json({ message: 'Elemento copiado con éxito' });
+    // Ejecutar en segundo plano
+    (async () => {
+      try {
+        const source = getSafePath(req.user.username, path.join(fromPath || '', name));
+        const destination = getSafePath(req.user.username, path.join(toPath || '', name));
+        const fsExtra = require('fs-extra');
+        
+        await fsExtra.copy(source, destination);
+        
+        activeTasks[taskId].progress = 100;
+        activeTasks[taskId].status = 'completed';
+        setTimeout(() => delete activeTasks[taskId], 10000); // Limpiar después de 10s
+      } catch (err) {
+        activeTasks[taskId].status = 'error';
+        activeTasks[taskId].error = err.message;
+        setTimeout(() => delete activeTasks[taskId], 60000); // Mantener error un minuto
+      }
+    })();
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// 9. Move item (Cut/Paste)
+// 9. Move item (Background)
 router.post('/move', authMiddleware, async (req, res) => {
   try {
     const { fromPath, toPath, name } = req.body;
-    const source = getSafePath(req.user.username, path.join(fromPath || '', name));
-    const destination = getSafePath(req.user.username, path.join(toPath || '', name));
+    const taskId = `move_${Date.now()}`;
 
-    if (fs.existsSync(destination)) {
-      return res.status(400).json({ error: 'Ya existe un archivo con ese nombre en el destino' });
-    }
+    activeTasks[taskId] = { 
+      id: taskId, 
+      user: req.user.username, 
+      name, 
+      type: 'move', 
+      label: 'Moviendo', 
+      progress: 0, 
+      status: 'pumping' 
+    };
 
-    const fsExtra = require('fs-extra');
-    await fsExtra.move(source, destination);
-    res.json({ message: 'Elemento movido con éxito' });
+    res.json({ message: 'Traslado iniciado en el servidor', taskId });
+
+    (async () => {
+      try {
+        const source = getSafePath(req.user.username, path.join(fromPath || '', name));
+        const destination = getSafePath(req.user.username, path.join(toPath || '', name));
+        const fsExtra = require('fs-extra');
+        
+        await fsExtra.move(source, destination);
+        
+        activeTasks[taskId].progress = 100;
+        activeTasks[taskId].status = 'completed';
+        setTimeout(() => delete activeTasks[taskId], 10000);
+      } catch (err) {
+        activeTasks[taskId].status = 'error';
+        activeTasks[taskId].error = err.message;
+        setTimeout(() => delete activeTasks[taskId], 60000);
+      }
+    })();
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

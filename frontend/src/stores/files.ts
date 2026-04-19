@@ -135,6 +135,9 @@ export const useFileStore = defineStore('files', {
           this.history.push(path);
           this.historyIndex = this.history.length - 1;
         }
+        
+        // Cargar tareas del servidor al refrescar
+        this.fetchTasks();
       } catch (err: any) {
         this.error = err.response?.data?.error || 'Error al obtener archivos';
       } finally {
@@ -186,28 +189,26 @@ export const useFileStore = defineStore('files', {
       if (!this.clipboard.item || !this.clipboard.type) return;
 
       const endpoint = this.clipboard.type === 'copy' ? '/api/files/copy' : '/api/files/move';
-      const label = this.clipboard.type === 'copy' ? 'Copiando...' : 'Moviendo...';
 
       try {
-        const processId = this.startProcessing(this.clipboard.item.name, label);
-        
+        this.uploading = true;
         await axios.post(endpoint, {
           fromPath: this.clipboard.fromPath,
           toPath: this.currentPath,
           name: this.clipboard.item.name
         });
 
-        this.updateProcessProgress(processId, 100);
-
         if (this.clipboard.type === 'cut') {
           this.clipboard = { item: null, type: null, fromPath: '' };
         }
 
+        // Refrescar inmediatamente para ver la tarea
+        await this.fetchTasks();
         await this.fetchFiles(this.currentPath, false);
         await this.fetchFolderTree();
-        setTimeout(() => this.removeProcess(processId), 2000);
       } catch (error: any) {
         alert(error.response?.data?.error || 'Error al pegar');
+        this.uploading = false;
       }
     },
 
@@ -270,18 +271,18 @@ export const useFileStore = defineStore('files', {
 
     async moveItem(itemName: string, fromPath: string, toPath: string) {
       try {
-        const processId = this.startProcessing(itemName, 'Moviendo...');
+        this.uploading = true;
         await axios.post('/api/files/move', {
           fromPath,
           toPath,
           name: itemName
         });
-        this.updateProcessProgress(processId, 100);
+        await this.fetchTasks();
         await this.fetchFiles(this.currentPath, false);
         await this.fetchFolderTree();
-        setTimeout(() => this.removeProcess(processId), 2000);
       } catch (error: any) {
         alert(error.response?.data?.error || 'Error al mover');
+        this.uploading = false;
       }
     },
 
@@ -388,27 +389,41 @@ export const useFileStore = defineStore('files', {
       return `/api/files/download?path=${this.currentPath}&name=${encodeURIComponent(fileName)}&token=${token}`;
     },
 
-    startProcessing(name: string, label: string) {
-      this.uploading = true;
-      const id = Math.random().toString(36).substring(7);
-      this.uploadingFiles.push({
-        name: `${label} ${name}`,
-        progress: 0,
-        size: 0,
-      });
+    async fetchTasks() {
+      try {
+        const res = await axios.get('/api/files/tasks');
+        const serverTasks = res.data;
 
-      // Simular progreso hasta el 90%
-      let prog = 0;
-      const interval = setInterval(() => {
-        if (prog < 90) {
-          prog += 10;
-          this.updateFileProgress(`${label} ${name}`, prog);
+        // Mantener las subidas locales (que tienen size > 0)
+        const localUploads = this.uploadingFiles.filter(f => f.size > 0);
+        
+        // Convertir tareas del servidor al formato de la UI
+        const mappedServerTasks = serverTasks.map((t: any) => ({
+          name: `${t.label}: ${t.name}`,
+          progress: t.progress,
+          size: 0,
+          status: t.status
+        }));
+
+        this.uploadingFiles = [...localUploads, ...mappedServerTasks];
+        
+        if (this.uploadingFiles.length > 0) {
+          this.uploading = true;
+          // Si hay tareas activas en el servidor, seguir polleando
+          if (serverTasks.some((t: any) => t.status === 'pumping')) {
+            setTimeout(() => this.fetchTasks(), 1500);
+          }
         } else {
-          clearInterval(interval);
+          this.uploading = false;
         }
-      }, 100);
+      } catch (err) {
+        console.error('Error fetching tasks');
+      }
+    },
 
-      return `${label} ${name}`;
+    startProcessing(name: string, label: string) {
+      // Obsoleto, ahora usamos fetchTasks del servidor
+      return `${label}: ${name}`;
     },
 
     updateProcessProgress(name: string, progress: number) {
@@ -419,9 +434,6 @@ export const useFileStore = defineStore('files', {
       const idx = this.uploadingFiles.findIndex(f => f.name === name);
       if (idx > -1) {
         this.uploadingFiles.splice(idx, 1);
-      }
-      if (this.uploadingFiles.length === 0) {
-        this.uploading = false;
       }
     }
   }
