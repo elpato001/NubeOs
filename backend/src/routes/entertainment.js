@@ -296,12 +296,14 @@ router.get('/admin/media', authMiddleware, (req, res) => {
     const libPath = req.query.libPath;
     let media;
     if (libPath) {
-      media = db.prepare('SELECT * FROM eo_media WHERE file_path LIKE ? || "%" ORDER BY title ASC').all(libPath);
+      // Use explicit concatenation for the LIKE pattern
+      media = db.prepare('SELECT * FROM eo_media WHERE file_path LIKE ? ORDER BY title ASC').all(libPath + '%');
     } else {
       media = db.prepare('SELECT * FROM eo_media ORDER BY title ASC').all();
     }
     res.json(media);
   } catch (error) {
+    console.error('API Error /admin/media:', error);
     res.status(500).json({ error: error.message });
   }
 });

@@ -321,32 +321,50 @@
                 </div>
               </div>
 
-              <div v-if="activeAdminTab === 'media'" class="admin-media-table">
-                <div class="table-search">
-                  <input v-model="adminSearch" type="text" placeholder="Buscar por título..." />
-                </div>
-                <div class="eos-scroll-table">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Título</th>
-                        <th>Tipo</th>
-                        <th>Género</th>
-                        <th>Acciones</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr v-for="m in filteredAdminMedia" :key="'adm-'+m.id">
-                        <td>{{ m.title || 'Sin título' }}</td>
-                        <td><span class="type-badge">{{ m.type }}</span></td>
-                        <td>{{ m.genre || 'Desconocido' }}</td>
-                        <td class="table-btns">
-                          <button @click="editMedia(m)" class="btn-edit" title="Editar"><Star :size="14" /></button>
-                          <button @click="deleteMedia(m.id)" class="btn-del" title="Eliminar"><Trash2 :size="14" /></button>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
+              <div v-if="activeAdminTab === 'media'" class="admin-libraries">
+                <div class="media-management-grid">
+                  <div class="table-container">
+                    <div class="table-header">
+                      <h3>Gestión Global de Medios ({{ allAdminMedia.length }})</h3>
+                      <div class="mini-search">
+                        <Search :size="14" />
+                        <input v-model="adminSearch" type="text" placeholder="Buscar en todo el catálogo..." />
+                      </div>
+                    </div>
+                    <div class="eos-scroll-table">
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Poster</th>
+                            <th>Título / Metadata</th>
+                            <th>Tipo</th>
+                            <th>Archivo</th>
+                            <th>Acciones</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr v-for="m in filteredAdminMedia" :key="'admmedia-'+m.id">
+                            <td class="td-poster">
+                              <div class="mini-poster" :style="{ backgroundImage: `url(${m.poster_path ? '/api/entertainment/poster/' + m.id : '/entertainment/posters/stellar_horizon.png'})` }"></div>
+                            </td>
+                            <td>
+                              <div class="media-title-stack">
+                                <span class="m-title">{{ m.title }}</span>
+                                <span class="m-year">{{ m.year }} · {{ m.genre }}</span>
+                                <div class="m-rating" v-if="m.rating">⭐ {{ m.rating }}</div>
+                              </div>
+                            </td>
+                            <td><span class="type-tag">{{ m.type }}</span></td>
+                            <td><code class="file-path-code" :title="m.file_path">{{ m.file_path.split('/').pop() }}</code></td>
+                            <td class="table-btns">
+                              <button @click="openIdentify(m)" class="btn-edit" title="Identificar (TMDB)"><Search :size="14" /></button>
+                              <button @click="deleteMedia(m.id)" class="btn-del" title="Eliminar"><Trash2 :size="14" /></button>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -421,6 +439,11 @@
                               </tr>
                             </tbody>
                           </table>
+                          <div v-if="libraryMedia.length === 0" class="no-results py-8">
+                            <MonitorPlay :size="48" class="mx-auto mb-4 opacity-20" />
+                            <p>No se encontraron medios en esta carpeta.</p>
+                            <p class="text-xs mt-2 text-slate-500">Asegúrate de que los archivos de video existan y usa el botón "Escanear esta carpeta".</p>
+                          </div>
                         </div>
                       </div>
                     </div>
