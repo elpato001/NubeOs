@@ -381,6 +381,7 @@ const handleItemClick = (id: string) => {
     fetchNetwork();
   } else if (id === 'terminal') {
     activeSubView.value = 'terminal';
+    fetchTerminalSettings();
   } else if (['volume', 'storage_pool', 'hdd', 'vdisk', 'ext_storage'].includes(id)) {
     activeSubView.value = 'storage';
     fetchStorage();
@@ -413,16 +414,37 @@ const snmpForm = ref({
 });
 
 const isSavingTerminal = ref(false);
+
+const fetchTerminalSettings = async () => {
+  try {
+    const res = await axios.get('/api/system/terminal-settings');
+    const data = res.data;
+    terminalForm.value = {
+      telnet: data.telnet,
+      ssh: data.ssh,
+      sshPort: data.sshPort,
+      consolePortLock: false
+    };
+    snmpForm.value.enabled = data.snmpEnabled;
+    snmpForm.value.deviceName = data.deviceName || '';
+    snmpForm.value.deviceLocation = data.deviceLocation || '';
+  } catch (err) {
+    console.error('Error fetching terminal settings');
+  }
+};
+
 const saveTerminalSettings = async () => {
   isSavingTerminal.value = true;
   try {
-    // Simulamos guardado o endpoint real si existe
-    setTimeout(() => {
-      alert('Configuración guardada correctamente');
-      isSavingTerminal.value = false;
-    }, 800);
-  } catch (err) {
-    alert('Error al guardar');
+    await axios.post('/api/system/terminal-settings', {
+      ssh: terminalForm.value.ssh,
+      snmpEnabled: snmpForm.value.enabled
+    });
+    alert('Configuración aplicada correctamente en el sistema.');
+    fetchTerminalSettings();
+  } catch (err: any) {
+    alert(err.response?.data?.error || 'Error al aplicar la configuración');
+  } finally {
     isSavingTerminal.value = false;
   }
 };

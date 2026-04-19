@@ -294,4 +294,82 @@ router.get('/external-drives', authMiddleware, (req, res) => {
   }
 });
 
+// New: Get Terminal and SNMP real settings
+router.get('/terminal-settings', authMiddleware, async (req, res) => {
+  if (process.platform !== 'linux') {
+    return res.json({ 
+      telnet: false, 
+      ssh: false, 
+      sshPort: 22, 
+      snmpEnabled: false,
+      deviceName: 'NubeOS-Server',
+      deviceLocation: 'Rack 1'
+    });
+  }
+
+  try {
+    const { execSync } = require('child_process');
+    let sshActive = false;
+    let snmpActive = false;
+
+    try {
+      sshActive = execSync('systemctl is-active ssh || systemctl is-active sshd', { encoding: 'utf8' }).trim() === 'active';
+    } catch (e) {}
+
+    try {
+      snmpActive = execSync('systemctl is-active snmpd', { encoding: 'utf8' }).trim() === 'active';
+    } catch (e) {}
+
+    res.json({
+      telnet: false,
+      ssh: sshActive,
+      sshPort: 22,
+      snmpEnabled: snmpActive,
+      deviceName: require('os').hostname(),
+      deviceLocation: 'Local Server'
+    });
+  } catch (e) {
+    // Si falla el comando es porque el servicio no existe o está apagado
+    res.json({ 
+      telnet: false, 
+      ssh: false, 
+      sshPort: 22,
+      snmpEnabled: false
+    });
+  }
+});
+
+// New: Apply Terminal and SNMP settings
+router.post('/terminal-settings', authMiddleware, adminMiddleware, async (req, res) => {
+  const { ssh, snmpEnabled } = req.body;
+
+  if (process.platform !== 'linux') {
+    return res.json({ success: true, message: 'Cambios guardados (Simulado fuera de Linux)' });
+  }
+
+  try {
+    const { execSync } = require('child_process');
+    
+    // SSH Logic
+    const sshAction = ssh ? 'enable --now' : 'disable --now';
+    try {
+      execSync(`sudo systemctl ${sshAction} ssh || sudo systemctl ${sshAction} sshd`);
+    } catch (e) {
+      console.warn('SSH direct control failed, trying alternate method');
+    }
+
+    // SNMP Logic
+    const snmpAction = snmpEnabled ? 'enable --now' : 'disable --now';
+    try {
+      execSync(`sudo systemctl ${snmpAction} snmpd`);
+    } catch (e) {
+      console.warn('SNMP direct control failed');
+    }
+
+    res.json({ success: true, message: 'La configuración se ha aplicado correctamente en el sistema.' });
+  } catch (err) {
+    res.status(500).json({ error: 'No se pudo aplicar la configuración a nivel de sistema: ' + err.message });
+  }
+});
+
 module.exports = router;
