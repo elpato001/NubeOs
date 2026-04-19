@@ -141,6 +141,22 @@ try {
   console.error('⚠️ Error inicializando estructura multimedia:', err.message);
 }
 
+// --- Default IPTV Lists ---
+const defaultIptv = { 
+  name: 'Canales Abiertos', 
+  url: 'https://cdn.jsdelivr.net/gh/Alplox/json-teles@refs/heads/main/canales.m3u' 
+};
+
+try {
+  const exists = db.prepare('SELECT id FROM eo_iptv_lists WHERE url = ?').get(defaultIptv.url);
+  if (!exists) {
+    db.prepare('INSERT INTO eo_iptv_lists (name, url) VALUES (?, ?)').run(defaultIptv.name, defaultIptv.url);
+    console.log(`✅ Lista IPTV por defecto añadida: ${defaultIptv.name}`);
+  }
+} catch (err) {
+  console.error('⚠️ Error inicializando lista IPTV:', err.message);
+}
+
 console.log('Connected to SQLite database at:', dbPath);
 
 module.exports = db;

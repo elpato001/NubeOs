@@ -649,6 +649,31 @@
           </div>
         </div>
       </Transition>
+
+      <!-- Embedded Player Overlay -->
+      <Transition name="player-slide">
+        <div v-if="showPlayer" class="eos-player-overlay">
+          <header class="player-top-bar">
+            <button @click="closePlayer" class="player-back-btn">
+              <ChevronLeft :size="24" />
+              <span>Volver a EntertainmentOS</span>
+            </button>
+            <div class="player-current-title">{{ playerTitle }}</div>
+          </header>
+          
+          <div class="player-video-wrapper">
+            <video 
+              ref="videoRef"
+              :src="playerSource"
+              controls
+              autoplay
+              class="eos-internal-video"
+              @timeupdate="handleInternalTimeUpdate"
+              @ended="handleInternalEnded"
+            ></video>
+          </div>
+        </div>
+      </Transition>
     </div>
   </div>
 </template>
@@ -695,6 +720,14 @@ const newIptvUrl = ref('');
 // Admin Detail State
 const selectedAdminLibrary = ref<any>(null);
 const libraryMedia = ref<any[]>([]);
+
+// Internal Player State
+const showPlayer = ref(false);
+const playerSource = ref('');
+const playerTitle = ref('');
+const playerMediaId = ref<number | null>(null);
+const videoRef = ref<HTMLVideoElement | null>(null);
+const lastSavedTime = ref(0);
 
 // Folder Browser State
 const showFolderPicker = ref(false);
@@ -880,8 +913,10 @@ const deleteIptvList = async (id: number) => {
 };
 
 const playIptv = (ch: any) => {
-  // We pass undefined as the 3rd argument (mediaId) because IPTV channels are not in the 'eo_media' DB table
-  desktop.playVideo(ch.url, ch.name, undefined, 0);
+  playerSource.value = ch.url;
+  playerTitle.value = ch.name;
+  playerMediaId.value = null;
+  showPlayer.value = true;
 };
 
 const fetchConfig = async () => {
@@ -910,9 +945,52 @@ const playMedia = (m: any) => {
   const token = localStorage.getItem('nubeos_token');
   const streamUrl = `/api/entertainment/stream/${m.id}?token=${token}`;
   
-  desktop.playVideo(streamUrl, m.title, m.id, m.progress || 0);
+  playerSource.value = streamUrl;
+  playerTitle.value = m.title;
+  playerMediaId.value = m.id;
+  showPlayer.value = true;
+  
+  const startTime = m.progress || 0;
+  lastSavedTime.value = startTime;
+  
+  // Set start time once metadata loaded
+  if (videoRef.value) {
+    videoRef.value.onloadedmetadata = () => {
+      if (videoRef.value && startTime > 0) {
+        videoRef.value.currentTime = startTime;
+      }
+    };
+  }
+
   selectedMedia.value = null;
 };
+
+const closePlayer = () => {
+  if (videoRef.value) {
+    saveInternalProgress();
+    videoRef.value.pause();
+    videoRef.value.src = "";
+  }
+  showPlayer.value = false;
+};
+
+const saveInternalProgress = async (isFinished = false) => {
+  if (!playerMediaId.value || !videoRef.value) return;
+  const currentTime = Math.floor(videoRef.value.currentTime);
+  if (!isFinished && Math.abs(currentTime - lastSavedTime.value) < 5) return;
+
+  try {
+    await axios.post('/api/entertainment/progress', {
+      mediaId: playerMediaId.value,
+      seconds: currentTime,
+      isFinished
+    });
+    lastSavedTime.value = currentTime;
+  } catch (err) {}
+};
+
+const handleInternalTimeUpdate = () => saveInternalProgress();
+const handleInternalEnded = () => saveInternalProgress(true);
 
 const openMediaDetail = (m: any) => selectedMedia.value = m;
 
@@ -1183,6 +1261,19 @@ th, td { padding: 1rem; text-align: left; border-bottom: 1px solid rgba(255,255,
 .scan-action-btn { display: flex; align-items: center; gap: 0.5rem; background: rgba(245, 158, 11, 0.1); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.2); padding: 0.5rem 1rem; border-radius: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: all 0.2s; }
 .scan-action-btn:hover:not(:disabled) { background: #f59e0b; color: #1e293b; }
 .scan-action-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Internal Player Styles */
+.eos-player-overlay { position: absolute; inset: 0; background: #000; z-index: 200; display: flex; flex-direction: column; }
+.player-top-bar { height: 70px; background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent); padding: 0 2rem; display: flex; align-items: center; gap: 2rem; position: absolute; top: 0; left: 0; right: 0; z-index: 210; opacity: 0; transition: opacity 0.3s; }
+.eos-player-overlay:hover .player-top-bar { opacity: 1; }
+.player-back-btn { background: none; border: none; color: white; display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 1rem; }
+.player-current-title { color: #94a3b8; font-size: 0.9rem; font-weight: 500; }
+.player-video-wrapper { flex: 1; display: flex; align-items: center; justify-content: center; }
+.eos-internal-video { width: 100%; height: 100%; }
+
+.player-slide-enter-active, .player-slide-leave-active { transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
+.player-slide-enter-from { opacity: 0; transform: scale(1.1); }
+.player-slide-leave-to { opacity: 0; transform: scale(0.9); }
 
 .lib-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem; }
 .lib-card { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; padding: 1.25rem; display: flex; align-items: center; gap: 1.25rem; transition: all 0.3s; position: relative; overflow: hidden; }
