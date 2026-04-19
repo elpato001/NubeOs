@@ -95,14 +95,16 @@ export const useDesktopStore = defineStore('desktop', {
       this.windows[app].height = height;
     },
     moveIcon(id: string, x: number, y: number) {
-      const icon = this.desktopIcons[id];
+      const icon = this.desktopIcons[id] || this.dynamicIcons[id];
       if (icon) {
         // Snap to grid
         icon.x = Math.round(x / this.gridSize.x) * this.gridSize.x + 20;
         icon.y = Math.round(y / this.gridSize.y) * this.gridSize.y + 20;
         
-        // Save to local storage
-        localStorage.setItem('nubeos_desktop_icons', JSON.stringify(this.desktopIcons));
+        // Save to local storage only if it's a permanent icon
+        if (this.desktopIcons[id]) {
+          localStorage.setItem('nubeos_desktop_icons', JSON.stringify(this.desktopIcons));
+        }
       }
     },
     focusWindow(app: WindowApp) {
