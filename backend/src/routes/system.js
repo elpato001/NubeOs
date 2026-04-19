@@ -33,38 +33,45 @@ const upload = multer({
 router.get('/stats', authMiddleware, async (req, res) => {
   try {
     const [cpu, mem, disk, net, os] = await Promise.all([
-      si.currentLoad(),
-      si.mem(),
-      si.fsSize(),
-      si.networkInterfaceDefault(),
-      si.osInfo()
+      si.currentLoad().catch(() => ({ currentLoad: 0 })),
+      si.mem().catch(() => ({ active: 0, total: 0 })),
+      si.fsSize().catch(() => []),
+      si.networkInterfaceDefault().catch(() => null),
+      si.osInfo().catch(() => ({ hostname: 'NubeOS', distro: 'NubeOS', release: '1.0' }))
     ]);
 
-    const netInfo = await si.networkInterfaces();
-    const primaryNet = netInfo.find(n => n.iface === net) || netInfo[0];
+    let primaryNet = null;
+    try {
+      const netInfo = await si.networkInterfaces();
+      primaryNet = netInfo.find(n => n.iface === net) || netInfo.find(n => n.ip4) || netInfo[0];
+    } catch (e) {}
 
     let version = '1.0.0';
     try {
       version = require('child_process').execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
     } catch (e) {
-      const pkg = require('../../package.json');
-      version = pkg.version || '1.0.0';
+      try {
+        const pkg = require('../../package.json');
+        version = pkg.version || '1.0.0';
+      } catch (err) {}
     }
 
+    const mainDisk = disk.length > 0 ? disk[0] : { use: 0, size: 0, used: 0 };
+
     res.json({
-      cpu: Math.round(cpu.currentLoad),
-      ram: Math.round((mem.active / mem.total) * 100),
-      disk: Math.round((disk[3]?.use || disk[0]?.use || 0)),
+      cpu: Math.round(cpu.currentLoad || 0),
+      ram: mem.total > 0 ? Math.round((mem.active / mem.total) * 100) : 0,
+      disk: Math.round(mainDisk.use || 0),
       version: version,
-      hostname: os.hostname,
+      hostname: os.hostname || 'NubeOS',
       ip: primaryNet?.ip4 || '127.0.0.1',
       details: {
-        memTotal: mem.total,
-        memUsed: mem.active,
-        diskTotal: disk[3]?.size || disk[0]?.size,
-        diskUsed: disk[3]?.used || disk[0]?.used,
-        uptime: si.time().uptime,
-        os: os.distro + ' ' + os.release
+        memTotal: mem.total || 0,
+        memUsed: mem.active || 0,
+        diskTotal: mainDisk.size || 0,
+        diskUsed: mainDisk.used || 0,
+        uptime: si.time().uptime || 0,
+        os: (os.distro || 'NubeOS') + ' ' + (os.release || '')
       }
     });
   } catch (error) {
