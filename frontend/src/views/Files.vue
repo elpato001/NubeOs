@@ -278,7 +278,14 @@ const handleDblClick = (item: FileItem) => {
   if (item.isDirectory) {
     navigateTo(item.relativePath || (fileStore.currentPath ? `${fileStore.currentPath}/${item.name}` : item.name));
   } else {
-    // Open preview or download
+    const ext = item.extension.toLowerCase();
+    if (videoExts.includes(ext)) {
+      const url = fileStore.getDownloadUrl(item.name);
+      desktop.playVideo(url, item.name);
+    } else {
+      // Para otros archivos, simplemente descargar o vista previa básica
+      downloadFile(item);
+    }
   }
 };
 

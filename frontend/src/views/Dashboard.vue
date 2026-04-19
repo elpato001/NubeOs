@@ -76,6 +76,7 @@
       <Window appId="monitor" title="Monitor" @onReload="fetchStats"><Home /></Window>
       <Window appId="admin" title="Configuración" v-if="auth.isAdmin"><ControlPanel /></Window>
       <Window appId="terminal" title="Terminal" :noPadding="true"><TerminalView /></Window>
+      <Window appId="player" title="Reproductor de Video" :noPadding="true"><VideoPlayer /></Window>
       
       <!-- System Status Widget -->
       <Transition name="fade">
@@ -204,6 +205,7 @@ import Apps from './Apps.vue';
 import Home from './Home.vue';
 import ControlPanel from './ControlPanel.vue';
 import TerminalView from './Terminal.vue';
+import VideoPlayer from './VideoPlayer.vue';
 import { useNotificationStore } from '../stores/notification';
 
 // State

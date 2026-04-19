@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 
-export type WindowApp = 'files' | 'apps' | 'admin' | 'settings' | 'monitor' | 'terminal';
+export type WindowApp = 'files' | 'apps' | 'admin' | 'settings' | 'monitor' | 'terminal' | 'player';
 
 export interface WindowState {
   id: WindowApp;
@@ -47,7 +47,9 @@ export const useDesktopStore = defineStore('desktop', {
         settings: { id: 'settings', title: 'Configuración', isOpen: false, zIndex: 10, isMinimized: false, isMaximized: false, x: -1, y: -1, width: 600, height: 500 },
         monitor: { id: 'monitor', title: 'Monitor del Sistema', isOpen: false, zIndex: 10, isMinimized: false, isMaximized: false, x: -1, y: -1, width: 700, height: 500 },
         terminal: { id: 'terminal', title: 'Terminal', isOpen: false, zIndex: 10, isMinimized: false, isMaximized: false, x: -1, y: -1, width: 800, height: 500 },
+        player: { id: 'player', title: 'Reproductor de Video', isOpen: false, zIndex: 10, isMinimized: false, isMaximized: false, x: -1, y: -1, width: 800, height: 480 },
       } as Record<WindowApp, WindowState>,
+      currentVideo: '',
       desktopIcons: savedIcons ? JSON.parse(savedIcons) : defaultIcons as Record<string, DesktopIcon>,
       dynamicIcons: {} as Record<string, DesktopIcon>,
       topZIndex: 100,
@@ -121,6 +123,11 @@ export const useDesktopStore = defineStore('desktop', {
         newIcons[icon.id] = icon;
       });
       this.dynamicIcons = newIcons;
+    },
+    playVideo(url: string, title?: string) {
+      this.currentVideo = url;
+      if (title) this.windows.player.title = `Reproductor: ${title}`;
+      this.openWindow('player');
     }
   }
 });
