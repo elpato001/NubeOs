@@ -90,6 +90,32 @@
             <button class="eos-hero-arrow right" @click="nextHero"><ChevronRight :size="28" /></button>
           </section>
 
+          <!-- Favorites Section -->
+          <section class="eos-media-section" v-if="favorites.length > 0">
+            <div class="eos-section-header">
+              <h2><Star :size="20" fill="#f59e0b" color="#f59e0b" /> Tus Favoritos</h2>
+            </div>
+            <div class="eos-media-row">
+              <div
+                v-for="fav in favorites"
+                :key="'fav-'+fav.id"
+                class="eos-media-card"
+                @click="openMediaDetail(fav)"
+              >
+                <div class="eos-card-poster">
+                  <img :src="fav.poster_path ? '/api/entertainment/poster/' + fav.media_id + '?token=' + token : '/entertainment/posters/stellar_horizon.png'" />
+                  <div class="eos-card-overlay">
+                    <Play :size="32" />
+                  </div>
+                </div>
+                <div class="eos-card-info">
+                  <div class="eos-card-title">{{ fav.title }}</div>
+                  <div class="eos-card-meta">{{ fav.year }} · {{ fav.type }}</div>
+                </div>
+              </div>
+            </div>
+          </section>
+
           <!-- Sections -->
           <section class="eos-media-section" v-for="section in mediaSections" :key="section.title">
             <div class="eos-section-header">
@@ -620,7 +646,14 @@
 
               <div v-else class="eos-modal-actions">
                 <button class="eos-btn-primary" @click="playMedia(selectedMedia)"><Play :size="18" /> Reproducir</button>
-                <button class="eos-btn-secondary"><Plus :size="18" /> Favoritos</button>
+                <button 
+                  class="eos-btn-secondary" 
+                  :class="{ 'is-fav': isFavorite(selectedMedia) }"
+                  @click="toggleFavorite(selectedMedia)"
+                >
+                  <Star :size="18" :fill="isFavorite(selectedMedia) ? '#f59e0b' : 'none'" /> 
+                  {{ isFavorite(selectedMedia) ? 'En Favoritos' : 'Favoritos' }}
+                </button>
               </div>
             </div>
           </div>
@@ -823,6 +856,13 @@ const identifyingMedia = ref<any>(null);
 const tmdbSearchQuery = ref('');
 const tmdbSearchResults = ref<any[]>([]);
 const tmdbSearchLoading = ref(false);
+
+// Edit Modal State
+const showEditModal = ref(false);
+const editingMedia = ref<any>(null);
+
+// Favorites State
+const favorites = ref<any[]>([]);
 
 const navItems = [
   { id: 'home', label: 'Inicio', icon: Home },
@@ -1192,7 +1232,51 @@ const deleteMedia = async (id: number) => {
   } catch (err) { notification.error('Error', 'No se pudo eliminar'); }
 };
 
-const openMediaDetail = (m: any) => selectedMedia.value = m;
+const editMedia = (media: any) => {
+  editingMedia.value = { ...media };
+  showEditModal.value = true;
+};
+
+const saveMediaEdit = async () => {
+  if (!editingMedia.value) return;
+  loading.value = true;
+  try {
+    await axios.put(`/api/entertainment/admin/media/${editingMedia.value.id}`, editingMedia.value);
+    notification.success('Actualizado', 'La información se ha guardado.');
+    showEditModal.value = false;
+    fetchCatalog();
+    fetchAdminData();
+    if (selectedAdminLibrary.value) enterLibraryDetail(selectedAdminLibrary.value);
+  } catch (err) {
+    notification.error('Error', 'No se pudieron guardar los cambios');
+  } finally {
+    loading.value = false;
+  }
+};
+
+const isFavorite = (m: any) => {
+  if (m.isSeriesGroup) return false;
+  return favorites.value.some(f => f.media_id === m.id || (m.url && f.iptv_url === m.url));
+};
+
+const toggleFavorite = async (m: any) => {
+  const isFav = isFavorite(m);
+  try {
+    if (isFav) {
+      await axios.delete('/api/entertainment/favorites', { data: { media_id: m.id, iptv_url: m.url } });
+    } else {
+      await axios.post('/api/entertainment/favorites', { mediaId: m.id, iptvUrl: m.url });
+    }
+    fetchFavorites();
+  } catch (err) {}
+};
+
+const fetchFavorites = async () => {
+  try {
+    const res = await axios.get('/api/entertainment/favorites');
+    favorites.value = res.data;
+  } catch (err) {}
+};
 
 const openIdentify = (media: any) => {
   identifyingMedia.value = media;
@@ -1241,7 +1325,7 @@ const identifyItem = async (tmdbId: number) => {
   }
 };
 
-const editMedia = (media: any) => notification.info('Próximamente', 'Editor visual en desarrollo.');
+const openMediaDetail = (m: any) => selectedMedia.value = m;
 
 // Folder Browsing
 const openFolderPicker = () => {
@@ -1290,6 +1374,7 @@ let heroTimer: any;
 onMounted(() => {
   fetchCatalog();
   fetchIptvLists();
+  fetchFavorites();
   if (activeNav.value === 'admin') fetchAdminData();
   heroTimer = setInterval(nextHero, 8000);
 });
@@ -1517,4 +1602,14 @@ th, td { padding: 1rem; text-align: left; border-bottom: 1px solid rgba(255,255,
 .loading-full { display: flex; align-items: center; justify-content: center; height: 100%; color: #f59e0b; }
 .no-results { color: #64748b; text-align: center; padding: 2rem; font-size: 0.9rem; }
 .no-results code { display: block; margin-top: 1rem; color: #94a3b8; font-family: monospace; }
+
+/* Edit Media Styles */
+.edit-media-modal { max-width: 600px; }
+.edit-media-body { padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem; }
+.edit-field { display: flex; flex-direction: column; gap: 4px; }
+.edit-field label { font-size: 0.8rem; color: #94a3b8; font-weight: 500; }
+.edit-field input, .edit-field textarea { background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 0.6rem; color: white; outline: none; }
+.edit-field input:focus, .edit-field textarea:focus { border-color: #f59e0b; }
+.edit-row { display: grid; grid-template-columns: 1fr 2fr; gap: 1rem; }
+.is-fav { color: #f59e0b !important; border-color: rgba(245, 158, 11, 0.3) !important; background: rgba(245, 158, 11, 0.05) !important; }
 </style>

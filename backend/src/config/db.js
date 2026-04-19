@@ -82,8 +82,20 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS eo_iptv_lists (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
-    url TEXT NOT NULL,
+    url TEXT UNIQUE NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS eo_favorites (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    media_id INTEGER,
+    iptv_url TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(user_id) REFERENCES users(id),
+    FOREIGN KEY(media_id) REFERENCES eo_media(id),
+    UNIQUE(user_id, media_id),
+    UNIQUE(user_id, iptv_url)
   );
 `);
 

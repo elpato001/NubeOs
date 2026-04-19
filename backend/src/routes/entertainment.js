@@ -10,6 +10,72 @@ const { downloadImage } = require('../utils/imageDownloader');
 
 const NUBEOS_ROOT = path.resolve(__dirname, '../../../..');
 
+// --- HELPERS MOVED UP FOR SCOPE ---
+const getAllFiles = (dirPath, arrayOfFiles) => {
+  if (!fs.existsSync(dirPath)) return [];
+  const files = fs.readdirSync(dirPath);
+  arrayOfFiles = arrayOfFiles || [];
+  files.forEach(file => {
+    const fullPath = path.join(dirPath, file);
+    if (fs.statSync(fullPath).isDirectory()) {
+      arrayOfFiles = getAllFiles(fullPath, arrayOfFiles);
+    } else {
+      arrayOfFiles.push(fullPath);
+    }
+  });
+  return arrayOfFiles;
+};
+
+const processFile = async (filePath, lib) => {
+  const file = path.basename(filePath);
+  const ext = path.extname(file).toLowerCase();
+  const isVideo = ['.mp4', '.mkv', '.webm', '.avi'].includes(ext);
+  const isAudio = ['.mp3', '.wav', '.flac', '.aac'].includes(ext);
+  if (!isVideo && !isAudio) return false;
+
+  const existing = db.prepare('SELECT id, poster_path, description FROM eo_media WHERE file_path = ?').get(filePath);
+  if (existing && existing.poster_path && existing.description) return false;
+
+  const fileNameNoExt = path.parse(file).name;
+  const seriesMatch = fileNameNoExt.match(/S(\d+)E(\d+)|[S\s](\d+)E(\d+)|\s(\d+)x(\d+)/i);
+  const isSeriesRegex = !!seriesMatch;
+  let type = lib.type;
+  if (lib.type === 'generic') type = isVideo ? (isSeriesRegex ? 'series' : 'movie') : 'music';
+  const isSeries = type === 'series' || (type === 'generic' && isSeriesRegex);
+
+  let season = null, episode = null, seriesName = null, title = fileNameNoExt;
+  if (isSeries) {
+    const s = seriesMatch[1] || seriesMatch[3] || seriesMatch[5];
+    const e = seriesMatch[2] || seriesMatch[4] || seriesMatch[6];
+    season = parseInt(s); episode = parseInt(e);
+    seriesName = fileNameNoExt.split(seriesMatch[0])[0].replace(/[._-]/g, ' ').trim();
+    title = `${seriesName} - S${s}E${e}`;
+  } else {
+    title = fileNameNoExt.replace(/\((19|20)\d{2}\)|(19|20)\d{2}/g, '').replace(/[._-]/g, ' ').trim();
+  }
+  const yearMatch = fileNameNoExt.match(/\((19|20)\d{2}\)|(19|20)\d{2}/);
+  const year = yearMatch ? parseInt(yearMatch[0].replace(/[()]/g, '')) : new Date().getFullYear();
+  
+  let posterPath = null, bannerPath = null, description = null, rating = null;
+  const tmdbData = await tmdbService.searchMedia(title, year, type);
+  if (tmdbData) {
+    title = tmdbData.title || title; description = tmdbData.description; rating = tmdbData.rating;
+    const timestamp = Date.now();
+    posterPath = await downloadImage(tmdbData.posterPath, `poster_${timestamp}_${Math.random().toString(36).substring(7)}`);
+    bannerPath = await downloadImage(tmdbData.bannerPath, `banner_${timestamp}_${Math.random().toString(36).substring(7)}`);
+  }
+  const genre = lib.name || 'Desconocido';
+  if (existing) {
+    db.prepare(`UPDATE eo_media SET title = ?, description = ?, rating = ?, poster_path = ?, banner_path = ?, genre = ? WHERE id = ?`)
+      .run(title, description, rating, posterPath || existing.poster_path, bannerPath, genre, existing.id);
+    return false;
+  } else {
+    db.prepare(`INSERT INTO eo_media (title, series_name, season, episode, type, file_path, genre, year, poster_path, banner_path, description, rating, is_new) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`)
+      .run(title, seriesName, season, episode, type, filePath, genre, year, posterPath, bannerPath, description, rating);
+    return true;
+  }
+};
+
 // 1. Get Catalog (Media + User Progress)
 router.get('/catalog', authMiddleware, (req, res) => {
   try {
@@ -101,6 +167,26 @@ router.get('/poster/:id', authMiddleware, (req, res) => {
   }
 });
 
+// 2c. Get Banner Image
+router.get('/banner/:id', authMiddleware, (req, res) => {
+  try {
+    const mediaId = req.params.id;
+    const media = db.prepare('SELECT banner_path FROM eo_media WHERE id = ?').get(mediaId);
+    
+    if (!media || !media.banner_path || !fs.existsSync(media.banner_path)) {
+      return res.redirect('/entertainment/posters/hero_banner.png');
+    }
+
+    const ext = path.extname(media.banner_path).toLowerCase();
+    const mimeTypes = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp' };
+    res.setHeader('Content-Type', mimeTypes[ext] || 'image/jpeg');
+    
+    fs.createReadStream(media.banner_path).pipe(res);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // 3. Update Progress
 router.post('/progress', authMiddleware, (req, res) => {
   try {
@@ -123,12 +209,24 @@ router.post('/progress', authMiddleware, (req, res) => {
 });
 
 // 4. Admin - Add Library
-router.post('/admin/libraries', authMiddleware, (req, res) => {
+router.post('/admin/libraries', authMiddleware, async (req, res) => {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' });
   try {
     const { path: libPath, name, type } = req.body;
-    db.prepare('INSERT INTO eo_libraries (path, name, type) VALUES (?, ?, ?)').run(libPath, name, type || 'movie');
-    res.json({ success: true });
+    const result = db.prepare('INSERT INTO eo_libraries (path, name, type) VALUES (?, ?, ?)').run(libPath, name, type || 'movie');
+    
+    // Auto-scan after adding
+    const libId = result.lastInsertRowid;
+    const lib = db.prepare('SELECT * FROM eo_libraries WHERE id = ?').get(libId);
+    
+    if (fs.existsSync(libPath)) {
+       const files = getAllFiles(libPath);
+       for (const f of files) {
+          await processFile(f, lib);
+       }
+    }
+
+    res.json({ success: true, libId });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -156,22 +254,7 @@ router.delete('/admin/libraries/:id', authMiddleware, (req, res) => {
   }
 });
 
-// Helper for recursive file scanning
-const getAllFiles = (dirPath, arrayOfFiles) => {
-  const files = fs.readdirSync(dirPath);
-  arrayOfFiles = arrayOfFiles || [];
-
-  files.forEach(file => {
-    const fullPath = path.join(dirPath, file);
-    if (fs.statSync(fullPath).isDirectory()) {
-      arrayOfFiles = getAllFiles(fullPath, arrayOfFiles);
-    } else {
-      arrayOfFiles.push(fullPath);
-    }
-  });
-
-  return arrayOfFiles;
-};
+// --- HELPERS ALREADY MOVED UP ---
 
 // 7. Admin - Scan Libraries
 router.post('/admin/scan', authMiddleware, async (req, res) => {
@@ -181,94 +264,31 @@ router.post('/admin/scan', authMiddleware, async (req, res) => {
     let newItems = 0;
 
     for (const lib of libraries) {
-      const libPath = lib.path;
-      if (!fs.existsSync(libPath)) continue;
-
-      const allFiles = getAllFiles(libPath);
-      
+      if (!fs.existsSync(lib.path)) continue;
+      const allFiles = getAllFiles(lib.path);
       for (const filePath of allFiles) {
-        const file = path.basename(filePath);
-        const ext = path.extname(file).toLowerCase();
-        const isVideo = ['.mp4', '.mkv', '.webm', '.avi'].includes(ext);
-        const isAudio = ['.mp3', '.wav', '.flac', '.aac'].includes(ext);
-
-        if (isVideo || isAudio) {
-          const fileNameNoExt = path.parse(file).name;
-          const seriesMatch = fileNameNoExt.match(/S(\d+)E(\d+)|[S\s](\d+)E(\d+)|\s(\d+)x(\d+)/i);
-          const isSeriesRegex = !!seriesMatch;
-          
-          // Use library type as primary source, or regex if generic
-          let type = lib.type;
-          if (lib.type === 'generic') {
-             type = isVideo ? (isSeriesRegex ? 'series' : 'movie') : 'music';
-          }
-          
-          const isSeries = type === 'series' || (type === 'generic' && isSeriesRegex);
-
-          let season = null;
-          let episode = null;
-          let seriesName = null;
-          let title = fileNameNoExt;
-
-          if (isSeries) {
-            const s = seriesMatch[1] || seriesMatch[3] || seriesMatch[5];
-            const e = seriesMatch[2] || seriesMatch[4] || seriesMatch[6];
-            season = parseInt(s);
-            episode = parseInt(e);
-            seriesName = fileNameNoExt.split(seriesMatch[0])[0].replace(/[._-]/g, ' ').trim();
-            title = `${seriesName} - S${s}E${e}`;
-          } else {
-             title = fileNameNoExt
-              .replace(/\((19|20)\d{2}\)|(19|20)\d{2}/g, '')
-              .replace(/[._-]/g, ' ')
-              .trim();
-          }
-          
-          const yearMatch = fileNameNoExt.match(/\((19|20)\d{2}\)|(19|20)\d{2}/);
-          const year = yearMatch ? parseInt(yearMatch[0].replace(/[()]/g, '')) : new Date().getFullYear();
-          
-          let posterPath = null;
-          // Check for posters in the SAME folder as the movie
-          const currentDir = path.dirname(filePath);
-          ['.jpg', '.jpeg', '.png', '.webp'].forEach(imgExt => {
-            const potentialPoster = path.join(currentDir, fileNameNoExt + imgExt);
-            if (fs.existsSync(potentialPoster)) {
-              posterPath = potentialPoster;
-            }
-          });
-
-          const genre = lib.name || 'Desconocido';
-          let bannerPath = null;
-          let description = null;
-          let rating = null;
-
-          // --- TMDB Scraper Integration ---
-          const tmdbData = await tmdbService.searchMedia(title, year, type);
-          if (tmdbData) {
-            title = tmdbData.title || title;
-            description = tmdbData.description;
-            rating = tmdbData.rating;
-            
-            // Download images locally
-            const timestamp = Date.now();
-            posterPath = await downloadImage(tmdbData.posterPath, `poster_${timestamp}_${Math.random().toString(36).substring(7)}`) || posterPath;
-            bannerPath = await downloadImage(tmdbData.bannerPath, `banner_${timestamp}_${Math.random().toString(36).substring(7)}`);
-          }
-
-          try {
-            const result = db.prepare(`
-              INSERT OR IGNORE INTO eo_media (title, series_name, season, episode, type, file_path, genre, year, poster_path, banner_path, description, rating, is_new)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
-            `).run(title, seriesName, season, episode, type, filePath, genre, year, posterPath, bannerPath, description, rating);
-            
-            if (result.changes > 0) {
-              newItems++;
-            }
-          } catch (e) { 
-            console.error('Error inserting media:', e.message);
-          }
-        }
+        const isNew = await processFile(filePath, lib);
+        if (isNew) newItems++;
       }
+    }
+    res.json({ success: true, newItems });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 7b. Admin - Scan Specific Library
+router.post('/admin/scan/:id', authMiddleware, async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' });
+  try {
+    const lib = db.prepare('SELECT * FROM eo_libraries WHERE id = ?').get(req.params.id);
+    if (!lib || !fs.existsSync(lib.path)) return res.status(404).json({ error: 'Librería no encontrada' });
+
+    let newItems = 0;
+    const allFiles = getAllFiles(lib.path);
+    for (const filePath of allFiles) {
+      const isNew = await processFile(filePath, lib);
+      if (isNew) newItems++;
     }
     res.json({ success: true, newItems });
   } catch (error) {
@@ -512,6 +532,55 @@ router.get('/iptv/parse/:id', authMiddleware, async (req, res) => {
         channels: categories[name]
       }))
     });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// --- FAVORITES ROUTES ---
+
+// 19. Get Favorites
+router.get('/favorites', authMiddleware, (req, res) => {
+  try {
+    const userId = req.user.id;
+    const favorites = db.prepare(`
+      SELECT f.*, m.title, m.poster_path, m.type, m.year
+      FROM eo_favorites f
+      LEFT JOIN eo_media m ON f.media_id = m.id
+      WHERE f.user_id = ?
+    `).all(userId);
+    res.json(favorites);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 20. Add to Favorites
+router.post('/favorites', authMiddleware, (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { mediaId, iptvUrl } = req.body;
+    db.prepare(`
+      INSERT OR IGNORE INTO eo_favorites (user_id, media_id, iptv_url)
+      VALUES (?, ?, ?)
+    `).run(userId, mediaId, iptvUrl);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 21. Remove from Favorites
+router.delete('/favorites', authMiddleware, (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { mediaId, iptvUrl } = req.body;
+    if (mediaId) {
+      db.prepare('DELETE FROM eo_favorites WHERE user_id = ? AND media_id = ?').run(userId, mediaId);
+    } else {
+      db.prepare('DELETE FROM eo_favorites WHERE user_id = ? AND iptv_url = ?').run(userId, iptvUrl);
+    }
+    res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
