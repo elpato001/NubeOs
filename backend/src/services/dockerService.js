@@ -4,6 +4,7 @@ const isLinux = process.platform === 'linux';
 const docker = new Docker(isLinux ? { socketPath: '/var/run/docker.sock' } : {});
 const { DATA_DIR } = require('../utils/fileHelper');
 const path = require('path');
+const APPDATA_BASE = isLinux ? '/opt/nubeos/appdata' : path.resolve(__dirname, '../../../data/appdata').replace(/\\/g, '/');
 
 let isMockMode = false;
 
@@ -43,7 +44,7 @@ const getAvailableApps = () => {
       developer: 'Nextcloud GmbH',
       ports: { '80/tcp': 8080 },
       volumes: { 
-        '/var/www/html': '/opt/nubeos/appdata/nextcloud/html',
+        '/var/www/html': '${APPDATA_BASE}/nextcloud/html',
         '/storage': DATA_DIR 
       },
       webPort: 8080
@@ -57,7 +58,7 @@ const getAvailableApps = () => {
       category: 'cloud',
       developer: 'Syncthing Foundation',
       ports: { '8384/tcp': 8384, '22000/tcp': 22000 },
-      volumes: { '/var/syncthing': '/opt/nubeos/appdata/syncthing/data' },
+      volumes: { '/var/syncthing': '${APPDATA_BASE}/syncthing/data' },
       webPort: 8384
     },
     {
@@ -69,7 +70,7 @@ const getAvailableApps = () => {
       category: 'cloud',
       developer: 'FileBrowser',
       ports: { '80/tcp': 8082 },
-      volumes: { '/srv': '/opt/nubeos/appdata/filebrowser/srv', '/database.db': '/opt/nubeos/appdata/filebrowser/database.db' },
+      volumes: { '/srv': '${APPDATA_BASE}/filebrowser/srv', '/database.db': '${APPDATA_BASE}/filebrowser/database.db' },
       webPort: 8082
     },
 
@@ -84,7 +85,7 @@ const getAvailableApps = () => {
       developer: 'Plex Inc.',
       ports: { '32400/tcp': 32400 },
       volumes: { 
-        '/config': '/opt/nubeos/appdata/plex/config', 
+        '/config': '${APPDATA_BASE}/plex/config', 
         '/Media': DATA_DIR 
       },
       env: { PUID: '1000', PGID: '1000', VERSION: 'docker' },
@@ -102,8 +103,8 @@ const getAvailableApps = () => {
       developer: 'Jellyfin Project',
       ports: { '8096/tcp': 8096 },
       volumes: { 
-        '/config': '/opt/nubeos/appdata/jellyfin/config', 
-        '/cache': '/opt/nubeos/appdata/jellyfin/cache', 
+        '/config': '${APPDATA_BASE}/jellyfin/config', 
+        '/cache': '${APPDATA_BASE}/jellyfin/cache', 
         '/media': DATA_DIR 
       },
       webPort: 8096
@@ -118,7 +119,7 @@ const getAvailableApps = () => {
       developer: 'Emby LLC',
       ports: { '8096/tcp': 8095, '8920/tcp': 8921 },
       volumes: { 
-        '/config': '/opt/nubeos/appdata/emby/config', 
+        '/config': '${APPDATA_BASE}/emby/config', 
         '/data': DATA_DIR 
       },
       webPort: 8095
@@ -133,7 +134,7 @@ const getAvailableApps = () => {
       developer: 'PhotoPrism UG',
       ports: { '2342/tcp': 2342 },
       volumes: { 
-        '/photoprism/storage': '/opt/nubeos/appdata/photoprism/storage', 
+        '/photoprism/storage': '${APPDATA_BASE}/photoprism/storage', 
         '/photoprism/originals': DATA_DIR 
       },
       env: { PHOTOPRISM_ADMIN_PASSWORD: 'nubeos123' },
@@ -149,7 +150,7 @@ const getAvailableApps = () => {
       developer: 'Navidrome',
       ports: { '4533/tcp': 4533 },
       volumes: { 
-        '/data': '/opt/nubeos/appdata/navidrome/data', 
+        '/data': '${APPDATA_BASE}/navidrome/data', 
         '/music': DATA_DIR 
       },
       webPort: 4533
@@ -164,7 +165,7 @@ const getAvailableApps = () => {
       developer: 'Bambanah',
       ports: { '6595/tcp': 6595 },
       volumes: { 
-        '/config': '/opt/nubeos/appdata/deemix/config', 
+        '/config': '${APPDATA_BASE}/deemix/config', 
         '/downloads': DATA_DIR 
       },
       env: { PUID: '1000', PGID: '1000' },
@@ -181,7 +182,7 @@ const getAvailableApps = () => {
       category: 'productivity',
       developer: 'Nabu Casa',
       ports: { '8123/tcp': 8123 },
-      volumes: { '/config': '/opt/nubeos/appdata/homeassistant/config' },
+      volumes: { '/config': '${APPDATA_BASE}/homeassistant/config' },
       webPort: 8123
     },
     {
@@ -193,7 +194,7 @@ const getAvailableApps = () => {
       category: 'productivity',
       developer: 'Vaultwarden',
       ports: { '80/tcp': 8083 },
-      volumes: { '/data': '/opt/nubeos/appdata/vaultwarden/data' },
+      volumes: { '/data': '${APPDATA_BASE}/vaultwarden/data' },
       webPort: 8083
     },
 
@@ -207,7 +208,7 @@ const getAvailableApps = () => {
       category: 'development',
       developer: 'Gitea Community',
       ports: { '3000/tcp': 3001, '22/tcp': 2222 },
-      volumes: { '/data': '/opt/nubeos/appdata/gitea/data' },
+      volumes: { '/data': '${APPDATA_BASE}/gitea/data' },
       webPort: 3001
     },
     {
@@ -220,7 +221,7 @@ const getAvailableApps = () => {
       developer: 'Coder Inc.',
       ports: { '8443/tcp': 8443 },
       volumes: { 
-        '/config': '/opt/nubeos/appdata/codeserver/config',
+        '/config': '${APPDATA_BASE}/codeserver/config',
         '/home/coder/project': DATA_DIR
       },
       env: { PUID: '1000', PGID: '1000', DEFAULT_WORKSPACE: '/config/workspace' },
@@ -237,7 +238,7 @@ const getAvailableApps = () => {
       category: 'database',
       developer: 'MariaDB Foundation',
       ports: { '3306/tcp': 3306 },
-      volumes: { '/var/lib/mysql': '/opt/nubeos/appdata/mariadb/data' },
+      volumes: { '/var/lib/mysql': '${APPDATA_BASE}/mariadb/data' },
       env: { MYSQL_ROOT_PASSWORD: 'nubeos123' }
     },
     {
@@ -249,7 +250,7 @@ const getAvailableApps = () => {
       category: 'database',
       developer: 'PostgreSQL Global',
       ports: { '5432/tcp': 5432 },
-      volumes: { '/var/lib/postgresql/data': '/opt/nubeos/appdata/postgres/data' },
+      volumes: { '/var/lib/postgresql/data': '${APPDATA_BASE}/postgres/data' },
       env: { POSTGRES_PASSWORD: 'nubeos123' }
     },
     {
@@ -261,7 +262,7 @@ const getAvailableApps = () => {
       category: 'database',
       developer: 'Redis Ltd.',
       ports: { '6379/tcp': 6379 },
-      volumes: { '/data': '/opt/nubeos/appdata/redis/data' }
+      volumes: { '/data': '${APPDATA_BASE}/redis/data' }
     },
 
     // ── Seguridad ──
@@ -274,7 +275,7 @@ const getAvailableApps = () => {
       category: 'security',
       developer: 'Pi-hole LLC',
       ports: { '80/tcp': 8084, '53/tcp': 53, '53/udp': 53 },
-      volumes: { '/etc/pihole': '/opt/nubeos/appdata/pihole/etc', '/etc/dnsmasq.d': '/opt/nubeos/appdata/pihole/dnsmasq' },
+      volumes: { '/etc/pihole': '${APPDATA_BASE}/pihole/etc', '/etc/dnsmasq.d': '${APPDATA_BASE}/pihole/dnsmasq' },
       env: { WEBPASSWORD: 'nubeos123' },
       webPort: 8084,
       webPath: '/admin'
@@ -288,7 +289,7 @@ const getAvailableApps = () => {
       category: 'security',
       developer: 'LinuxServer.io',
       ports: { '51820/udp': 51820 },
-      volumes: { '/config': '/opt/nubeos/appdata/wireguard/config' },
+      volumes: { '/config': '${APPDATA_BASE}/wireguard/config' },
       env: { PUID: '1000', PGID: '1000', SERVERPORT: '51820' }
     },
 
@@ -303,7 +304,7 @@ const getAvailableApps = () => {
       developer: 'LinuxServer.io',
       ports: { '9091/tcp': 9091, '51413/tcp': 51413 },
       volumes: { 
-        '/config': '/opt/nubeos/appdata/transmission/config', 
+        '/config': '${APPDATA_BASE}/transmission/config', 
         '/downloads': DATA_DIR 
       },
       env: { PUID: '1000', PGID: '1000' },
@@ -318,7 +319,7 @@ const getAvailableApps = () => {
       category: 'utilities',
       developer: 'Portainer.io',
       ports: { '9000/tcp': 9000 },
-      volumes: { '/data': '/opt/nubeos/appdata/portainer/data', '/var/run/docker.sock': '/var/run/docker.sock' },
+      volumes: { '/data': '${APPDATA_BASE}/portainer/data', '/var/run/docker.sock': '/var/run/docker.sock' },
       webPort: 9000
     },
     {
@@ -330,7 +331,7 @@ const getAvailableApps = () => {
       category: 'utilities',
       developer: 'Louis Lam',
       ports: { '3001/tcp': 3002 },
-      volumes: { '/app/data': '/opt/nubeos/appdata/uptimekuma/data' },
+      volumes: { '/app/data': '${APPDATA_BASE}/uptimekuma/data' },
       webPort: 3002
     },
     {
@@ -342,7 +343,7 @@ const getAvailableApps = () => {
       category: 'utilities',
       developer: 'Homarr Labs',
       ports: { '7575/tcp': 7575 },
-      volumes: { '/appdata': '/opt/nubeos/appdata/homarr/data' },
+      volumes: { '/appdata': '${APPDATA_BASE}/homarr/data' },
       webPort: 7575
     },
   ];
