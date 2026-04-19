@@ -82,6 +82,21 @@
         <aside class="syno-widget" v-if="state.showStatus">
           <div v-if="state.dashboardError" class="error-message">{{ state.dashboardError }}</div>
           
+          <div class="syno-section health">
+            <div class="section-title"><CheckCircle2 :size="14" /> SALUD DEL SISTEMA</div>
+            <div class="health-content">
+              <CheckCircle2 :size="40" color="#22c55e" />
+              <div class="status-box">
+                <div class="status-main">En buen estado</div>
+                <div class="status-sub">Su NubeOS funciona bien.</div>
+              </div>
+            </div>
+            <div class="syno-info-list" v-if="state.stats.ip">
+              <div class="info-row"><span class="label">Dispositivo</span> <span class="val">{{ state.stats.hostname || 'NubeOS' }}</span></div>
+              <div class="info-row"><span class="label">IP Local</span> <span class="val">{{ state.stats.ip }}</span></div>
+              <div class="info-row" v-if="state.stats.details?.uptime"><span class="label">Uptime</span> <span class="val">{{ formatUptime(state.stats.details.uptime) }}</span></div>
+            </div>
+          </div>
 
           <div class="syno-section resources">
             <div class="section-title"><Activity :size="14" /> MONITOR DE RECURSOS</div>
@@ -122,21 +137,6 @@
             </div>
           </div>
 
-          <div class="syno-section health">
-            <div class="section-title"><CheckCircle2 :size="14" /> SALUD DEL SISTEMA</div>
-            <div class="health-content">
-              <CheckCircle2 :size="40" color="#22c55e" />
-              <div class="status-box">
-                <div class="status-main">En buen estado</div>
-                <div class="status-sub">Su NubeOS funciona bien.</div>
-              </div>
-            </div>
-            <div class="syno-info-list" v-if="state.stats.ip">
-              <div class="info-row"><span class="label">Dispositivo</span> <span class="val">{{ state.stats.hostname || 'NubeOS' }}</span></div>
-              <div class="info-row"><span class="label">IP Local</span> <span class="val">{{ state.stats.ip }}</span></div>
-              <div class="info-row" v-if="state.stats.details?.uptime"><span class="label">Uptime</span> <span class="val">{{ formatUptime(state.stats.details.uptime) }}</span></div>
-            </div>
-          </div>
         </aside>
       </Transition>
 
