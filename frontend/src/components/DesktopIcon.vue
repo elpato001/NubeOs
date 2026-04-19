@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch } from 'vue';
-import { Folder, LayoutDashboard, Activity, Settings, HardDrive, Terminal, LogOut } from 'lucide-vue-next';
+import { Folder, LayoutDashboard, Activity, Settings, HardDrive, Terminal, LogOut, Clapperboard } from 'lucide-vue-next';
 import { useDesktopStore, type DesktopIcon } from '../stores/desktop';
 import { useFileStore } from '../stores/files';
 import axios from 'axios';
@@ -19,7 +19,8 @@ const iconComponents: Record<string, any> = {
   Activity,
   Settings,
   HardDrive,
-  Terminal
+  Terminal,
+  Clapperboard
 };
 
 // Drag State
@@ -231,6 +232,7 @@ onUnmounted(() => {
 .icon-box.grey { background: linear-gradient(135deg, #64748b, #334155); }
 .icon-box.orange { background: linear-gradient(135deg, #f97316, #c2410c); }
 .icon-box.dark { background: linear-gradient(135deg, #1e293b, #0f172a); border: 1px solid rgba(88, 166, 255, 0.15); }
+.icon-box.red { background: linear-gradient(135deg, #ef4444, #b91c1c); }
 
 .icon-context-menu {
   position: fixed;

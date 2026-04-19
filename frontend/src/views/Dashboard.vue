@@ -77,6 +77,7 @@
       <Window appId="admin" title="Configuración" v-if="auth.isAdmin"><ControlPanel /></Window>
       <Window appId="terminal" title="Terminal" :noPadding="true"><TerminalView /></Window>
       <Window appId="player" title="Reproductor de Video" :noPadding="true"><VideoPlayer /></Window>
+      <Window appId="entertainment" title="EntertainmentOS" :noPadding="true"><EntertainmentOS /></Window>
       
       <!-- System Status Widget -->
       <Transition name="fade">
@@ -195,7 +196,8 @@ import {
   Search,
   Monitor,
   RefreshCw,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Clapperboard
 } from 'lucide-vue-next';
 import Window from '../components/Window.vue';
 import DesktopIcon from '../components/DesktopIcon.vue';
@@ -206,6 +208,7 @@ import Home from './Home.vue';
 import ControlPanel from './ControlPanel.vue';
 import TerminalView from './Terminal.vue';
 import VideoPlayer from './VideoPlayer.vue';
+import EntertainmentOS from './EntertainmentOS.vue';
 import { useNotificationStore } from '../stores/notification';
 
 // State
@@ -272,6 +275,7 @@ const iconMap: Record<string, any> = {
   monitor: Activity,
   admin: Settings,
   terminal: Terminal,
+  entertainment: Clapperboard,
 };
 
 const getIconComponent = (appId: string) => {

@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 
-export type WindowApp = 'files' | 'apps' | 'admin' | 'settings' | 'monitor' | 'terminal' | 'player';
+export type WindowApp = 'files' | 'apps' | 'admin' | 'settings' | 'monitor' | 'terminal' | 'player' | 'entertainment';
 
 export interface WindowState {
   id: WindowApp;
@@ -19,7 +19,7 @@ export interface DesktopIcon {
   id: string;
   label: string;
   icon: string;
-  color: 'blue' | 'purple' | 'green' | 'grey' | 'orange' | 'dark';
+  color: 'blue' | 'purple' | 'green' | 'grey' | 'orange' | 'dark' | 'red';
   x: number;
   y: number;
   type?: 'app' | 'drive';
@@ -36,6 +36,7 @@ export const useDesktopStore = defineStore('desktop', {
       monitor: { id: 'monitor', label: 'Monitor', icon: 'Activity', color: 'green', x: 20, y: 260 },
       admin: { id: 'admin', label: 'Panel Control', icon: 'Settings', color: 'grey', x: 20, y: 380 },
       terminal: { id: 'terminal', label: 'Terminal', icon: 'Terminal', color: 'dark', x: 20, y: 500 },
+      entertainment: { id: 'entertainment', label: 'EntertainmentOS', icon: 'Clapperboard', color: 'red', x: 130, y: 140 },
     };
 
     return {
@@ -48,6 +49,7 @@ export const useDesktopStore = defineStore('desktop', {
         monitor: { id: 'monitor', title: 'Monitor del Sistema', isOpen: false, zIndex: 10, isMinimized: false, isMaximized: false, x: -1, y: -1, width: 700, height: 500 },
         terminal: { id: 'terminal', title: 'Terminal', isOpen: false, zIndex: 10, isMinimized: false, isMaximized: false, x: -1, y: -1, width: 800, height: 500 },
         player: { id: 'player', title: 'Reproductor de Video', isOpen: false, zIndex: 10, isMinimized: false, isMaximized: false, x: -1, y: -1, width: 800, height: 480 },
+        entertainment: { id: 'entertainment', title: 'EntertainmentOS', isOpen: false, zIndex: 10, isMinimized: false, isMaximized: false, x: -1, y: -1, width: 1100, height: 700 },
       } as Record<WindowApp, WindowState>,
       currentVideo: '',
       desktopIcons: savedIcons ? JSON.parse(savedIcons) : defaultIcons as Record<string, DesktopIcon>,
