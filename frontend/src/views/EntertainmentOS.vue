@@ -333,44 +333,38 @@
 
               <!-- Global Configuration Tab -->
               <div v-if="activeAdminTab === 'config'" class="admin-view animate-fade">
-                <div class="eos-admin-banner">
-                  <div class="banner-content">
-                    <h2>Configuración del Sistema</h2>
-                    <p>Gestiona las conexiones con servicios externos de metadatos.</p>
-                  </div>
-                </div>
-
-                  <div class="config-grid">
-                    <div class="config-card">
-                      <div class="config-card-header">
-                        <Settings2 :size="24" class="text-indigo-400" />
-                        <h3>The Movie Database (TMDB)</h3>
-                      </div>
-                      <div class="config-card-body">
-                        <p class="text-sm text-slate-400 mb-4">
-                          Ingresa tu clave de API de TMDB para descargar automáticamente posters, sinopsis y valoraciones de tus películas y series.
-                        </p>
-                        <div class="eos-field">
-                          <label>API Key (v3 auth)</label>
-                          <div class="input-with-action">
-                            <input v-model="tmdbKey" type="password" placeholder="Tu clave de API..." />
-                            <button @click="saveConfig" class="eos-btn-primary" :disabled="loading">
-                              <Loader2 v-if="loading" :size="18" class="animate-spin" />
-                              <span v-else>Guardar</span>
-                            </button>
-                          </div>
-                          <span v-if="configData.has_key" class="text-xs text-green-500 mt-2 block">
-                            ✓ Clave configurada correctamente: {{ configData.tmdb_api_key }}
-                          </span>
+                <div class="config-grid">
+                  <div class="config-card">
+                    <div class="config-card-header">
+                      <Settings2 :size="24" class="text-indigo-400" />
+                      <h3>The Movie Database (TMDB)</h3>
+                    </div>
+                    <div class="config-card-body">
+                      <p class="text-sm text-slate-400 mb-4">
+                        Ingresa tu clave de API de TMDB para descargar automáticamente posters, sinopsis y valoraciones.
+                      </p>
+                      <div class="eos-field">
+                        <label>API Key (v3 auth)</label>
+                        <div class="input-with-action">
+                          <input v-model="tmdbKey" type="password" placeholder="Tu clave de API..." />
+                          <button @click="saveConfig" class="eos-btn-primary" :disabled="loading">
+                            <Loader2 v-if="loading" :size="18" class="animate-spin" />
+                            <span v-else>Guardar</span>
+                          </button>
                         </div>
+                        <span v-if="configData.has_key" class="text-xs text-green-500 mt-2 block">
+                          ✓ Clave configurada correctamente: {{ configData.tmdb_api_key }}
+                        </span>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
+
             </div>
-          </template>
-        </div>
+          </div>
+        </template>
+      </div>
 
       <!-- Detail Modal -->
       <Transition name="modal-fade">
@@ -774,6 +768,7 @@ th, td { padding: 1rem; text-align: left; border-bottom: 1px solid rgba(255,255,
 .modal-fade-enter-active, .modal-fade-leave-active { transition: opacity 0.3s; }
 .modal-fade-enter-from, .modal-fade-leave-to { opacity: 0; }
 .mt-4 { margin-top: 1rem; }
+.mt-4 { margin-top: 1rem; }
 .ml-auto { margin-left: auto; }
 
 /* Folder Browser Modal */
@@ -801,6 +796,8 @@ th, td { padding: 1rem; text-align: left; border-bottom: 1px solid rgba(255,255,
 .lib-add-form-premium .input-group { flex: 1; display: flex; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; overflow: hidden; }
 .lib-type-select { background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 0.75rem; color: white; cursor: pointer; outline: none; }
 .lib-add-form-premium input { flex: 1; background: transparent; border: none; padding: 0.75rem 1rem; color: white; font-size: 0.9rem; }
+.browse-btn { background: rgba(255,255,255,0.05); border: none; border-left: 1px solid rgba(255,255,255,0.1); color: #94a3b8; padding: 0 1rem; cursor: pointer; transition: all 0.2s; }
+.browse-btn:hover { color: white; background: rgba(255,255,255,0.1); }
 
 /* Config Styles */
 .config-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 1.5rem; }
