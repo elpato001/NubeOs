@@ -104,7 +104,7 @@ const handleLogin = async () => {
         <div class="welcome-section">
           <p class="welcome-text">Bienvenido a</p>
           <div class="logo-container">
-            <img src="../assets/logo.png" alt="NubeOS" class="brand-logo" />
+            <img src="/logo.png" alt="NubeOS" class="brand-logo" />
             <h2 class="brand-name">NubeOS</h2>
           </div>
           <p class="brand-description">
