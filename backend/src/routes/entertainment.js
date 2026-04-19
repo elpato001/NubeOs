@@ -6,6 +6,7 @@ const db = require('../config/db');
 const { authMiddleware } = require('../middleware/auth');
 const { getSafePath } = require('../utils/fileHelper');
 const tmdbService = require('../services/tmdbService');
+const nfoService = require('../services/nfoService');
 const { downloadImage } = require('../utils/imageDownloader');
 
 const NUBEOS_ROOT = path.resolve(__dirname, '../../../..');
@@ -56,22 +57,64 @@ const processFile = async (filePath, lib) => {
   const yearMatch = fileNameNoExt.match(/\((19|20)\d{2}\)|(19|20)\d{2}/);
   const year = yearMatch ? parseInt(yearMatch[0].replace(/[()]/g, '')) : new Date().getFullYear();
   
+  // Check for existing NFO file first (MediaElch compatibility)
+  const nfoData = nfoService.readNfoForMedia(filePath);
   let posterPath = null, bannerPath = null, description = null, rating = null;
-  const tmdbData = await tmdbService.searchMedia(title, year, type);
-  if (tmdbData) {
-    title = tmdbData.title || title; description = tmdbData.description; rating = tmdbData.rating;
-    const timestamp = Date.now();
-    posterPath = await downloadImage(tmdbData.posterPath, `poster_${timestamp}_${Math.random().toString(36).substring(7)}`);
-    bannerPath = await downloadImage(tmdbData.bannerPath, `banner_${timestamp}_${Math.random().toString(36).substring(7)}`);
+  let tagline = null, certification = null, runtime = null, trailer_url = null;
+  let imdb_id = null, tmdb_id = null, director = null, writer = null;
+  let studio = null, country = null, nfo_path = null, set_name = null;
+
+  if (nfoData && nfoData.parsed) {
+    // Use NFO data if available
+    const p = nfoData.parsed;
+    title = p.title || title;
+    description = p.description;
+    rating = p.rating;
+    tagline = p.tagline;
+    certification = p.certification;
+    runtime = p.runtime;
+    trailer_url = p.trailer_url;
+    imdb_id = p.imdb_id;
+    tmdb_id = p.tmdb_id;
+    director = p.director;
+    writer = p.writer;
+    studio = p.studio;
+    country = p.country;
+    set_name = p.set_name;
+    nfo_path = nfoData.path;
+    if (p.genre) title = title; // keep genre from NFO
   }
+
+  // If no NFO or incomplete data, try TMDB
+  if (!description) {
+    const tmdbData = await tmdbService.searchMedia(title, year, type);
+    if (tmdbData) {
+      title = tmdbData.title || title; 
+      description = tmdbData.description; 
+      rating = tmdbData.rating;
+      tmdb_id = tmdbData.tmdbId;
+      const timestamp = Date.now();
+      posterPath = await downloadImage(tmdbData.posterPath, `poster_${timestamp}_${Math.random().toString(36).substring(7)}`);
+      bannerPath = await downloadImage(tmdbData.bannerPath, `banner_${timestamp}_${Math.random().toString(36).substring(7)}`);
+    }
+  }
+  
   const genre = lib.name || 'Desconocido';
   if (existing) {
-    db.prepare(`UPDATE eo_media SET title = ?, description = ?, rating = ?, poster_path = ?, banner_path = ?, genre = ? WHERE id = ?`)
-      .run(title, description, rating, posterPath || existing.poster_path, bannerPath, genre, existing.id);
+    db.prepare(`UPDATE eo_media SET title = ?, description = ?, rating = ?, poster_path = ?, banner_path = ?, genre = ?,
+      tagline = ?, certification = ?, runtime = ?, trailer_url = ?, imdb_id = ?, tmdb_id = ?,
+      director = ?, writer = ?, studio = ?, country = ?, nfo_path = ?, set_name = ?
+      WHERE id = ?`)
+      .run(title, description, rating, posterPath || existing.poster_path, bannerPath, genre,
+        tagline, certification, runtime, trailer_url, imdb_id, tmdb_id,
+        director, writer, studio, country, nfo_path, set_name, existing.id);
     return false;
   } else {
-    db.prepare(`INSERT INTO eo_media (title, series_name, season, episode, type, file_path, genre, year, poster_path, banner_path, description, rating, is_new) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`)
-      .run(title, seriesName, season, episode, type, filePath, genre, year, posterPath, bannerPath, description, rating);
+    db.prepare(`INSERT INTO eo_media (title, series_name, season, episode, type, file_path, genre, year, poster_path, banner_path, description, rating, is_new,
+      tagline, certification, runtime, trailer_url, imdb_id, tmdb_id, director, writer, studio, country, nfo_path, set_name) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      .run(title, seriesName, season, episode, type, filePath, genre, year, posterPath, bannerPath, description, rating,
+        tagline, certification, runtime, trailer_url, imdb_id, tmdb_id, director, writer, studio, country, nfo_path, set_name);
     return true;
   }
 };
@@ -254,8 +297,6 @@ router.delete('/admin/libraries/:id', authMiddleware, (req, res) => {
   }
 });
 
-// --- HELPERS ALREADY MOVED UP ---
-
 // 7. Admin - Scan Libraries
 router.post('/admin/scan', authMiddleware, async (req, res) => {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' });
@@ -305,6 +346,8 @@ router.get('/admin/stats', authMiddleware, (req, res) => {
       series: db.prepare("SELECT COUNT(*) as count FROM eo_media WHERE type = 'series'").get().count,
       music: db.prepare("SELECT COUNT(*) as count FROM eo_media WHERE type = 'music'").get().count,
       noPoster: db.prepare("SELECT COUNT(*) as count FROM eo_media WHERE poster_path IS NULL").get().count,
+      noNfo: db.prepare("SELECT COUNT(*) as count FROM eo_media WHERE nfo_path IS NULL AND type != 'music'").get().count,
+      identified: db.prepare("SELECT COUNT(*) as count FROM eo_media WHERE tmdb_id IS NOT NULL").get().count,
       lastAdded: db.prepare("SELECT title FROM eo_media ORDER BY created_at DESC LIMIT 5").all()
     };
     res.json(stats);
@@ -339,9 +382,14 @@ router.put('/admin/media/:id', authMiddleware, (req, res) => {
     const { title, description, genre, year, stars } = req.body;
     db.prepare(`
       UPDATE eo_media 
-      SET title = ?, description = ?, genre = ?, year = ?, stars = ?, poster_path = ?, banner_path = ?, rating = ?
+      SET title = ?, description = ?, genre = ?, year = ?, stars = ?, poster_path = ?, banner_path = ?, rating = ?,
+          tagline = ?, certification = ?, runtime = ?, trailer_url = ?, imdb_id = ?, tmdb_id = ?,
+          director = ?, writer = ?, studio = ?, country = ?, set_name = ?
       WHERE id = ?
-    `).run(title, description, genre, year, stars, req.body.poster_path, req.body.banner_path, req.body.rating, req.params.id);
+    `).run(title, description, genre, year, stars, req.body.poster_path, req.body.banner_path, req.body.rating,
+      req.body.tagline || null, req.body.certification || null, req.body.runtime || null, req.body.trailer_url || null,
+      req.body.imdb_id || null, req.body.tmdb_id || null, req.body.director || null, req.body.writer || null,
+      req.body.studio || null, req.body.country || null, req.body.set_name || null, req.params.id);
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -427,15 +475,20 @@ router.get('/admin/tmdb/search', authMiddleware, async (req, res) => {
     const { query, type } = req.query;
     if (!query) return res.status(400).json({ error: 'Query es requerido' });
     
-    // Using tmdbService to get raw results or structured search
-    const results = await tmdbService.searchTmdbRaw(query, type || 'movie');
+    // Use multi-search if no type specified, otherwise type-specific search
+    let results;
+    if (!type || type === 'all') {
+      results = await tmdbService.searchMulti(query);
+    } else {
+      results = await tmdbService.searchTmdbRaw(query, type);
+    }
     res.json(results);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// 14c. Admin - Identify Media (Apply TMDB ID)
+// 14c. Admin - Identify Media (Apply TMDB ID) - ENHANCED
 router.post('/admin/media/identify', authMiddleware, async (req, res) => {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' });
   try {
@@ -450,9 +503,12 @@ router.post('/admin/media/identify', authMiddleware, async (req, res) => {
     const posterPath = await downloadImage(tmdbData.posterPath, `poster_man_${mediaId}_${timestamp}`);
     const bannerPath = await downloadImage(tmdbData.bannerPath, `banner_man_${mediaId}_${timestamp}`);
 
+    // Update with ALL enhanced metadata
     db.prepare(`
       UPDATE eo_media 
-      SET title = ?, description = ?, genre = ?, year = ?, rating = ?, poster_path = ?, banner_path = ?
+      SET title = ?, description = ?, genre = ?, year = ?, rating = ?, poster_path = ?, banner_path = ?,
+          tagline = ?, certification = ?, runtime = ?, trailer_url = ?, imdb_id = ?, tmdb_id = ?,
+          director = ?, writer = ?, studio = ?, country = ?, set_name = ?
       WHERE id = ?
     `).run(
       tmdbData.title, 
@@ -461,9 +517,44 @@ router.post('/admin/media/identify', authMiddleware, async (req, res) => {
       tmdbData.year, 
       tmdbData.rating, 
       posterPath, 
-      bannerPath, 
+      bannerPath,
+      tmdbData.tagline,
+      tmdbData.certification,
+      tmdbData.runtime,
+      tmdbData.trailerUrl,
+      tmdbData.imdbId,
+      tmdbData.tmdbId,
+      tmdbData.director,
+      tmdbData.writer,
+      tmdbData.studio,
+      tmdbData.country,
+      tmdbData.setName,
       mediaId
     );
+
+    // Auto-generate NFO after successful identification
+    const updatedMedia = db.prepare('SELECT * FROM eo_media WHERE id = ?').get(mediaId);
+    if (updatedMedia) {
+      const nfoPath = nfoService.writeNfoForMedia(updatedMedia);
+      if (nfoPath) {
+        db.prepare('UPDATE eo_media SET nfo_path = ? WHERE id = ?').run(nfoPath, mediaId);
+      }
+    }
+
+    // If this movie belongs to a collection, upsert the set
+    if (tmdbData.collection && tmdbData.setName) {
+      try {
+        const existingSet = db.prepare('SELECT id FROM eo_sets WHERE name = ?').get(tmdbData.setName);
+        if (!existingSet) {
+          const setPosters = await downloadImage(tmdbData.collection.posterPath, `set_poster_${tmdbData.collection.id}`);
+          const setBanner = await downloadImage(tmdbData.collection.backdropPath, `set_banner_${tmdbData.collection.id}`);
+          db.prepare('INSERT OR IGNORE INTO eo_sets (name, tmdb_id, poster_path, banner_path) VALUES (?, ?, ?, ?)')
+            .run(tmdbData.setName, tmdbData.collection.id, setPosters, setBanner);
+        }
+      } catch (setErr) {
+        console.warn('Set creation warning:', setErr.message);
+      }
+    }
 
     res.json({ success: true, metadata: tmdbData });
   } catch (error) {
@@ -471,9 +562,146 @@ router.post('/admin/media/identify', authMiddleware, async (req, res) => {
   }
 });
 
+// 14d. Admin - Bulk Identify (auto-scrape all unidentified media)
+router.post('/admin/media/bulk-identify', authMiddleware, async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' });
+  try {
+    const unidentified = db.prepare("SELECT * FROM eo_media WHERE tmdb_id IS NULL AND type != 'music'").all();
+    let identified = 0;
+    let failed = 0;
+
+    for (const media of unidentified) {
+      try {
+        const searchTitle = media.series_name || media.title;
+        const tmdbData = await tmdbService.getMediaDetails(null, media.type);
+        
+        // Use searchMedia first to find tmdbId
+        const searchResult = await tmdbService.searchMedia(searchTitle, media.year, media.type);
+        if (!searchResult) { failed++; continue; }
+
+        // Then get full details
+        const fullData = await tmdbService.getMediaDetails(searchResult.tmdbId, media.type);
+        if (!fullData) { failed++; continue; }
+
+        const timestamp = Date.now();
+        const posterPath = await downloadImage(fullData.posterPath, `poster_bulk_${media.id}_${timestamp}`);
+        const bannerPath = await downloadImage(fullData.bannerPath, `banner_bulk_${media.id}_${timestamp}`);
+
+        db.prepare(`
+          UPDATE eo_media 
+          SET title = ?, description = ?, genre = ?, year = ?, rating = ?, poster_path = ?, banner_path = ?,
+              tagline = ?, certification = ?, runtime = ?, trailer_url = ?, imdb_id = ?, tmdb_id = ?,
+              director = ?, writer = ?, studio = ?, country = ?, set_name = ?
+          WHERE id = ?
+        `).run(
+          fullData.title, fullData.description, fullData.genres, fullData.year, fullData.rating,
+          posterPath || media.poster_path, bannerPath || media.banner_path,
+          fullData.tagline, fullData.certification, fullData.runtime, fullData.trailerUrl,
+          fullData.imdbId, fullData.tmdbId, fullData.director, fullData.writer,
+          fullData.studio, fullData.country, fullData.setName, media.id
+        );
+
+        // Write NFO
+        const updatedMedia = db.prepare('SELECT * FROM eo_media WHERE id = ?').get(media.id);
+        if (updatedMedia) {
+          const nfoPath = nfoService.writeNfoForMedia(updatedMedia);
+          if (nfoPath) {
+            db.prepare('UPDATE eo_media SET nfo_path = ? WHERE id = ?').run(nfoPath, media.id);
+          }
+        }
+
+        identified++;
+      } catch (itemErr) {
+        console.warn(`Bulk identify failed for ${media.title}:`, itemErr.message);
+        failed++;
+      }
+    }
+
+    res.json({ success: true, total: unidentified.length, identified, failed });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ====== NFO ROUTES ======
+
+// 15. Admin - Write NFO for a specific media
+router.post('/admin/nfo/write/:id', authMiddleware, (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' });
+  try {
+    const media = db.prepare('SELECT * FROM eo_media WHERE id = ?').get(req.params.id);
+    if (!media) return res.status(404).json({ error: 'Media no encontrada' });
+
+    const nfoPath = nfoService.writeNfoForMedia(media);
+    if (nfoPath) {
+      db.prepare('UPDATE eo_media SET nfo_path = ? WHERE id = ?').run(nfoPath, media.id);
+      res.json({ success: true, nfoPath });
+    } else {
+      res.status(500).json({ error: 'No se pudo escribir el archivo NFO' });
+    }
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 15b. Admin - Bulk Write NFO for all media that has metadata but no NFO
+router.post('/admin/nfo/write-bulk', authMiddleware, (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' });
+  try {
+    const media = db.prepare("SELECT * FROM eo_media WHERE nfo_path IS NULL AND description IS NOT NULL AND type != 'music'").all();
+    let written = 0;
+
+    for (const m of media) {
+      const nfoPath = nfoService.writeNfoForMedia(m);
+      if (nfoPath) {
+        db.prepare('UPDATE eo_media SET nfo_path = ? WHERE id = ?').run(nfoPath, m.id);
+        written++;
+      }
+    }
+
+    res.json({ success: true, total: media.length, written });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 15c. Admin - Read NFO for a specific media
+router.get('/admin/nfo/read/:id', authMiddleware, (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' });
+  try {
+    const media = db.prepare('SELECT file_path, nfo_path FROM eo_media WHERE id = ?').get(req.params.id);
+    if (!media) return res.status(404).json({ error: 'Media no encontrada' });
+
+    const nfoData = nfoService.readNfoForMedia(media.file_path);
+    if (nfoData) {
+      res.json({ success: true, ...nfoData });
+    } else {
+      res.json({ success: false, message: 'No se encontró archivo NFO' });
+    }
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 15d. Admin - Get TMDB images for manual selection
+router.get('/admin/tmdb/images/:tmdbId', authMiddleware, async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' });
+  try {
+    const type = req.query.type || 'movie';
+    const images = await tmdbService.getMediaImages(req.params.tmdbId, type);
+    if (images) {
+      res.json(images);
+    } else {
+      res.json({ posters: [], backdrops: [] });
+    }
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // --- IPTV ROUTES ---
 
-// 15. Get IPTV Lists
+// 16. Get IPTV Lists
 router.get('/iptv/lists', authMiddleware, (req, res) => {
   try {
     const lists = db.prepare('SELECT * FROM eo_iptv_lists ORDER BY created_at DESC').all();
@@ -483,7 +711,7 @@ router.get('/iptv/lists', authMiddleware, (req, res) => {
   }
 });
 
-// 16. Add IPTV List
+// 17. Add IPTV List
 router.post('/iptv/lists', authMiddleware, (req, res) => {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' });
   try {
@@ -497,7 +725,7 @@ router.post('/iptv/lists', authMiddleware, (req, res) => {
   }
 });
 
-// 17. Delete IPTV List
+// 18. Delete IPTV List
 router.delete('/iptv/lists/:id', authMiddleware, (req, res) => {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' });
   try {
@@ -508,7 +736,7 @@ router.delete('/iptv/lists/:id', authMiddleware, (req, res) => {
   }
 });
 
-// 18. Parse IPTV List
+// 19. Parse IPTV List
 const iptvService = require('../services/iptvService');
 router.get('/iptv/parse/:id', authMiddleware, async (req, res) => {
   try {
@@ -539,7 +767,7 @@ router.get('/iptv/parse/:id', authMiddleware, async (req, res) => {
 
 // --- FAVORITES ROUTES ---
 
-// 19. Get Favorites
+// 20. Get Favorites
 router.get('/favorites', authMiddleware, (req, res) => {
   try {
     const userId = req.user.id;
@@ -555,7 +783,7 @@ router.get('/favorites', authMiddleware, (req, res) => {
   }
 });
 
-// 20. Add to Favorites
+// 21. Add to Favorites
 router.post('/favorites', authMiddleware, (req, res) => {
   try {
     const userId = req.user.id;
@@ -570,7 +798,7 @@ router.post('/favorites', authMiddleware, (req, res) => {
   }
 });
 
-// 21. Remove from Favorites
+// 22. Remove from Favorites
 router.delete('/favorites', authMiddleware, (req, res) => {
   try {
     const userId = req.user.id;

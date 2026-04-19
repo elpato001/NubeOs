@@ -314,6 +314,7 @@
               <h1><Settings2 :size="24" /> Panel de Administración</h1>
               <div class="admin-tabs">
                 <button :class="{ active: activeAdminTab === 'overview' }" @click="activeAdminTab = 'overview'; fetchConfig()">Resumen</button>
+                <button :class="{ active: activeAdminTab === 'scraper' }" @click="activeAdminTab = 'scraper'"><Zap :size="14" /> Scraper</button>
                 <button :class="{ active: activeAdminTab === 'media' }" @click="activeAdminTab = 'media'">Gestión</button>
                 <button :class="{ active: activeAdminTab === 'libraries' }" @click="activeAdminTab = 'libraries'">Librerías</button>
                 <button :class="{ active: activeAdminTab === 'iptv' }" @click="activeAdminTab = 'iptv'">IPTV</button>
@@ -339,10 +340,127 @@
                     <div class="stat-val">{{ adminStats.music }}</div>
                     <div class="stat-label">Canciones</div>
                   </div>
+                  <div class="stat-card success" v-if="adminStats.identified > 0">
+                    <CheckCircle2 :size="24" />
+                    <div class="stat-val">{{ adminStats.identified }}</div>
+                    <div class="stat-label">Identificados (TMDB)</div>
+                  </div>
                   <div class="stat-card warning" v-if="adminStats.noPoster > 0">
-                    <Info :size="24" />
+                    <AlertCircle :size="24" />
                     <div class="stat-val">{{ adminStats.noPoster }}</div>
                     <div class="stat-label">Sin Poster</div>
+                  </div>
+                  <div class="stat-card info" v-if="adminStats.noNfo >= 0">
+                    <FileText :size="24" />
+                    <div class="stat-val">{{ adminStats.noNfo }}</div>
+                    <div class="stat-label">Sin NFO</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Scraper & NFO Tab -->
+              <div v-if="activeAdminTab === 'scraper'" class="admin-libraries animate-fade">
+                <!-- Scraper Action Cards -->
+                <div class="scraper-hero">
+                  <div class="scraper-hero-content">
+                    <h2><Zap :size="24" /> Scraper & Identificación</h2>
+                    <p>Identifica y organiza tu biblioteca automáticamente usando The Movie Database (TMDB). Los archivos NFO se generan junto a cada archivo para compatibilidad con Kodi y MediaElch.</p>
+                  </div>
+                </div>
+
+                <div class="scraper-actions-grid">
+                  <!-- Bulk Identify -->
+                  <div class="scraper-action-card">
+                    <div class="sac-icon tmdb"><Search :size="28" /></div>
+                    <div class="sac-body">
+                      <h3>Auto-Identificar Todo</h3>
+                      <p>Busca automáticamente en TMDB todos los medios que aún no han sido identificados. Descarga posters, sinopsis, elenco y más.</p>
+                      <div class="sac-stat" v-if="adminStats.identified >= 0">
+                        <span class="sac-stat-num">{{ (allAdminMedia.length - (adminStats.identified || 0)) }}</span> sin identificar
+                      </div>
+                    </div>
+                    <button @click="bulkIdentify" class="eos-btn-primary" :disabled="bulkIdentifying">
+                      <Loader2 v-if="bulkIdentifying" :size="18" class="spinning" />
+                      <Zap v-else :size="18" />
+                      {{ bulkIdentifying ? 'Identificando...' : 'Identificar Todo' }}
+                    </button>
+                  </div>
+
+                  <!-- Bulk NFO Write -->
+                  <div class="scraper-action-card">
+                    <div class="sac-icon nfo"><FileText :size="28" /></div>
+                    <div class="sac-body">
+                      <h3>Generar Archivos NFO</h3>
+                      <p>Crea archivos .nfo compatibles con Kodi/MediaElch junto a cada archivo de video. Almacena toda la metadata localmente.</p>
+                      <div class="sac-stat" v-if="adminStats.noNfo >= 0">
+                        <span class="sac-stat-num">{{ adminStats.noNfo }}</span> sin NFO
+                      </div>
+                    </div>
+                    <button @click="bulkWriteNfo" class="eos-btn-primary" :disabled="bulkWritingNfo">
+                      <Loader2 v-if="bulkWritingNfo" :size="18" class="spinning" />
+                      <Download v-else :size="18" />
+                      {{ bulkWritingNfo ? 'Generando...' : 'Generar NFOs' }}
+                    </button>
+                  </div>
+
+                  <!-- Scan Libraries -->
+                  <div class="scraper-action-card">
+                    <div class="sac-icon scan"><RotateCcw :size="28" /></div>
+                    <div class="sac-body">
+                      <h3>Escanear Bibliotecas</h3>
+                      <p>Recorre todas las carpetas de tu biblioteca para descubrir archivos nuevos e intentar identificarlos automáticamente.</p>
+                      <div class="sac-stat">
+                        <span class="sac-stat-num">{{ libraries.length }}</span> librerías configuradas
+                      </div>
+                    </div>
+                    <button @click="scanLibraries" class="eos-btn-primary" :disabled="scanning">
+                      <Loader2 v-if="scanning" :size="18" class="spinning" />
+                      <RotateCcw v-else :size="18" />
+                      {{ scanning ? 'Escaneando...' : 'Escanear Todo' }}
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Unidentified Media List -->
+                <div class="table-container mt-6" v-if="unidentifiedMedia.length > 0">
+                  <div class="table-header">
+                    <h3><AlertCircle :size="16" /> Medios sin Identificar ({{ unidentifiedMedia.length }})</h3>
+                  </div>
+                  <div class="eos-scroll-table">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Poster</th>
+                          <th>Título / Archivo</th>
+                          <th>Tipo</th>
+                          <th>Estado</th>
+                          <th>Acciones</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr v-for="m in unidentifiedMedia" :key="'unid-'+m.id">
+                          <td class="td-poster">
+                            <div class="mini-poster" :style="{ backgroundImage: `url(${m.poster_path ? '/api/entertainment/poster/' + m.id + '?token=' + token : '/entertainment/posters/stellar_horizon.png'})` }"></div>
+                          </td>
+                          <td>
+                            <div class="media-title-stack">
+                              <span class="m-title">{{ m.title }}</span>
+                              <code class="file-path-code">{{ m.file_path.split('/').pop() }}</code>
+                            </div>
+                          </td>
+                          <td><span class="type-tag">{{ m.type }}</span></td>
+                          <td>
+                            <div class="status-badges">
+                              <span class="status-badge danger"><AlertCircle :size="12" /> Sin TMDB</span>
+                              <span class="status-badge" :class="m.nfo_path ? 'ok' : 'muted'"><FileText :size="12" /> {{ m.nfo_path ? 'NFO ✓' : 'Sin NFO' }}</span>
+                            </div>
+                          </td>
+                          <td class="table-btns">
+                            <button @click="openIdentify(m)" class="btn-edit" title="Identificar manualmente"><Search :size="14" /></button>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               </div>
@@ -352,9 +470,11 @@
                   <div class="table-container">
                     <div class="table-header">
                       <h3>Gestión Global de Medios ({{ allAdminMedia.length }})</h3>
-                      <div class="mini-search">
-                        <Search :size="14" />
-                        <input v-model="adminSearch" type="text" placeholder="Buscar en todo el catálogo..." />
+                      <div style="display:flex;gap:0.75rem;align-items:center">
+                        <div class="mini-search">
+                          <Search :size="14" />
+                          <input v-model="adminSearch" type="text" placeholder="Buscar en todo el catálogo..." />
+                        </div>
                       </div>
                     </div>
                     <div class="eos-scroll-table">
@@ -364,6 +484,7 @@
                             <th>Poster</th>
                             <th>Título / Metadata</th>
                             <th>Tipo</th>
+                            <th>Estado</th>
                             <th>Archivo</th>
                             <th>Acciones</th>
                           </tr>
@@ -378,12 +499,28 @@
                                 <span class="m-title">{{ m.title }}</span>
                                 <span class="m-year">{{ m.year }} · {{ m.genre }}</span>
                                 <div class="m-rating" v-if="m.rating">⭐ {{ m.rating }}</div>
+                                <div class="m-extra" v-if="m.director">🎬 {{ m.director }}</div>
+                                <div class="m-extra" v-if="m.set_name">📦 {{ m.set_name }}</div>
                               </div>
                             </td>
                             <td><span class="type-tag">{{ m.type }}</span></td>
+                            <td>
+                              <div class="status-badges">
+                                <span class="status-badge" :class="m.tmdb_id ? 'ok' : 'danger'">
+                                  <CheckCircle2 v-if="m.tmdb_id" :size="12" />
+                                  <AlertCircle v-else :size="12" />
+                                  {{ m.tmdb_id ? 'TMDB' : 'Sin ID' }}
+                                </span>
+                                <span class="status-badge" :class="m.nfo_path ? 'ok' : 'muted'">
+                                  <FileText :size="12" />
+                                  {{ m.nfo_path ? 'NFO' : '—' }}
+                                </span>
+                              </div>
+                            </td>
                             <td><code class="file-path-code" :title="m.file_path">{{ m.file_path.split('/').pop() }}</code></td>
                             <td class="table-btns">
                               <button @click="openIdentify(m)" class="btn-edit" title="Identificar (TMDB)"><Search :size="14" /></button>
+                              <button @click="writeNfoSingle(m.id)" class="btn-nfo" title="Escribir NFO" v-if="m.tmdb_id && !m.nfo_path"><FileText :size="14" /></button>
                               <button @click="deleteMedia(m.id)" class="btn-del" title="Eliminar"><Trash2 :size="14" /></button>
                             </td>
                           </tr>
@@ -633,8 +770,33 @@
               </div>
             </div>
             <div class="eos-modal-body">
+              <p v-if="selectedMedia.tagline" class="eos-modal-tagline">{{ selectedMedia.tagline }}</p>
               <p class="eos-modal-desc">{{ selectedMedia.description || 'Sin descripción disponible.' }}</p>
               
+              <!-- Enhanced metadata info -->
+              <div class="eos-modal-meta-grid" v-if="selectedMedia.director || selectedMedia.runtime || selectedMedia.certification">
+                <div class="meta-item" v-if="selectedMedia.director">
+                  <span class="meta-label">Director</span>
+                  <span class="meta-value">{{ selectedMedia.director }}</span>
+                </div>
+                <div class="meta-item" v-if="selectedMedia.runtime">
+                  <span class="meta-label">Duración</span>
+                  <span class="meta-value">{{ selectedMedia.runtime }} min</span>
+                </div>
+                <div class="meta-item" v-if="selectedMedia.certification">
+                  <span class="meta-label">Clasificación</span>
+                  <span class="meta-value cert-badge">{{ selectedMedia.certification }}</span>
+                </div>
+                <div class="meta-item" v-if="selectedMedia.studio">
+                  <span class="meta-label">Estudio</span>
+                  <span class="meta-value">{{ selectedMedia.studio }}</span>
+                </div>
+                <div class="meta-item" v-if="selectedMedia.set_name">
+                  <span class="meta-label">Colección</span>
+                  <span class="meta-value">📦 {{ selectedMedia.set_name }}</span>
+                </div>
+              </div>
+
               <div v-if="selectedMedia.isSeriesGroup" class="eos-episodes-list">
                 <h3>Episodios</h3>
                 <div v-for="ep in getEpisodes(selectedMedia.series_name)" :key="'ep-'+ep.id" class="eos-episode-item" @click="playMedia(ep)">
@@ -654,6 +816,9 @@
                   <Star :size="18" :fill="isFavorite(selectedMedia) ? '#f59e0b' : 'none'" /> 
                   {{ isFavorite(selectedMedia) ? 'En Favoritos' : 'Favoritos' }}
                 </button>
+                <a v-if="selectedMedia.trailer_url" :href="selectedMedia.trailer_url" target="_blank" class="eos-btn-secondary">
+                  <Play :size="18" /> Tráiler
+                </a>
               </div>
             </div>
           </div>
@@ -731,41 +896,59 @@
         </div>
       </Transition>
 
-      <!-- Identify Media Modal (TMDB) -->
+      <!-- Identify Media Modal (TMDB) - Enhanced -->
       <Transition name="modal-fade">
         <div v-if="showIdentifyModal" class="eos-modal-overlay" @click.self="showIdentifyModal = false">
           <div class="eos-modal identify-modal">
             <header class="eos-modal-header-simple">
-              <h3>Identificar Medios</h3>
+              <h3><Search :size="18" /> Identificar Medios</h3>
               <button class="eos-modal-close-small" @click="showIdentifyModal = false"><X :size="18" /></button>
             </header>
             
+            <!-- Current file info -->
+            <div class="identify-file-info" v-if="identifyingMedia">
+              <code>{{ identifyingMedia?.file_path.split('/').pop() }}</code>
+              <span class="type-tag">{{ identifyingMedia?.type }}</span>
+            </div>
+
             <div class="identify-body">
               <div class="identify-search-box">
                 <Search :size="18" class="text-slate-400" />
                 <input 
                   v-model="tmdbSearchQuery" 
                   type="text" 
-                  placeholder="Escribre el nombre de la película o serie..."
+                  placeholder="Escribe el nombre de la película o serie..."
                   @keyup.enter="searchTmdb"
                 />
+                <select v-model="tmdbSearchType" class="search-type-select">
+                  <option value="all">Todo</option>
+                  <option value="movie">Película</option>
+                  <option value="series">Serie</option>
+                </select>
                 <button @click="searchTmdb" class="eos-btn-primary mini">Buscar</button>
               </div>
 
               <div class="identify-results">
                 <div v-if="tmdbSearchLoading" class="loading-full"><Loader2 class="spinning" /></div>
                 <div v-else-if="tmdbSearchResults.length === 0" class="no-results">
-                  Busca por título para identificar el archivo: <code>{{ identifyingMedia?.file_path.split('/').pop() }}</code>
+                  <Search :size="32" style="opacity:0.15;margin-bottom:0.5rem" />
+                  <p>Busca por título en The Movie Database para vincular metadata.</p>
                 </div>
                 <div v-else class="tmdb-results-list">
-                   <div v-for="res in tmdbSearchResults" :key="'tmdb-'+res.id" class="tmdb-res-card" @click="identifyItem(res.id)">
+                   <div v-for="res in tmdbSearchResults" :key="'tmdb-'+res.id" class="tmdb-res-card" @click="identifyItem(res.id, res.type)">
                       <img :src="res.poster || '/entertainment/posters/stellar_horizon.png'" class="res-poster" />
                       <div class="res-info">
-                        <span class="res-title">{{ res.title }}</span>
-                        <span class="res-year">{{ res.year }}</span>
-                        <p class="res-desc">{{ res.description ? res.description.substring(0, 100) + '...' : 'Sin descripción' }}</p>
+                        <div class="res-title-row">
+                          <span class="res-title">{{ res.title }}</span>
+                          <span class="type-tag mini">{{ res.type === 'series' ? 'TV' : 'FILM' }}</span>
+                        </div>
+                        <div class="res-meta">
+                          <span class="res-year">{{ res.year }}</span>
+                          <span class="res-rating" v-if="res.rating">⭐ {{ res.rating }}</span>
+                        </div>
+                        <p class="res-desc">{{ res.description ? res.description.substring(0, 120) + '...' : 'Sin descripción' }}</p>
                       </div>
-                      <button class="btn-link-tmdb">Vincular</button>
+                      <button class="btn-link-tmdb"><CheckCircle2 :size="14" /> Vincular</button>
                    </div>
                 </div>
               </div>
@@ -782,7 +965,7 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import {
   Clapperboard, Home, Film, Tv, Music, Search, Bell, User, ChevronDown,
   ChevronLeft, ChevronRight, Play, Info, Settings2, X, Plus, Star, Loader2, Trash2, Folder, MonitorPlay,
-  RotateCcw, ListMusic
+  RotateCcw, ListMusic, FileText, Zap, CheckCircle2, AlertCircle, Download
 } from 'lucide-vue-next';
 import axios from 'axios';
 import { useDesktopStore } from '../stores/desktop';
@@ -856,6 +1039,11 @@ const identifyingMedia = ref<any>(null);
 const tmdbSearchQuery = ref('');
 const tmdbSearchResults = ref<any[]>([]);
 const tmdbSearchLoading = ref(false);
+const tmdbSearchType = ref('all');
+
+// Bulk Operations State
+const bulkIdentifying = ref(false);
+const bulkWritingNfo = ref(false);
 
 const cacheNonce = ref(Date.now());
 const updateCacheNonce = () => cacheNonce.value = Date.now();
@@ -880,7 +1068,7 @@ const navItems = [
 const allMedia = ref<any[]>([]);
 const allAdminMedia = ref<any[]>([]);
 const libraries = ref<any[]>([]);
-const adminStats = ref({ movies: 0, series: 0, music: 0, noPoster: 0, lastAdded: [] });
+const adminStats = ref({ movies: 0, series: 0, music: 0, noPoster: 0, noNfo: 0, identified: 0, lastAdded: [] });
 
 // Computed
 const filteredMedia = computed(() => {
@@ -929,6 +1117,10 @@ const filteredLibraryMedia = computed(() => {
   if (!adminSearch.value) return libraryMedia.value;
   const q = adminSearch.value.toLowerCase();
   return libraryMedia.value.filter(m => (m.title || '').toLowerCase().includes(q));
+});
+
+const unidentifiedMedia = computed(() => {
+  return allAdminMedia.value.filter(m => !m.tmdb_id && m.type !== 'music');
 });
 
 // Hero Data
@@ -1285,8 +1477,9 @@ const fetchFavorites = async () => {
 
 const openIdentify = (media: any) => {
   identifyingMedia.value = media;
-  tmdbSearchQuery.value = media.title;
+  tmdbSearchQuery.value = media.series_name || media.title;
   tmdbSearchResults.value = [];
+  tmdbSearchType.value = media.type === 'music' ? 'all' : media.type;
   showIdentifyModal.value = true;
 };
 
@@ -1294,8 +1487,9 @@ const searchTmdb = async () => {
   if (!tmdbSearchQuery.value) return;
   tmdbSearchLoading.value = true;
   try {
+    const searchType = tmdbSearchType.value === 'all' ? 'all' : tmdbSearchType.value;
     const res = await axios.get('/api/entertainment/admin/tmdb/search', {
-      params: { query: tmdbSearchQuery.value, type: identifyingMedia.value?.type }
+      params: { query: tmdbSearchQuery.value, type: searchType }
     });
     tmdbSearchResults.value = res.data;
   } catch (err) {
@@ -1305,16 +1499,16 @@ const searchTmdb = async () => {
   }
 };
 
-const identifyItem = async (tmdbId: number) => {
+const identifyItem = async (tmdbId: number, itemType?: string) => {
   if (!identifyingMedia.value) return;
   loading.value = true;
   try {
     const res = await axios.post('/api/entertainment/admin/media/identify', {
       mediaId: identifyingMedia.value.id,
       tmdbId,
-      type: identifyingMedia.value.type
+      type: itemType || identifyingMedia.value.type
     });
-    notification.success('Identificado', 'Metadatos actualizados correctamente.');
+    notification.success('Identificado', 'Metadatos actualizados y NFO generado.');
     updateCacheNonce();
     showIdentifyModal.value = false;
     
@@ -1328,6 +1522,46 @@ const identifyItem = async (tmdbId: number) => {
     notification.error('Error', 'No se pudo identificar el archivo');
   } finally {
     loading.value = false;
+  }
+};
+
+const bulkIdentify = async () => {
+  bulkIdentifying.value = true;
+  try {
+    const res = await axios.post('/api/entertainment/admin/media/bulk-identify');
+    const { total, identified, failed } = res.data;
+    notification.success('Scraping Completo', `${identified} de ${total} identificados. ${failed} fallidos.`);
+    updateCacheNonce();
+    fetchCatalog();
+    fetchAdminData();
+  } catch (err) {
+    notification.error('Error', 'Fallo en la identificación masiva');
+  } finally {
+    bulkIdentifying.value = false;
+  }
+};
+
+const bulkWriteNfo = async () => {
+  bulkWritingNfo.value = true;
+  try {
+    const res = await axios.post('/api/entertainment/admin/nfo/write-bulk');
+    const { total, written } = res.data;
+    notification.success('NFO Generados', `${written} de ${total} archivos NFO escritos.`);
+    fetchAdminData();
+  } catch (err) {
+    notification.error('Error', 'Fallo al generar archivos NFO');
+  } finally {
+    bulkWritingNfo.value = false;
+  }
+};
+
+const writeNfoSingle = async (mediaId: number) => {
+  try {
+    await axios.post(`/api/entertainment/admin/nfo/write/${mediaId}`);
+    notification.success('NFO', 'Archivo NFO generado correctamente.');
+    fetchAdminData();
+  } catch (err) {
+    notification.error('Error', 'No se pudo generar el NFO');
   }
 };
 
@@ -1466,6 +1700,13 @@ th, td { padding: 1rem; text-align: left; border-bottom: 1px solid rgba(255,255,
 .eos-modal { width: 90%; max-width: 600px; background: #111827; border-radius: 20px; overflow: hidden; position: relative; }
 .eos-modal-banner { height: 250px; background-size: cover; display: flex; align-items: flex-end; padding: 2rem; position: relative; }
 .eos-modal-body { padding: 2rem; } .eos-modal-desc { color: #94a3b8; font-size: 0.9rem; margin-bottom: 1.5rem; }
+.eos-modal-tagline { color: #f59e0b; font-style: italic; font-size: 0.85rem; margin-bottom: 0.5rem; opacity: 0.9; }
+.eos-modal-meta-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0.75rem; margin-bottom: 1.5rem; padding: 1rem; background: rgba(255,255,255,0.02); border-radius: 10px; border: 1px solid rgba(255,255,255,0.04); }
+.meta-item { display: flex; flex-direction: column; gap: 2px; }
+.meta-label { font-size: 0.65rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
+.meta-value { font-size: 0.8rem; color: #e2e8f0; }
+.cert-badge { background: rgba(245,158,11,0.15); color: #f59e0b; padding: 1px 6px; border-radius: 4px; font-weight: 700; font-size: 0.75rem; width: fit-content; }
+.admin-tabs button { display: flex; align-items: center; gap: 6px; }
 .eos-episodes-list { display: flex; flex-direction: column; gap: 8px; margin-top: 1rem; }
 .eos-episode-item { display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.05); padding: 0.75rem; border-radius: 10px; cursor: pointer; }
 .modal-fade-enter-active, .modal-fade-leave-active { transition: opacity 0.3s; }
@@ -1651,7 +1892,6 @@ th, td { padding: 1rem; text-align: left; border-bottom: 1px solid rgba(255,255,
 .res-title { font-weight: 600; color: white; }
 .res-year { font-size: 0.8rem; color: #64748b; }
 .res-desc { font-size: 0.75rem; color: #94a3b8; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.btn-link-tmdb { background: rgba(245, 158, 11, 0.1); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.2); padding: 0.4rem 0.8rem; border-radius: 6px; font-size: 0.75rem; font-weight: 600; }
 .eos-btn-primary.mini { padding: 0.4rem 1rem; font-size: 0.8rem; }
 .loading-full { display: flex; align-items: center; justify-content: center; height: 100%; color: #f59e0b; }
 .no-results { color: #64748b; text-align: center; padding: 2rem; font-size: 0.9rem; }
@@ -1666,4 +1906,126 @@ th, td { padding: 1rem; text-align: left; border-bottom: 1px solid rgba(255,255,
 .edit-field input:focus, .edit-field textarea:focus { border-color: #f59e0b; }
 .edit-row { display: grid; grid-template-columns: 1fr 2fr; gap: 1rem; }
 .is-fav { color: #f59e0b !important; border-color: rgba(245, 158, 11, 0.3) !important; background: rgba(245, 158, 11, 0.05) !important; }
+
+/* ====== Scraper & NFO Styles ====== */
+
+/* Stat card variants */
+.stat-card.success { border-left: 3px solid #22c55e; }
+.stat-card.success svg { color: #22c55e; }
+.stat-card.warning { border-left: 3px solid #f59e0b; }
+.stat-card.warning svg { color: #f59e0b; }
+.stat-card.info { border-left: 3px solid #3b82f6; }
+.stat-card.info svg { color: #3b82f6; }
+
+/* Scraper Hero */
+.scraper-hero { 
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(245, 158, 11, 0.08)); 
+  border: 1px solid rgba(99, 102, 241, 0.15); 
+  border-radius: 16px; 
+  padding: 2rem; 
+  margin-bottom: 2rem; 
+}
+.scraper-hero-content h2 { 
+  font-size: 1.35rem; color: white; margin-bottom: 0.5rem; 
+  display: flex; align-items: center; gap: 0.75rem; 
+}
+.scraper-hero-content p { color: #94a3b8; font-size: 0.9rem; line-height: 1.6; max-width: 700px; }
+
+/* Scraper Action Cards Grid */
+.scraper-actions-grid { 
+  display: grid; 
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); 
+  gap: 1.25rem; 
+  margin-bottom: 2rem; 
+}
+.scraper-action-card { 
+  background: rgba(255,255,255,0.02); 
+  border: 1px solid rgba(255,255,255,0.06); 
+  border-radius: 14px; 
+  padding: 1.5rem; 
+  display: flex; 
+  flex-direction: column;
+  gap: 1.25rem;
+  transition: all 0.3s; 
+}
+.scraper-action-card:hover { 
+  border-color: rgba(255,255,255,0.12); 
+  background: rgba(255,255,255,0.04); 
+  transform: translateY(-2px); 
+}
+.sac-icon { 
+  width: 52px; height: 52px; border-radius: 12px; 
+  display: flex; align-items: center; justify-content: center; 
+}
+.sac-icon.tmdb { background: rgba(1, 180, 228, 0.12); color: #01b4e4; }
+.sac-icon.nfo { background: rgba(168, 85, 247, 0.12); color: #a855f7; }
+.sac-icon.scan { background: rgba(245, 158, 11, 0.12); color: #f59e0b; }
+.sac-body h3 { font-size: 1rem; color: white; margin-bottom: 0.35rem; }
+.sac-body p { font-size: 0.8rem; color: #94a3b8; line-height: 1.5; }
+.sac-stat { margin-top: 0.75rem; font-size: 0.8rem; color: #64748b; }
+.sac-stat-num { 
+  font-weight: 800; font-size: 1.1rem; color: #f59e0b; margin-right: 4px; 
+}
+
+/* Status Badges */
+.status-badges { display: flex; gap: 6px; flex-wrap: wrap; }
+.status-badge { 
+  display: inline-flex; align-items: center; gap: 4px; 
+  font-size: 0.65rem; font-weight: 600; 
+  padding: 3px 8px; border-radius: 6px; 
+  text-transform: uppercase; letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.status-badge.ok { background: rgba(34, 197, 94, 0.12); color: #22c55e; }
+.status-badge.danger { background: rgba(239, 68, 68, 0.12); color: #ef4444; }
+.status-badge.muted { background: rgba(100, 116, 139, 0.1); color: #475569; }
+
+/* Media row extras */
+.m-extra { font-size: 0.7rem; color: #64748b; margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 200px; }
+
+/* BTN NFO */
+.btn-nfo { background: rgba(168, 85, 247, 0.1); color: #a855f7; border: none; padding: 4px; border-radius: 4px; cursor: pointer; transition: all 0.2s; }
+.btn-nfo:hover { background: #a855f7; color: white; }
+.btn-edit { background: rgba(59, 130, 246, 0.1); color: #60a5fa; border: none; padding: 4px; border-radius: 4px; cursor: pointer; transition: all 0.2s; }
+.btn-edit:hover { background: #3b82f6; color: white; }
+.btn-del { background: rgba(244, 63, 94, 0.1); color: #f43f5e; border: none; padding: 4px; border-radius: 4px; cursor: pointer; transition: all 0.2s; }
+.btn-del:hover { background: #f43f5e; color: white; }
+
+/* Identify Modal Enhancements */
+.identify-file-info { 
+  padding: 0.75rem 1.5rem; 
+  background: rgba(0,0,0,0.3); 
+  border-bottom: 1px solid rgba(255,255,255,0.05); 
+  display: flex; align-items: center; gap: 0.75rem; 
+  font-size: 0.8rem; 
+}
+.identify-file-info code { color: #f59e0b; font-family: monospace; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.search-type-select { 
+  background: rgba(0,0,0,0.5); 
+  border: 1px solid rgba(255,255,255,0.15); 
+  border-radius: 8px; 
+  padding: 0.4rem 0.5rem; 
+  color: white; 
+  font-size: 0.8rem; 
+  cursor: pointer; 
+  outline: none; 
+}
+
+.res-title-row { display: flex; align-items: center; gap: 0.5rem; }
+.type-tag.mini { font-size: 0.55rem; padding: 1px 5px; }
+.res-meta { display: flex; gap: 0.75rem; align-items: center; }
+.res-rating { font-size: 0.75rem; color: #f59e0b; }
+.btn-link-tmdb { 
+  background: rgba(245, 158, 11, 0.1); color: #f59e0b; 
+  border: 1px solid rgba(245, 158, 11, 0.2); 
+  padding: 0.4rem 0.8rem; border-radius: 6px; 
+  font-size: 0.75rem; font-weight: 600; 
+  display: flex; align-items: center; gap: 4px; 
+  white-space: nowrap; min-width: fit-content;
+}
+.btn-link-tmdb:hover { background: #f59e0b; color: #1e293b; }
+
+.mt-6 { margin-top: 1.5rem; }
+.py-8 { padding: 2rem 0; }
 </style>

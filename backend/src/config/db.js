@@ -56,6 +56,28 @@ db.exec(`
     file_path TEXT UNIQUE NOT NULL,
     stars INTEGER DEFAULT 5,
     is_new INTEGER DEFAULT 1,
+    tagline TEXT,
+    certification TEXT,
+    runtime INTEGER,
+    trailer_url TEXT,
+    imdb_id TEXT,
+    tmdb_id INTEGER,
+    director TEXT,
+    writer TEXT,
+    studio TEXT,
+    country TEXT,
+    nfo_path TEXT,
+    set_name TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS eo_sets (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT UNIQUE NOT NULL,
+    tmdb_id INTEGER,
+    overview TEXT,
+    poster_path TEXT,
+    banner_path TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 
@@ -123,6 +145,25 @@ try {
 try {
   db.exec("ALTER TABLE eo_libraries ADD COLUMN type TEXT DEFAULT 'movie'");
 } catch (e) {}
+
+// Migration: Add enhanced metadata columns to eo_media
+const newColumns = [
+  { name: 'tagline', def: 'TEXT' },
+  { name: 'certification', def: 'TEXT' },
+  { name: 'runtime', def: 'INTEGER' },
+  { name: 'trailer_url', def: 'TEXT' },
+  { name: 'imdb_id', def: 'TEXT' },
+  { name: 'tmdb_id', def: 'INTEGER' },
+  { name: 'director', def: 'TEXT' },
+  { name: 'writer', def: 'TEXT' },
+  { name: 'studio', def: 'TEXT' },
+  { name: 'country', def: 'TEXT' },
+  { name: 'nfo_path', def: 'TEXT' },
+  { name: 'set_name', def: 'TEXT' }
+];
+newColumns.forEach(col => {
+  try { db.exec(`ALTER TABLE eo_media ADD COLUMN ${col.name} ${col.def}`); } catch (e) {}
+});
 
 // --- Multimedia Structure Initialization ---
 const multimediaBase = path.resolve(__dirname, '../../../../data/multimedia');
