@@ -177,14 +177,21 @@
         <!-- Series View -->
         <template v-if="activeNav === 'series'">
           <section class="eos-grid-section">
-            <h2 class="eos-page-title">Series</h2>
-            <div class="eos-media-grid" v-if="seriesMedia.length > 0">
-              <div
-                v-for="media in seriesMedia"
-                :key="'ser-'+media.id"
-                class="eos-media-card"
-                @click="openMediaDetail(media)"
-              >
+            <div class="series-nav-header">
+              <div class="breadcrumb">
+                <span @click="activeSeriesLevel = 'series'; selectedMedia = null; selectedSeason = null" :class="{ active: activeSeriesLevel === 'series' }">Series</span>
+                <span v-if="selectedMedia && activeSeriesLevel !== 'series'" class="separator">/</span>
+                <span v-if="selectedMedia && activeSeriesLevel !== 'series'" @click="activeSeriesLevel = 'seasons'; selectedSeason = null" :class="{ active: activeSeriesLevel === 'seasons' }">
+                  {{ selectedMedia.series_name }}
+                </span>
+                <span v-if="selectedSeason" class="separator">/</span>
+                <span v-if="selectedSeason" class="active">Temporada {{ selectedSeason.number }}</span>
+              </div>
+            </div>
+
+            <!-- Level 1: Series Grid -->
+            <div v-if="activeSeriesLevel === 'series'" class="eos-media-grid">
+              <div v-for="media in seriesMedia" :key="'ser-'+media.id" class="eos-media-card" @click="enterSeries(media)">
                 <div class="eos-card-poster">
                   <img :src="media.poster" :alt="media.title" loading="lazy" />
                   <div class="eos-card-overlay">
@@ -192,12 +199,49 @@
                   </div>
                 </div>
                 <div class="eos-card-info">
-                  <div class="eos-card-title">{{ media.title }}</div>
-                  <div class="eos-card-meta">{{ media.genre }}</div>
+                  <div class="eos-card-title">{{ media.series_name }}</div>
+                  <div class="eos-card-meta">
+                    {{ media.year }}
+                    <span class="dot"></span>
+                    {{ getSeasonsCount(media.series_name) }} Temporadas
+                  </div>
+                </div>
+              </div>
+              <div v-if="seriesMedia.length === 0" class="eos-empty-grid">Sin series disponibles</div>
+            </div>
+
+            <!-- Level 2: Seasons Grid -->
+            <div v-if="activeSeriesLevel === 'seasons'" class="eos-media-grid">
+              <div v-for="season in currentSeasons" :key="'sea-'+season.number" class="eos-media-card season-card" @click="enterSeason(season)">
+                <div class="eos-card-poster season-poster">
+                  <img v-if="selectedMedia.poster" :src="selectedMedia.poster" />
+                  <div v-else class="season-fallback">{{ season.number }}</div>
+                  <div class="season-badge">{{ season.episodes.length }} Episodios</div>
+                </div>
+                <div class="eos-card-info">
+                  <div class="eos-card-title">Temporada {{ season.number }}</div>
+                  <div class="eos-card-meta">{{ selectedMedia.series_name }}</div>
                 </div>
               </div>
             </div>
-            <div v-else class="eos-empty-grid">Sin series disponibles</div>
+
+            <!-- Level 3: Episodes Grid -->
+            <div v-if="activeSeriesLevel === 'episodes'" class="episodes-detailed-grid">
+               <div v-for="ep in selectedSeason.episodes" :key="'ep-'+ep.id" class="episode-card" @click="playMedia(ep)">
+                  <div class="episode-thumb-container">
+                     <img :src="ep.poster || selectedMedia.poster" class="episode-thumb" />
+                     <div class="episode-play-overlay"><Play :size="24" fill="currentColor" /></div>
+                     <div v-if="ep.progress" class="episode-progress">
+                        <div class="progress-fill" :style="{ width: (ep.progress / (ep.runtime || 3600) * 100) + '%' }"></div>
+                     </div>
+                  </div>
+                  <div class="episode-info">
+                     <div class="ep-num">Capítulo {{ ep.episode.toString().padStart(2, '0') }}</div>
+                     <div class="ep-title">{{ ep.title }}</div>
+                     <div class="ep-meta" v-if="ep.runtime">{{ Math.floor(ep.runtime / 60) }} min</div>
+                  </div>
+               </div>
+            </div>
           </section>
         </template>
 
@@ -1072,6 +1116,8 @@ const selectedMedia = ref<any>(null);
 const tmdbKey = ref('');
 const configData = ref<any>({});
 const activeMusicTab = ref('artists');
+const selectedSeason = ref<any>(null);
+const activeSeriesLevel = ref('series'); // 'series', 'seasons', 'episodes'
 const isAdmin = computed(() => auth.isAdmin);
 
 // HLS.js Support
@@ -1236,6 +1282,35 @@ const musicGenres = computed(() => {
   });
   return Object.values(genres).sort((a, b) => a.name.localeCompare(b.name));
 });
+
+const currentSeasons = computed(() => {
+  if (!selectedMedia.value) return [];
+  const episodes = getEpisodes(selectedMedia.value.series_name);
+  const seasonsMap: Record<number, any> = {};
+  episodes.forEach(ep => {
+    const s = ep.season || 1;
+    if (!seasonsMap[s]) seasonsMap[s] = { number: s, episodes: [] };
+    seasonsMap[s].episodes.push(ep);
+  });
+  return Object.values(seasonsMap).sort((a, b) => a.number - b.number);
+});
+
+const getSeasonsCount = (name: string) => {
+  const eps = allMedia.value.filter(m => m.series_name === name);
+  const seasons = new Set(eps.map(e => e.season || 1));
+  return seasons.size;
+};
+
+const enterSeries = (item: any) => {
+  selectedMedia.value = item;
+  activeSeriesLevel.value = 'seasons';
+  selectedSeason.value = null;
+};
+
+const enterSeason = (season: any) => {
+  selectedSeason.value = season;
+  activeSeriesLevel.value = 'episodes';
+};
 
 const groupedMusic = computed(() => {
   const groups: Record<string, Record<string, any[]>> = {};
@@ -1839,6 +1914,32 @@ watch(activeNav, (val) => {
 .album-cover { aspect-ratio: 1; border-radius: 12px; margin-bottom: 1rem; display: flex; align-items: center; justify-content: center; color: white; box-shadow: 0 10px 20px rgba(0,0,0,0.4); overflow: hidden; }
 .album-img { width: 100%; height: 100%; object-fit: cover; }
 .genre-box { aspect-ratio: 16/9; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.2rem; color: white; text-shadow: 0 2px 4px rgba(0,0,0,0.3); margin-bottom: 0.75rem; text-transform: uppercase; }
+
+/* Series Hierarchy Styles */
+.series-nav-header { margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center; }
+.breadcrumb { display: flex; align-items: center; gap: 0.75rem; font-size: 1.1rem; }
+.breadcrumb span { cursor: pointer; color: #94a3b8; transition: color 0.2s; }
+.breadcrumb span:hover { color: white; }
+.breadcrumb span.active { color: #f59e0b; font-weight: 700; cursor: default; }
+.breadcrumb .separator { color: #334155; cursor: default; }
+
+.season-badge { position: absolute; bottom: 10px; right: 10px; background: rgba(0,0,0,0.8); padding: 4px 8px; border-radius: 6px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; backdrop-filter: blur(4px); }
+.season-fallback { font-size: 3rem; font-weight: 900; opacity: 0.3; }
+
+.episodes-detailed-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 2rem; }
+.episode-card { cursor: pointer; transition: transform 0.3s; }
+.episode-card:hover { transform: translateY(-5px); }
+.episode-thumb-container { position: relative; aspect-ratio: 16/9; border-radius: 12px; overflow: hidden; margin-bottom: 0.75rem; background: #1e293b; border: 1px solid rgba(255,255,255,0.05); }
+.episode-thumb { width:100%; height:100%; object-fit: cover; }
+.episode-play-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.3s; color: white; }
+.episode-card:hover .episode-play-overlay { opacity: 1; }
+.episode-progress { position: absolute; bottom: 0; left: 0; width: 100%; height: 3px; background: rgba(255,255,255,0.1); }
+.progress-fill { height: 100%; background: #f59e0b; }
+
+.episode-info { padding: 0 0.5rem; }
+.ep-num { font-size: 0.75rem; color: #f59e0b; font-weight: 700; text-transform: uppercase; margin-bottom: 0.25rem; }
+.ep-title { font-size: 1rem; color: white; font-weight: 600; margin-bottom: 0.25rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ep-meta { font-size: 0.8rem; color: #64748b; }
 
 .item-name { font-weight: 700; font-size: 0.95rem; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .item-artist { font-size: 0.75rem; color: #f59e0b; margin-top: 2px; }
