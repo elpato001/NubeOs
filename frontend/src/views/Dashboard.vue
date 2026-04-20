@@ -25,7 +25,7 @@
 
       <div class="top-right">
         <div class="user-pill-container">
-          <div class="user-pill" @click="toggleUserMenu">
+          <div class="user-pill" @click.stop="toggleUserMenu">
             <span class="user-avatar"><User :size="16" /></span>
             <span class="user-name">{{ auth.user?.username || 'Admin' }}</span>
           </div>
