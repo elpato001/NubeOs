@@ -129,29 +129,42 @@ const processFile = async (filePath, lib) => {
   }
   const yearMatch = fileNameNoExt.match(/\((19|20)\d{2}\)|(19|20)\d{2}/);
   const year = yearMatch ? parseInt(yearMatch[0].replace(/[()]/g, '')) : new Date().getFullYear();
-  // Music logic: Try to parse Artist - Title
-  let artist = 'Unknown Artist';
-  let album = lib.name || 'Unknown Album';
+  // Music logic: Try to parse Artist and Album from folders
+  let artist = 'Artista Desconocido';
+  let album = 'Álbum Desconocido';
   if (type === 'music') {
-    // 1. Try to parse from filename
-    if (fileNameNoExt.includes(' - ')) {
-      const parts = fileNameNoExt.split(' - ');
+    const relPath = path.relative(lib.path, filePath);
+    const parts = relPath.split(path.sep);
+    
+    // Pattern 1: lib/Artist/Album/Song.ext
+    if (parts.length >= 3) {
       artist = parts[0].trim();
-      title = parts[1].trim();
-    } else {
-      // 2. Try to parse from folder structure (Artist/Album/Song.mp3)
-      const relPath = path.relative(lib.path, filePath);
-      const parts = relPath.split(path.sep);
-      if (parts.length >= 3) {
-        artist = parts[0];
-        album = parts[1];
-      } else if (parts.length >= 2) {
-        artist = parts[0];
-      }
+      album = parts[1].trim();
+      title = path.parse(parts[parts.length - 1]).name;
+    } 
+    // Pattern 2: lib/Artist/Song.ext
+    else if (parts.length === 2) {
+      artist = parts[0].trim();
+      title = path.parse(parts[1]).name;
     }
 
-    // 3. Try to find better metadata from MusicBrainz if we have a basic artist/title
-    if (artist !== 'Unknown Artist') {
+    // Pattern 3: If filename has "Artist - Title" and we still don't have good info
+    if (fileNameNoExt.includes(' - ')) {
+      const nameParts = fileNameNoExt.split(' - ');
+      if (artist === 'Artista Desconocido') artist = nameParts[0].trim();
+      title = nameParts[1].trim();
+    }
+
+    // Pattern 4: If folder name is "Artist - Album"
+    const parentName = path.basename(path.dirname(filePath));
+    if (parentName.includes(' - ') && album === 'Álbum Desconocido') {
+      const folderParts = parentName.split(' - ');
+      if (artist === 'Artista Desconocido') artist = folderParts[0].trim();
+      album = folderParts[1].trim();
+    }
+
+    // Attempt extra identification via MusicBrainz if we have an artist
+    if (artist !== 'Artista Desconocido') {
       try {
         const mbInfo = await musicService.searchArtist(artist);
         if (mbInfo) artist = mbInfo.name;
