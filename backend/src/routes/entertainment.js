@@ -101,8 +101,11 @@ const organizeMovieIntoFolder = (currentFilePath, title, year) => {
 };
 
 const processFile = async (filePath, lib) => {
-  const file = path.basename(filePath);
-  const ext = path.extname(file).toLowerCase();
+  const fileName = path.basename(filePath);
+  const ext = path.extname(filePath).toLowerCase();
+  const type = lib.type;
+  const fileNameNoExt = path.parse(fileName).name;
+
   const isVideo = ['.mp4', '.mkv', '.webm', '.avi'].includes(ext);
   const isAudio = ['.mp3', '.wav', '.flac', '.aac'].includes(ext);
   if (!isVideo && !isAudio) return false;
@@ -110,15 +113,21 @@ const processFile = async (filePath, lib) => {
   const existing = db.prepare('SELECT id, poster_path, description FROM eo_media WHERE file_path = ?').get(filePath);
   if (existing && existing.poster_path && existing.description) return false;
 
-  const fileNameNoExt = path.parse(file).name;
-  const seriesMatch = fileNameNoExt.match(/S(\d+)E(\d+)|[S\s](\d+)E(\d+)|\s(\d+)x(\d+)/i);
-  const isSeriesRegex = !!seriesMatch;
-  let type = lib.type;
-  if (lib.type === 'generic') type = isVideo ? (isSeriesRegex ? 'series' : 'movie') : 'music';
-  const isSeries = type === 'series' || (type === 'generic' && isSeriesRegex);
+  // Default values
+  let title = fileNameNoExt;
+  let year = new Date().getFullYear();
+  let artist = 'Artista Desconocido';
+  let album = 'Álbum Desconocido';
+  let season = null, episode = null, seriesName = null;
+  let posterPath = null, bannerPath = null, description = null, rating = null;
+  let tagline = null, certification = null, runtime = null, trailer_url = null;
+  let imdb_id = null, tmdb_id = null, director = null, writer = null;
+  let studio = null, country = null, nfo_path = null, set_name = null;
 
-  let season = null, episode = null, seriesName = null, title = fileNameNoExt;
-  if (isSeries) {
+  const isSeries = type === 'series' || type === 'tv';
+  const seriesMatch = fileNameNoExt.match(/[Ss](\d+)[Ee](\d+)|(\d+)x(\d+)|[Ss]eason\s*(\d+)\s*[Ee]pisode\s*(\d+)/i);
+
+  if (isSeries && seriesMatch) {
     const s = seriesMatch[1] || seriesMatch[3] || seriesMatch[5];
     const e = seriesMatch[2] || seriesMatch[4] || seriesMatch[6];
     season = parseInt(s); episode = parseInt(e);
@@ -127,11 +136,11 @@ const processFile = async (filePath, lib) => {
   } else {
     title = fileNameNoExt.replace(/\((19|20)\d{2}\)|(19|20)\d{2}/g, '').replace(/[._-]/g, ' ').trim();
   }
+
   const yearMatch = fileNameNoExt.match(/\((19|20)\d{2}\)|(19|20)\d{2}/);
-  const year = yearMatch ? parseInt(yearMatch[0].replace(/[()]/g, '')) : new Date().getFullYear();
+  if (yearMatch) year = parseInt(yearMatch[0].replace(/[()]/g, ''));
+
   // Music logic: Strictly respect folder hierarchy (Librería -> Artista -> Álbum -> Canción)
-  let artist = 'Artista Desconocido';
-  let album = 'Álbum Desconocido';
   if (type === 'music') {
     const relPath = path.relative(lib.path, filePath);
     const parts = relPath.split(path.sep);
@@ -139,7 +148,7 @@ const processFile = async (filePath, lib) => {
     // Case 1: Library/Artist/Album/Song.ext (or deeper)
     if (parts.length >= 3) {
       artist = parts[0].trim();
-      album = parts[parts.length - 2].trim(); // Direct parent is the album
+      album = parts[parts.length - 2].trim();
       title = path.parse(parts[parts.length - 1]).name;
     } 
     // Case 2: Library/Artist/Song.ext
@@ -177,7 +186,7 @@ const processFile = async (filePath, lib) => {
         const mbRelease = await musicService.searchRelease(album, artist);
         if (mbRelease) {
           album = mbRelease.title;
-          if (mbRelease.coverUrl) poster_path = mbRelease.coverUrl;
+          if (mbRelease.coverUrl) posterPath = mbRelease.coverUrl;
           if (mbRelease.date) year = parseInt(mbRelease.date.split('-')[0]) || year;
         }
 
@@ -190,10 +199,6 @@ const processFile = async (filePath, lib) => {
 
   // Check for existing NFO file first (MediaElch compatibility)
   const nfoData = nfoService.readNfoForMedia(filePath);
-  let posterPath = null, bannerPath = null, description = null, rating = null;
-  let tagline = null, certification = null, runtime = null, trailer_url = null;
-  let imdb_id = null, tmdb_id = null, director = null, writer = null;
-  let studio = null, country = null, nfo_path = null, set_name = null;
 
   if (nfoData && nfoData.parsed) {
     // Use NFO data if available
