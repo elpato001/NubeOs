@@ -1856,6 +1856,17 @@ watch(activeNav, (val) => {
 .text-center { text-align: center; }
 
 .eos-music-artist-section { margin-bottom: 3rem; }
+
+/* Admin View Styles */
+.eos-admin-container { padding: 2rem; }
+.admin-tabs { display: flex; gap: 1rem; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 2rem; }
+.admin-tabs button { padding: 0.5rem 1rem; background: none; border: none; color: #64748b; cursor: pointer; border-bottom: 2px solid transparent; display: flex; align-items: center; gap: 6px; }
+.admin-tabs button.active { color: #f59e0b; border-bottom-color: #f59e0b; }
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; }
+.stat-card { background: rgba(255,255,255,0.03); padding: 1.5rem; border-radius: 12px; display: flex; flex-direction: column; gap: 0.5rem; transition: transform 0.2s; }
+.stat-card:hover { transform: translateY(-2px); background: rgba(255,255,255,0.05); }
+.stat-val { font-size: 1.5rem; font-weight: 800; color: white; }
+.stat-label { font-size: 0.8rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
 .eos-scroll-table { overflow-x: auto; margin-top: 1rem; }
 table { width: 100%; border-collapse: collapse; }
 th, td { padding: 1rem; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 0.8rem; }
