@@ -151,9 +151,9 @@
         <template v-if="activeNav === 'movies'">
           <section class="eos-grid-section">
             <h2 class="eos-page-title">Películas</h2>
-            <div class="eos-media-grid" v-if="filteredMedia.filter(m => m.type === 'movie').length > 0">
+            <div class="eos-media-grid" v-if="filteredMedia.filter(m => m.type === 'movie' || m.type === 'movies').length > 0">
               <div
-                v-for="media in filteredMedia.filter(m => m.type === 'movie')"
+                v-for="media in filteredMedia.filter(m => m.type === 'movie' || m.type === 'movies')"
                 :key="'mov-'+media.id"
                 class="eos-media-card"
                 @click="openMediaDetail(media)"
@@ -214,7 +214,7 @@
             <div v-if="activeSeriesLevel === 'seasons'" class="series-detailed-view animate-fade">
                <div class="series-hero-banner">
                   <div class="hero-left">
-                     <img :src="selectedMedia.poster" class="hero-poster" />
+                     <img v-if="selectedMedia" :src="selectedMedia.poster" class="hero-poster" />
                   </div>
                   <div class="hero-right">
                      <h1 class="hero-title">{{ selectedMedia.series_name }}</h1>
@@ -1240,13 +1240,14 @@ const filteredMedia = computed(() => {
 });
 
 const seriesMedia = computed(() => {
-  const series = filteredMedia.value.filter(m => m.type === 'series' && m.series_name);
+  const series = filteredMedia.value.filter(m => m.type === 'series' || m.type === 'tv');
   const unique: any[] = [];
   const seen = new Set();
   series.forEach(s => {
-    if (!seen.has(s.series_name)) {
-      seen.add(s.series_name);
-      unique.push({ ...s, title: s.series_name, isSeriesGroup: true });
+    const sName = s.series_name || s.title || 'Serie Desconocida';
+    if (!seen.has(sName)) {
+      seen.add(sName);
+      unique.push({ ...s, series_name: sName, title: sName, isSeriesGroup: true });
     }
   });
   return unique;
@@ -1562,6 +1563,7 @@ const saveConfig = async () => {
 };
 
 const playMain = (series: any) => {
+  if (!series) return;
   const episodes = allMedia.value.filter(m => m.series_name === series.series_name).sort((a,b) => (a.season||1) - (b.season||1) || a.episode - b.episode);
   if (episodes.length > 0) {
     const toPlay = episodes.find(e => e.progress > 0 && !e.is_finished) || episodes[0];

@@ -103,12 +103,13 @@ const organizeMovieIntoFolder = (currentFilePath, title, year) => {
 const processFile = async (filePath, lib) => {
   const fileName = path.basename(filePath);
   const ext = path.extname(filePath).toLowerCase();
-  const type = lib.type;
   const fileNameNoExt = path.parse(fileName).name;
 
   const isVideo = ['.mp4', '.mkv', '.webm', '.avi'].includes(ext);
   const isAudio = ['.mp3', '.wav', '.flac', '.aac'].includes(ext);
   if (!isVideo && !isAudio) return false;
+
+  let type = lib.type || (isAudio ? 'music' : 'movie');
 
   const existing = db.prepare('SELECT id, poster_path, description FROM eo_media WHERE file_path = ?').get(filePath);
   if (existing && existing.poster_path && existing.description) return false;
