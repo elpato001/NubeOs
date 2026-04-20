@@ -210,19 +210,47 @@
               <div v-if="seriesMedia.length === 0" class="eos-empty-grid">Sin series disponibles</div>
             </div>
 
-            <!-- Level 2: Seasons Grid -->
-            <div v-if="activeSeriesLevel === 'seasons'" class="eos-media-grid">
-              <div v-for="season in currentSeasons" :key="'sea-'+season.number" class="eos-media-card season-card" @click="enterSeason(season)">
-                <div class="eos-card-poster season-poster">
-                  <img v-if="selectedMedia.poster" :src="selectedMedia.poster" />
-                  <div v-else class="season-fallback">{{ season.number }}</div>
-                  <div class="season-badge">{{ season.episodes.length }} Episodios</div>
-                </div>
-                <div class="eos-card-info">
-                  <div class="eos-card-title">Temporada {{ season.number }}</div>
-                  <div class="eos-card-meta">{{ selectedMedia.series_name }}</div>
-                </div>
-              </div>
+            <!-- Level 2: Plex-style Series Detail & Seasons -->
+            <div v-if="activeSeriesLevel === 'seasons'" class="series-detailed-view animate-fade">
+               <div class="series-hero-banner">
+                  <div class="hero-left">
+                     <img :src="selectedMedia.poster" class="hero-poster" />
+                  </div>
+                  <div class="hero-right">
+                     <h1 class="hero-title">{{ selectedMedia.series_name }}</h1>
+                     <div class="hero-meta">
+                        <span v-if="selectedMedia.year" class="year-badge">{{ selectedMedia.year }}</span>
+                        <span class="type-badge">{{ selectedMedia.certification || 'TV-14' }}</span>
+                        <span class="rating">⭐ {{ selectedMedia.rating || 'N/A' }}</span>
+                     </div>
+                     <div class="hero-actions">
+                        <button class="play-main-btn" @click="playMain(selectedMedia)"><Play :size="20" fill="currentColor" /> REPRODUCIR</button>
+                        <button class="icon-action-btn"><Plus :size="20" /></button>
+                        <button class="icon-action-btn" @click="toggleFavorite(selectedMedia)" :class="{ active: isFavorite(selectedMedia) }"><Star :size="20" :fill="isFavorite(selectedMedia) ? 'currentColor' : 'none'" /></button>
+                        <button class="icon-action-btn" @click="editMedia(selectedMedia)"><Settings2 :size="20" /></button>
+                     </div>
+                     <p class="hero-desc">{{ selectedMedia.description || 'Sin descripción disponible.' }}</p>
+                     
+                     <div class="hero-extra">
+                        <div class="ex-item" v-if="selectedMedia.studio"><span class="ex-label">ESTUDIO</span> <span class="ex-val">{{ selectedMedia.studio }}</span></div>
+                        <div class="ex-item" v-if="selectedMedia.genre"><span class="ex-label">GÉNERO</span> <span class="ex-val">{{ selectedMedia.genre }}</span></div>
+                     </div>
+                  </div>
+               </div>
+
+               <div class="seasons-section">
+                  <h3 class="section-title-small">Temporadas</h3>
+                  <div class="seasons-horizontal-grid">
+                     <div v-for="season in currentSeasons" :key="'sea-'+season.number" class="season-mini-card" @click="enterSeason(season)">
+                        <div class="season-mini-poster">
+                           <img :src="selectedMedia.poster" />
+                           <div class="season-ep-count-badge">{{ season.episodes.length }}</div>
+                        </div>
+                        <div class="season-mini-name">Temporada {{ season.number }}</div>
+                        <div class="season-mini-ep-text">{{ season.episodes.length }} episodios</div>
+                     </div>
+                  </div>
+               </div>
             </div>
 
             <!-- Level 3: Episodes Grid -->
@@ -1533,6 +1561,14 @@ const saveConfig = async () => {
   }
 };
 
+const playMain = (series: any) => {
+  const episodes = allMedia.value.filter(m => m.series_name === series.series_name).sort((a,b) => (a.season||1) - (b.season||1) || a.episode - b.episode);
+  if (episodes.length > 0) {
+    const toPlay = episodes.find(e => e.progress > 0 && !e.is_finished) || episodes[0];
+    playMedia(toPlay);
+  }
+};
+
 const playMedia = async (m: any) => {
   const token = localStorage.getItem('nubeos_token');
   const streamUrl = `/api/entertainment/stream/${m.id}?token=${token}`;
@@ -1940,6 +1976,36 @@ watch(activeNav, (val) => {
 .ep-num { font-size: 0.75rem; color: #f59e0b; font-weight: 700; text-transform: uppercase; margin-bottom: 0.25rem; }
 .ep-title { font-size: 1rem; color: white; font-weight: 600; margin-bottom: 0.25rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ep-meta { font-size: 0.8rem; color: #64748b; }
+
+/* Plex Style Series Detail */
+.series-hero-banner { display: flex; gap: 3rem; margin-bottom: 4rem; margin-top: 1rem; }
+.hero-poster { width: 260px; border-radius: 12px; box-shadow: 0 20px 40px rgba(0,0,0,0.5); object-fit: cover; }
+.hero-right { flex: 1; padding-top: 1rem; }
+.hero-title { font-size: 3rem; font-weight: 900; color: white; margin-bottom: 1rem; line-height: 1.1; }
+.hero-meta { display: flex; align-items: center; gap: 1rem; margin-bottom: 2rem; }
+.year-badge, .type-badge { background: rgba(255,255,255,0.1); padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: 700; color: #cbd5e1; }
+.rating { color: #f59e0b; font-weight: 700; font-size: 1.1rem; }
+.hero-actions { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 2.5rem; }
+.play-main-btn { background: #f59e0b; color: black; border: none; padding: 0.75rem 2rem; border-radius: 8px; font-weight: 800; font-size: 0.95rem; cursor: pointer; display: flex; align-items: center; gap: 0.6rem; transition: transform 0.2s; }
+.play-main-btn:hover { transform: scale(1.05); background: #fbbf24; }
+.icon-action-btn { width: 42px; height: 42px; border-radius: 50%; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1); color: white; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+.icon-action-btn:hover { background: rgba(255,255,255,0.15); border-color: rgba(255,255,255,0.3); }
+.icon-action-btn.active { color: #f59e0b; border-color: #f59e0b; background: rgba(245, 158, 11, 0.1); }
+.hero-desc { font-size: 1.1rem; line-height: 1.7; color: #cbd5e1; margin-bottom: 2.5rem; max-width: 900px; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.hero-extra { display: flex; flex-direction: column; gap: 1rem; }
+.ex-item { display: flex; gap: 1.5rem; font-size: 0.85rem; }
+.ex-label { color: #64748b; font-weight: 800; min-width: 80px; letter-spacing: 0.05em; }
+.ex-val { color: #94a3b8; font-weight: 500; }
+
+.section-title-small { font-size: 1.25rem; font-weight: 800; color: white; margin-bottom: 1.5rem; }
+.seasons-horizontal-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 1.5rem; }
+.season-mini-card { cursor: pointer; transition: transform 0.3s; }
+.season-mini-card:hover { transform: scale(1.05); }
+.season-mini-poster { position: relative; aspect-ratio: 2/3; border-radius: 8px; overflow: hidden; margin-bottom: 0.75rem; background: #1e293b; box-shadow: 0 10px 20px rgba(0,0,0,0.3); }
+.season-mini-poster img { width: 100%; height: 100%; object-fit: cover; }
+.season-ep-count-badge { position: absolute; top: 8px; right: 8px; background: rgba(245, 158, 11, 0.9); color: black; padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; font-weight: 900; }
+.season-mini-name { font-size: 0.9rem; font-weight: 700; color: white; margin-bottom: 2px; }
+.season-mini-ep-text { font-size: 0.75rem; color: #64748b; font-weight: 500; }
 
 .item-name { font-weight: 700; font-size: 0.95rem; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .item-artist { font-size: 0.75rem; color: #f59e0b; margin-top: 2px; }
