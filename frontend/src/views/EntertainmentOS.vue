@@ -1166,7 +1166,7 @@ const filteredMedia = computed(() => {
 });
 
 const seriesMedia = computed(() => {
-  const series = filteredMedia.value.filter(m => m.type === 'series');
+  const series = filteredMedia.value.filter(m => m.type === 'series' && m.series_name);
   const unique: any[] = [];
   const seen = new Set();
   series.forEach(s => {
@@ -1179,7 +1179,7 @@ const seriesMedia = computed(() => {
 });
 
 const getEpisodes = (name: string) => 
-  allMedia.value.filter(m => m.series_name === name).sort((a,b) => a.episode - b.episode);
+  name ? allMedia.value.filter(m => m.series_name === name).sort((a,b) => a.episode - b.episode) : [];
 
 const mediaSections = computed(() => [
   { title: 'Agregados Recientemente', items: allMedia.value.filter(m => m.is_new === 1).slice(0, 10) },
