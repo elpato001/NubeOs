@@ -170,11 +170,20 @@ const processFile = async (filePath, lib) => {
        }
     }
 
-    // Attempt extra identification via MusicBrainz if we have an artist
-    if (artist !== 'Artista Desconocido') {
+    // Attempt extra identification via MusicBrainz
+    if (artist !== 'Artista Desconocido' || album !== 'Álbum Desconocido') {
       try {
-        const mbInfo = await musicService.searchArtist(artist);
-        if (mbInfo) artist = mbInfo.name;
+        // Try searching for the release first (Album + Artist)
+        const mbRelease = await musicService.searchRelease(album, artist);
+        if (mbRelease) {
+          album = mbRelease.title;
+          if (mbRelease.coverUrl) poster_path = mbRelease.coverUrl;
+          if (mbRelease.date) year = parseInt(mbRelease.date.split('-')[0]) || year;
+        }
+
+        // Refine Artist name if needed
+        const mbArtist = await musicService.searchArtist(artist);
+        if (mbArtist) artist = mbArtist.name;
       } catch (err) {}
     }
   }

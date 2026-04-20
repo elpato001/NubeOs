@@ -232,7 +232,8 @@
               <div v-if="activeMusicTab === 'albums'" class="music-grid-view">
                 <div v-for="album in musicAlbums" :key="album.name" class="music-item-card album" @click="searchQuery = album.name; activeMusicTab = 'songs'">
                   <div class="album-cover" :style="{ background: album.color }">
-                    <Disc :size="48" />
+                    <img v-if="album.poster" :src="album.poster" class="album-img" @error="(e: any) => e.target.style.display='none'" />
+                    <Disc v-else :size="48" />
                   </div>
                   <div class="item-info">
                     <div class="item-name" :title="album.name">{{ album.name }}</div>
@@ -1194,6 +1195,7 @@ const musicTracks = computed(() =>
       album: m.studio || 'Álbum Desconocido',
       genre: m.genre || 'Género Desconocido',
       year: m.year || 'N/A',
+      poster: m.poster_path ? (m.poster_path.startsWith('http') ? m.poster_path : `/api/entertainment/poster/${m.id}?token=${token}&v=${cacheNonce.value}`) : null,
       color: `hsl(${(m.id * 137) % 360}, 60%, 40%)`
     }))
     .sort((a, b) => (a.title || '').localeCompare(b.title || ''))
@@ -1216,9 +1218,10 @@ const musicAlbums = computed(() => {
   musicTracks.value.forEach(t => {
     const key = `${t.artist}-${t.album}`;
     if (!albums[key]) {
-      albums[key] = { name: t.album, artist: t.artist, count: 0, color: t.color, year: t.year };
+      albums[key] = { name: t.album, artist: t.artist, count: 0, color: t.color, year: t.year, poster: t.poster };
     }
     albums[key].count++;
+    if (!albums[key].poster && t.poster) albums[key].poster = t.poster;
   });
   return Object.values(albums).sort((a, b) => a.name.localeCompare(b.name));
 });
@@ -1832,8 +1835,9 @@ watch(activeNav, (val) => {
 .music-item-card { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 16px; padding: 1.25rem; text-align: center; cursor: pointer; transition: all 0.3s; position: relative; overflow: hidden; }
 .music-item-card:hover { background: rgba(255,255,255,0.05); transform: translateY(-5px); border-color: rgba(245, 158, 11, 0.3); }
 
-.artist-avatar { width: 100px; height: 100px; border-radius: 50%; margin: 0 auto 1.25rem; display: flex; align-items: center; justify-content: center; color: white; box-shadow: 0 8px 16px rgba(0,0,0,0.3); }
-.album-cover { aspect-ratio: 1; border-radius: 12px; margin-bottom: 1rem; display: flex; align-items: center; justify-content: center; color: white; box-shadow: 0 10px 20px rgba(0,0,0,0.4); }
+.artist-avatar { width: 100px; height: 100px; border-radius: 50%; margin: 0 auto 1.25rem; display: flex; align-items: center; justify-content: center; color: white; box-shadow: 0 8px 16px rgba(0,0,0,0.3); overflow: hidden; }
+.album-cover { aspect-ratio: 1; border-radius: 12px; margin-bottom: 1rem; display: flex; align-items: center; justify-content: center; color: white; box-shadow: 0 10px 20px rgba(0,0,0,0.4); overflow: hidden; }
+.album-img { width: 100%; height: 100%; object-fit: cover; }
 .genre-box { aspect-ratio: 16/9; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.2rem; color: white; text-shadow: 0 2px 4px rgba(0,0,0,0.3); margin-bottom: 0.75rem; text-transform: uppercase; }
 
 .item-name { font-weight: 700; font-size: 0.95rem; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

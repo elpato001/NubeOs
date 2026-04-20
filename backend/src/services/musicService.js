@@ -1,10 +1,11 @@
 const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 
 /**
- * MusicBrainz API Service
- * Used for basic music identification when TMDB is not applicable.
+ * MusicBrainz API Service + Cover Art Archive
+ * Used for music identification and artwork retrieval.
  */
 const BASE_URL = 'https://musicbrainz.org/ws/2';
+const COVER_URL = 'https://coverartarchive.org/release';
 
 const searchArtist = async (name) => {
   try {
@@ -31,7 +32,10 @@ const searchRelease = async (title, artist = '') => {
     if (!response.ok) return null;
     const data = await response.json();
     if (data.releases && data.releases.length > 0) {
-      return data.releases[0];
+      const release = data.releases[0];
+      // Try to get cover art URL automatically
+      release.coverUrl = await getCoverArt(release.id);
+      return release;
     }
     return null;
   } catch (error) {
@@ -39,4 +43,21 @@ const searchRelease = async (title, artist = '') => {
   }
 };
 
-module.exports = { searchArtist, searchRelease };
+const getCoverArt = async (releaseMbid) => {
+  try {
+    const response = await fetch(`${COVER_URL}/${releaseMbid}`, {
+      headers: { 'User-Agent': 'EntertainmentOS/1.0.0' }
+    });
+    if (!response.ok) return null;
+    const data = await response.json();
+    if (data.images && data.images.length > 0) {
+      const front = data.images.find(img => img.front) || data.images[0];
+      return front.image;
+    }
+    return null;
+  } catch (error) {
+    return null;
+  }
+};
+
+module.exports = { searchArtist, searchRelease, getCoverArt };
