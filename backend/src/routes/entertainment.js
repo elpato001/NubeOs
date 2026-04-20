@@ -127,12 +127,34 @@ const processFile = async (filePath, lib) => {
   const isSeries = type === 'series' || type === 'tv';
   const seriesMatch = fileNameNoExt.match(/[Ss](\d+)[Ee](\d+)|(\d+)x(\d+)|[Ss]eason\s*(\d+)\s*[Ee]pisode\s*(\d+)/i);
 
-  if (isSeries && seriesMatch) {
-    const s = seriesMatch[1] || seriesMatch[3] || seriesMatch[5];
-    const e = seriesMatch[2] || seriesMatch[4] || seriesMatch[6];
-    season = parseInt(s); episode = parseInt(e);
-    seriesName = fileNameNoExt.split(seriesMatch[0])[0].replace(/[._-]/g, ' ').trim();
-    title = `${seriesName} - S${s}E${e}`;
+  if (isSeries) {
+    const relPath = path.relative(lib.path, filePath);
+    const parts = relPath.split(path.sep);
+
+    // Default parsing from filename first
+    if (seriesMatch) {
+      const s = seriesMatch[1] || seriesMatch[3] || seriesMatch[5];
+      const e = seriesMatch[2] || seriesMatch[4] || seriesMatch[6];
+      season = parseInt(s); 
+      episode = parseInt(e);
+      seriesName = fileNameNoExt.split(seriesMatch[0])[0].replace(/[._-]/g, ' ').trim();
+    }
+
+    // Hierarchy Override: Series -> Show -> Season -> Ep
+    if (parts.length >= 3) {
+      seriesName = parts[0].trim();
+      const seasonPart = parts[parts.length - 2].trim();
+      const seasonNumMatch = seasonPart.match(/\d+/);
+      if (seasonNumMatch) season = parseInt(seasonNumMatch[0]);
+    } 
+    // Show -> Ep
+    else if (parts.length === 2) {
+      seriesName = parts[0].trim();
+    }
+
+    if (seriesName && episode !== null) {
+      title = `${seriesName} - S${(season || 1).toString().padStart(2,'0')}E${episode.toString().padStart(2,'0')}`;
+    }
   } else {
     title = fileNameNoExt.replace(/\((19|20)\d{2}\)|(19|20)\d{2}/g, '').replace(/[._-]/g, ' ').trim();
   }
