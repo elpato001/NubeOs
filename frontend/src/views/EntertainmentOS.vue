@@ -203,35 +203,106 @@
 
         <!-- Music View -->
         <template v-if="activeNav === 'music'">
-          <section class="eos-grid-section music-section">
-            <h2 class="eos-page-title">Música</h2>
-            
-            <div v-if="Object.keys(groupedMusic).length > 0" class="eos-music-container">
-              <div v-for="(albums, artist) in groupedMusic" :key="artist" class="eos-music-artist-section">
-                <h3 class="eos-artist-title"><Music :size="18" /> {{ artist }}</h3>
-                
-                <div v-for="(tracks, albumName) in albums" :key="albumName" class="eos-music-album-section">
-                  <h4 class="eos-album-subtitle">{{ albumName }}</h4>
-                  <div class="eos-music-grid">
-                    <div v-for="track in tracks" :key="'mus-'+track.id" class="eos-music-card" @click="playMedia(track)">
-                      <div class="eos-music-cover">
-                        <div class="eos-music-cover-art" :style="{ background: track.color }">
-                          <Music :size="28" />
-                        </div>
-                        <div class="eos-music-play-overlay">
-                          <Play :size="22" />
-                        </div>
-                      </div>
-                      <div class="eos-music-info">
-                        <div class="eos-music-title" :title="track.title">{{ track.title }}</div>
-                      </div>
-                    </div>
+          <div class="eos-music-app">
+            <header class="music-header">
+              <div class="music-tabs">
+                <button :class="{ active: activeMusicTab === 'artists' }" @click="activeMusicTab = 'artists'"><User :size="16" /> Artistas</button>
+                <button :class="{ active: activeMusicTab === 'albums' }" @click="activeMusicTab = 'albums'"><Disc :size="16" /> Álbumes</button>
+                <button :class="{ active: activeMusicTab === 'songs' }" @click="activeMusicTab = 'songs'"><Music :size="16" /> Canciones</button>
+                <button :class="{ active: activeMusicTab === 'genres' }" @click="activeMusicTab = 'genres'"><Mic2 :size="16" /> Géneros</button>
+                <button :class="{ active: activeMusicTab === 'playlists' }" @click="activeMusicTab = 'playlists'"><ListMusic :size="16" /> Playlists</button>
+              </div>
+            </header>
+
+            <div class="music-content animate-fade">
+              <!-- Artists Tab -->
+              <div v-if="activeMusicTab === 'artists'" class="music-grid-view">
+                <div v-for="artist in musicArtists" :key="artist.name" class="music-item-card artist" @click="searchQuery = artist.name; activeMusicTab = 'songs'">
+                  <div class="artist-avatar" :style="{ background: artist.color }">
+                    <User :size="48" />
+                  </div>
+                  <div class="item-info">
+                    <div class="item-name">{{ artist.name }}</div>
+                    <div class="item-meta">{{ artist.count }} canciones</div>
                   </div>
                 </div>
               </div>
+
+              <!-- Albums Tab -->
+              <div v-if="activeMusicTab === 'albums'" class="music-grid-view">
+                <div v-for="album in musicAlbums" :key="album.name" class="music-item-card album" @click="searchQuery = album.name; activeMusicTab = 'songs'">
+                  <div class="album-cover" :style="{ background: album.color }">
+                    <Disc :size="48" />
+                  </div>
+                  <div class="item-info">
+                    <div class="item-name" :title="album.name">{{ album.name }}</div>
+                    <div class="item-artist">{{ album.artist }}</div>
+                    <div class="item-meta">{{ album.year }} · {{ album.count }} pistas</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Songs Tab (Table) -->
+              <div v-if="activeMusicTab === 'songs'" class="music-table-view">
+                <table class="song-table">
+                  <thead>
+                    <tr>
+                      <th width="40">#</th>
+                      <th>Título</th>
+                      <th>Artista</th>
+                      <th>Álbum</th>
+                      <th width="80">Año</th>
+                      <th width="80">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="(track, index) in musicTracks" :key="track.id" @dblclick="playMedia(track)">
+                      <td class="text-center opacity-50">{{ index + 1 }}</td>
+                      <td>
+                        <div class="song-cell">
+                          <button class="song-play-inline" @click="playMedia(track)"><Play :size="14" /></button>
+                          <span>{{ track.title }}</span>
+                        </div>
+                      </td>
+                      <td class="opacity-80">{{ track.artist }}</td>
+                      <td class="opacity-80">{{ track.album }}</td>
+                      <td class="opacity-50">{{ track.year }}</td>
+                      <td>
+                        <div class="table-btns">
+                          <button @click="toggleFavorite(track)" :class="{ 'text-amber-500': isFavorite(track) }">
+                            <Star :size="14" :fill="isFavorite(track) ? 'currentColor' : 'none'" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+                <div v-if="musicTracks.length === 0" class="no-results py-12">
+                   <p>No se encontraron canciones que coincidan con tu búsqueda.</p>
+                </div>
+              </div>
+
+              <!-- Genres Tab -->
+              <div v-if="activeMusicTab === 'genres'" class="music-grid-view">
+                <div v-for="genre in musicGenres" :key="genre.name" class="music-item-card genre" @click="searchQuery = genre.name; activeMusicTab = 'songs'">
+                  <div class="genre-box" :style="{ background: genre.color }">
+                    <span>{{ genre.name }}</span>
+                  </div>
+                  <div class="item-info">
+                    <div class="item-meta">{{ genre.count }} pistas</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Playlists Tab -->
+              <div v-if="activeMusicTab === 'playlists'" class="music-empty-state">
+                <ListMusic :size="64" opacity="0.1" />
+                <h3>Mis Playlists</h3>
+                <p>Próximamente: Crea y gestiona tus propias listas de reproducción.</p>
+                <button class="eos-btn-primary mini mt-4" disabled><Plus :size="16" /> Crear Nueva</button>
+              </div>
             </div>
-            <div v-else class="eos-empty-grid">Sin música en la biblioteca</div>
-          </section>
+          </div>
         </template>
 
         <!-- IPTV View -->
@@ -975,7 +1046,7 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import {
   Clapperboard, Home, Film, Tv, Music, Search, Bell, User, ChevronDown,
   ChevronLeft, ChevronRight, Play, Info, Settings2, X, Plus, Star, Loader2, Trash2, Folder, MonitorPlay,
-  RotateCcw, ListMusic, FileText, Zap, CheckCircle2, AlertCircle, Download
+  RotateCcw, ListMusic, FileText, Zap, CheckCircle2, AlertCircle, Download, Disc, Mic2
 } from 'lucide-vue-next';
 import axios from 'axios';
 import { useDesktopStore } from '../stores/desktop';
@@ -999,6 +1070,7 @@ const selectedLibType = ref('movie');
 const selectedMedia = ref<any>(null);
 const tmdbKey = ref('');
 const configData = ref<any>({});
+const activeMusicTab = ref('artists');
 const isAdmin = computed(() => auth.isAdmin);
 
 // HLS.js Support
@@ -1112,13 +1184,53 @@ const mediaSections = computed(() => [
 ]);
 
 const musicTracks = computed(() => 
-  filteredMedia.value.filter(m => m.type === 'music').map(m => ({
-    ...m, 
-    artist: m.director || 'Unknown Artist', 
-    album: m.studio || 'Unknown Album',
-    color: `hsl(${(m.id * 137) % 360}, 60%, 40%)`
-  }))
+  filteredMedia.value
+    .filter(m => m.type === 'music')
+    .map(m => ({
+      ...m, 
+      artist: m.director || 'Artista Desconocido', 
+      album: m.studio || 'Álbum Desconocido',
+      genre: m.genre || 'Género Desconocido',
+      year: m.year || 'N/A',
+      color: `hsl(${(m.id * 137) % 360}, 60%, 40%)`
+    }))
+    .sort((a, b) => (a.title || '').localeCompare(b.title || ''))
 );
+
+const musicArtists = computed(() => {
+  const artists: Record<string, any> = {};
+  musicTracks.value.forEach(t => {
+    if (!artists[t.artist]) {
+      artists[t.artist] = { name: t.artist, count: 0, color: t.color, previewTracks: [] };
+    }
+    artists[t.artist].count++;
+    if (artists[t.artist].previewTracks.length < 4) artists[t.artist].previewTracks.push(t);
+  });
+  return Object.values(artists).sort((a, b) => a.name.localeCompare(b.name));
+});
+
+const musicAlbums = computed(() => {
+  const albums: Record<string, any> = {};
+  musicTracks.value.forEach(t => {
+    const key = `${t.artist}-${t.album}`;
+    if (!albums[key]) {
+      albums[key] = { name: t.album, artist: t.artist, count: 0, color: t.color, year: t.year };
+    }
+    albums[key].count++;
+  });
+  return Object.values(albums).sort((a, b) => a.name.localeCompare(b.name));
+});
+
+const musicGenres = computed(() => {
+  const genres: Record<string, any> = {};
+  musicTracks.value.forEach(t => {
+    if (!genres[t.genre]) {
+      genres[t.genre] = { name: t.genre, count: 0, color: `hsl(${(t.genre.length * 50) % 360}, 50%, 45%)` };
+    }
+    genres[t.genre].count++;
+  });
+  return Object.values(genres).sort((a, b) => a.name.localeCompare(b.name));
+});
 
 const groupedMusic = computed(() => {
   const groups: Record<string, Record<string, any[]>> = {};
@@ -1707,58 +1819,43 @@ watch(activeNav, (val) => {
 .eos-card-meta { color: #64748b; font-size: 0.75rem; }
 .eos-grid-section { padding: 2rem; }
 .eos-music-container { padding: 0 1rem; }
+.eos-music-app { display: flex; flex-direction: column; height: 100%; padding: 1.5rem 2rem; }
+.music-header { margin-bottom: 2rem; }
+.music-tabs { display: flex; gap: 0.5rem; background: rgba(255,255,255,0.03); padding: 0.4rem; border-radius: 12px; width: fit-content; }
+.music-tabs button { display: flex; align-items: center; gap: 8px; padding: 0.6rem 1.25rem; background: none; border: none; color: #94a3b8; font-size: 0.85rem; font-weight: 600; cursor: pointer; border-radius: 8px; transition: all 0.2s; }
+.music-tabs button:hover { color: white; background: rgba(255,255,255,0.05); }
+.music-tabs button.active { background: #f59e0b; color: #1e293b; }
+
+.music-grid-view { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 1.5rem; }
+.music-item-card { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 16px; padding: 1.25rem; text-align: center; cursor: pointer; transition: all 0.3s; position: relative; overflow: hidden; }
+.music-item-card:hover { background: rgba(255,255,255,0.05); transform: translateY(-5px); border-color: rgba(245, 158, 11, 0.3); }
+
+.artist-avatar { width: 100px; height: 100px; border-radius: 50%; margin: 0 auto 1.25rem; display: flex; align-items: center; justify-content: center; color: white; box-shadow: 0 8px 16px rgba(0,0,0,0.3); }
+.album-cover { aspect-ratio: 1; border-radius: 12px; margin-bottom: 1rem; display: flex; align-items: center; justify-content: center; color: white; box-shadow: 0 10px 20px rgba(0,0,0,0.4); }
+.genre-box { aspect-ratio: 16/9; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.2rem; color: white; text-shadow: 0 2px 4px rgba(0,0,0,0.3); margin-bottom: 0.75rem; text-transform: uppercase; }
+
+.item-name { font-weight: 700; font-size: 0.95rem; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.item-artist { font-size: 0.75rem; color: #f59e0b; margin-top: 2px; }
+.item-meta { font-size: 0.7rem; color: #64748b; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+.music-table-view { background: rgba(255,255,255,0.02); border-radius: 16px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden; }
+.song-table { width: 100%; border-collapse: collapse; text-align: left; }
+.song-table th { padding: 1rem; font-size: 0.75rem; text-transform: uppercase; color: #64748b; letter-spacing: 1px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+.song-table td { padding: 0.9rem 1rem; font-size: 0.85rem; border-bottom: 1px solid rgba(255,255,255,0.02); }
+.song-table tr:hover { background: rgba(255,255,255,0.03); }
+.song-cell { display: flex; align-items: center; gap: 0.75rem; }
+.song-play-inline { background: rgba(245, 158, 11, 0.1); color: #f59e0b; border: none; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; opacity: 0; transition: all 0.2s; }
+.song-table tr:hover .song-play-inline { opacity: 1; }
+.song-play-inline:hover { transform: scale(1.1); background: #f59e0b; color: #1e293b; }
+
+.music-empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 300px; color: #64748b; text-align: center; }
+.music-empty-state h3 { color: white; margin-top: 1rem; margin-bottom: 0.5rem; }
+
+.text-amber-500 { color: #f59e0b; }
+.opacity-80 { opacity: 0.8; }
+.text-center { text-align: center; }
+
 .eos-music-artist-section { margin-bottom: 3rem; }
-.eos-artist-title { 
-  font-size: 1.25rem; 
-  font-weight: 800; 
-  color: #f59e0b; 
-  margin-bottom: 2rem; 
-  padding-bottom: 0.75rem; 
-  border-bottom: 2px solid rgba(245, 158, 11, 0.2); 
-  display: flex; 
-  align-items: center; 
-  gap: 0.75rem; 
-  text-transform: uppercase;
-  letter-spacing: 1px;
-}
-.eos-music-album-section {
-  margin-bottom: 2.5rem;
-  padding-left: 1.5rem;
-  border-left: 2px solid rgba(255,255,255,0.05);
-}
-.eos-album-subtitle {
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: #94a3b8;
-  margin-bottom: 1.25rem;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-.eos-album-subtitle::before {
-  content: ' ';
-  display: block;
-  width: 12px;
-  height: 2px;
-  background: #f59e0b;
-  opacity: 0.5;
-}
-.eos-music-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 1.5rem; }
-.eos-music-card { background: rgba(255,255,255,0.03); padding: 1rem; border-radius: 12px; text-align: center; cursor: pointer; transition: all 0.2s; border: 1px solid transparent; }
-.eos-music-card:hover { background: rgba(255,255,255,0.07); transform: translateY(-4px); border-color: rgba(255,255,255,0.05); }
-.eos-music-cover { aspect-ratio: 1; background: #1e293b; border-radius: 8px; margin-bottom: 0.75rem; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; }
-.eos-music-cover-art { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; opacity: 0.6; }
-.eos-music-play-overlay { position: absolute; inset: 0; background: rgba(245, 158, 11, 0.4); display: flex; align-items: center; justify-content: center; opacity: 0; transition: 0.2s; }
-.eos-music-card:hover .eos-music-play-overlay { opacity: 1; }
-.eos-music-title { font-weight: 600; font-size: 0.85rem; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.eos-music-artist { font-size: 0.75rem; color: #64748b; margin-top: 2px; }
-.eos-admin-container { padding: 2rem; }
-.admin-tabs { display: flex; gap: 1rem; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 2rem; }
-.admin-tabs button { padding: 0.5rem 1rem; background: none; border: none; color: #64748b; cursor: pointer; border-bottom: 2px solid transparent; }
-.admin-tabs button.active { color: #f59e0b; border-bottom-color: #f59e0b; }
-.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; }
-.stat-card { background: rgba(255,255,255,0.03); padding: 1.5rem; border-radius: 12px; }
-.stat-val { font-size: 1.5rem; font-weight: 800; }
 .eos-scroll-table { overflow-x: auto; margin-top: 1rem; }
 table { width: 100%; border-collapse: collapse; }
 th, td { padding: 1rem; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 0.8rem; }
