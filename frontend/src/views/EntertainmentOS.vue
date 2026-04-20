@@ -207,21 +207,24 @@
             <h2 class="eos-page-title">Música</h2>
             
             <div v-if="Object.keys(groupedMusic).length > 0" class="eos-music-container">
-              <div v-for="(tracks, artist) in groupedMusic" :key="artist" class="eos-music-artist-section">
+              <div v-for="(albums, artist) in groupedMusic" :key="artist" class="eos-music-artist-section">
                 <h3 class="eos-artist-title"><Music :size="18" /> {{ artist }}</h3>
-                <div class="eos-music-grid">
-                  <div v-for="track in tracks" :key="'mus-'+track.id" class="eos-music-card" @click="playMedia(track)">
-                    <div class="eos-music-cover">
-                      <div class="eos-music-cover-art" :style="{ background: track.color }">
-                        <Music :size="28" />
+                
+                <div v-for="(tracks, albumName) in albums" :key="albumName" class="eos-music-album-section">
+                  <h4 class="eos-album-subtitle">{{ albumName }}</h4>
+                  <div class="eos-music-grid">
+                    <div v-for="track in tracks" :key="'mus-'+track.id" class="eos-music-card" @click="playMedia(track)">
+                      <div class="eos-music-cover">
+                        <div class="eos-music-cover-art" :style="{ background: track.color }">
+                          <Music :size="28" />
+                        </div>
+                        <div class="eos-music-play-overlay">
+                          <Play :size="22" />
+                        </div>
                       </div>
-                      <div class="eos-music-play-overlay">
-                        <Play :size="22" />
+                      <div class="eos-music-info">
+                        <div class="eos-music-title" :title="track.title">{{ track.title }}</div>
                       </div>
-                    </div>
-                    <div class="eos-music-info">
-                      <div class="eos-music-title" :title="track.title">{{ track.title }}</div>
-                      <div class="eos-music-artist">{{ track.album }}</div>
                     </div>
                   </div>
                 </div>
@@ -1118,11 +1121,13 @@ const musicTracks = computed(() =>
 );
 
 const groupedMusic = computed(() => {
-  const groups: Record<string, any[]> = {};
+  const groups: Record<string, Record<string, any[]>> = {};
   musicTracks.value.forEach(track => {
     const artist = track.artist;
-    if (!groups[artist]) groups[artist] = [];
-    groups[artist].push(track);
+    const album = track.album;
+    if (!groups[artist]) groups[artist] = {};
+    if (!groups[artist][album]) groups[artist][album] = [];
+    groups[artist][album].push(track);
   });
   return groups;
 });
@@ -1704,15 +1709,39 @@ watch(activeNav, (val) => {
 .eos-music-container { padding: 0 1rem; }
 .eos-music-artist-section { margin-bottom: 3rem; }
 .eos-artist-title { 
-  font-size: 1.1rem; 
-  font-weight: 700; 
+  font-size: 1.25rem; 
+  font-weight: 800; 
   color: #f59e0b; 
-  margin-bottom: 1.25rem; 
-  padding-bottom: 0.5rem; 
-  border-bottom: 1px solid rgba(245, 158, 11, 0.1); 
+  margin-bottom: 2rem; 
+  padding-bottom: 0.75rem; 
+  border-bottom: 2px solid rgba(245, 158, 11, 0.2); 
   display: flex; 
   align-items: center; 
   gap: 0.75rem; 
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.eos-music-album-section {
+  margin-bottom: 2.5rem;
+  padding-left: 1.5rem;
+  border-left: 2px solid rgba(255,255,255,0.05);
+}
+.eos-album-subtitle {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #94a3b8;
+  margin-bottom: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.eos-album-subtitle::before {
+  content: ' ';
+  display: block;
+  width: 12px;
+  height: 2px;
+  background: #f59e0b;
+  opacity: 0.5;
 }
 .eos-music-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 1.5rem; }
 .eos-music-card { background: rgba(255,255,255,0.03); padding: 1rem; border-radius: 12px; text-align: center; cursor: pointer; transition: all 0.2s; border: 1px solid transparent; }

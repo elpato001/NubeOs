@@ -129,38 +129,45 @@ const processFile = async (filePath, lib) => {
   }
   const yearMatch = fileNameNoExt.match(/\((19|20)\d{2}\)|(19|20)\d{2}/);
   const year = yearMatch ? parseInt(yearMatch[0].replace(/[()]/g, '')) : new Date().getFullYear();
-  // Music logic: Try to parse Artist and Album from folders
+  // Music logic: Strictly respect folder hierarchy (Librería -> Artista -> Álbum -> Canción)
   let artist = 'Artista Desconocido';
   let album = 'Álbum Desconocido';
   if (type === 'music') {
     const relPath = path.relative(lib.path, filePath);
     const parts = relPath.split(path.sep);
     
-    // Pattern 1: lib/Artist/Album/Song.ext
+    // Case 1: Library/Artist/Album/Song.ext (or deeper)
     if (parts.length >= 3) {
       artist = parts[0].trim();
-      album = parts[1].trim();
+      album = parts[parts.length - 2].trim(); // Direct parent is the album
       title = path.parse(parts[parts.length - 1]).name;
     } 
-    // Pattern 2: lib/Artist/Song.ext
+    // Case 2: Library/Artist/Song.ext
     else if (parts.length === 2) {
       artist = parts[0].trim();
       title = path.parse(parts[1]).name;
     }
 
-    // Pattern 3: If filename has "Artist - Title" and we still don't have good info
-    if (fileNameNoExt.includes(' - ')) {
-      const nameParts = fileNameNoExt.split(' - ');
+    // Secondary parsing from filename/folder name if still generic
+    if (title.includes(' - ')) {
+      const nameParts = title.split(' - ');
       if (artist === 'Artista Desconocido') artist = nameParts[0].trim();
       title = nameParts[1].trim();
     }
 
-    // Pattern 4: If folder name is "Artist - Album"
     const parentName = path.basename(path.dirname(filePath));
     if (parentName.includes(' - ') && album === 'Álbum Desconocido') {
       const folderParts = parentName.split(' - ');
       if (artist === 'Artista Desconocido') artist = folderParts[0].trim();
       album = folderParts[1].trim();
+    }
+
+    // Clean redundant Artist from Album name (e.g. "Artist - Album" -> "Album")
+    if (album.includes(' - ') && album.toLowerCase().startsWith(artist.toLowerCase())) {
+       const albumParts = album.split(' - ');
+       if (albumParts.length > 1) {
+         album = albumParts.slice(1).join(' - ').trim();
+       }
     }
 
     // Attempt extra identification via MusicBrainz if we have an artist
