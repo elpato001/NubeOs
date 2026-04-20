@@ -1158,7 +1158,9 @@ const filteredMedia = computed(() => {
   const q = searchQuery.value.toLowerCase();
   return allMedia.value.filter(m => 
     (m.title || '').toLowerCase().includes(q) || 
-    (m.series_name || '').toLowerCase().includes(q)
+    (m.series_name || '').toLowerCase().includes(q) ||
+    (m.director || '').toLowerCase().includes(q) ||
+    (m.studio || '').toLowerCase().includes(q)
   );
 });
 
