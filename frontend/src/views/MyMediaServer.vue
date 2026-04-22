@@ -1,3 +1,53 @@
+const loading = ref(true);
+const error = ref(false);
+const iframeLoaded = ref(false);
+
+const isLinux = computed(() => {
+  return navigator.platform.toLowerCase().includes('linux');
+});
+
+const serverUrl = computed(() => {
+  const hostname = window.location.hostname;
+  return `http://${hostname}:3001`;
+});
+
+const checkServer = async () => {
+  try {
+    // Ping the server
+    await fetch(serverUrl.value, { mode: 'no-cors', cache: 'no-cache' });
+    error.value = false;
+  } catch (err) {
+    console.warn('MyMediaServer unreachable:', err);
+    error.value = true;
+    loading.value = false;
+  }
+};
+
+const handleLoad = () => {
+  loading.value = false;
+  iframeLoaded.value = true;
+};
+
+const retry = () => {
+  loading.value = true;
+  error.value = false;
+  iframeLoaded.value = false;
+  checkServer();
+};
+
+onMounted(() => {
+  checkServer();
+  
+  // Timeout for loading
+  setTimeout(() => {
+    if (loading.value && !iframeLoaded.value) {
+      error.value = true;
+      loading.value = false;
+    }
+  }, 7000); // Increased timeout a bit for slow server starts
+});
+</script>
+
 <template>
   <div class="mymediaserver-container">
     <div v-if="loading" class="loading-overlay">
@@ -17,14 +67,26 @@
     <div v-if="error" class="error-overlay">
       <ServerOff :size="48" color="#f87171" />
       <h3 class="error-title">Servidor no alcanzable</h3>
-      <p class="error-desc">
+      <p class="error-desc" v-if="!isLinux">
         No se pudo conectar con MyMediaServer en el puerto 3001. 
-        Esto suele ocurrir porque el servicio no está iniciado.
+        Asegúrate de haber ejecutado el instalador para Windows.
+      </p>
+      <p class="error-desc" v-else>
+        No se pudo conectar con MyMediaServer en el puerto 3001. 
+        Verifica el estado del servicio en tu servidor Linux.
       </p>
 
-      <div class="instruction-box">
+      <div class="instruction-box" v-if="isLinux">
+        <h4>Comandos de solución (Linux):</h4>
+        <p>1. Verifica si el servicio está activo:</p>
+        <div class="code-snippet">sudo systemctl status mymediaserver</div>
+        <p class="mt-2">2. Si está detenido, inícialo:</p>
+        <div class="code-snippet">sudo systemctl restart mymediaserver</div>
+      </div>
+
+      <div class="instruction-box" v-else>
         <h4>Solución para Windows:</h4>
-        <p>Ejecuta el script instalador para Windows que he creado en la carpeta raíz:</p>
+        <p>Ejecuta el script instalador en tu carpeta raíz:</p>
         <div class="code-snippet">install_mymediaserver_win.bat</div>
       </div>
 
@@ -32,19 +94,6 @@
     </div>
   </div>
 </template>
-
-<script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
-import { ServerOff } from 'lucide-vue-next';
-
-const loading = ref(true);
-const error = ref(false);
-const iframeLoaded = ref(false);
-
-const serverUrl = computed(() => {
-  const hostname = window.location.hostname;
-  return `http://${hostname}:3001`;
-});
 
 const checkServer = async () => {
   try {
