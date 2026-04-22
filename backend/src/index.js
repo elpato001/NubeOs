@@ -15,11 +15,39 @@ const storageRoutes = require('./routes/storage');
 const entertainmentRoutes = require('./routes/entertainment');
 const { authMiddleware } = require('./middleware/auth');
 const { attachTerminalWebSocket } = require('./services/terminalService');
+const http = require('http');
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Reverse Proxy for MyMediaServer
+// This avoids CORS issues, Mixed Content, and the need to open port 3001
+app.use('/proxy/mymediaserver', (req, res) => {
+  const options = {
+    hostname: 'localhost',
+    port: 3001,
+    path: req.url,
+    method: req.method,
+    headers: { ...req.headers }
+  };
+
+  // Fix Host header for the target
+  delete options.headers.host;
+
+  const proxyReq = http.request(options, (proxyRes) => {
+    res.writeHead(proxyRes.statusCode, proxyRes.headers);
+    proxyRes.pipe(res);
+  });
+
+  proxyReq.on('error', (err) => {
+    console.error('Proxy Error:', err.message);
+    res.status(502).json({ error: 'MyMediaServer no responde en el puerto 3001' });
+  });
+
+  req.pipe(proxyReq);
+});
 
 // Middleware
 app.use(helmet({

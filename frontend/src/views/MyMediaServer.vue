@@ -11,14 +11,20 @@ const isLinux = computed(() => {
 });
 
 const serverUrl = computed(() => {
-  const hostname = window.location.hostname;
-  return `http://${hostname}:3001`;
+  // Use the NubeOS backend proxy to reach the media server
+  return "/proxy/mymediaserver/";
 });
 
 const checkServer = async () => {
   try {
-    // Intenta verificar si el servidor responde
-    await fetch(serverUrl.value, { mode: 'no-cors', cache: 'no-cache' });
+    // Check if the proxy can reach the server
+    const response = await fetch(serverUrl.value, { cache: 'no-cache' });
+    
+    // If the proxy returns 502, it means the target server is down
+    if (response.status === 502) {
+      throw new Error('Server unreachable via proxy');
+    }
+    
     error.value = false;
   } catch (err) {
     console.warn('MyMediaServer unreachable:', err);
