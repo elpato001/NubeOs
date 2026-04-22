@@ -144,29 +144,51 @@ systemctl disable nubeos-frontend 2>/dev/null || true
 rm -f /etc/systemd/system/nubeos-backend.service
 rm -f /etc/systemd/system/nubeos-frontend.service
 
-# 8. Instalar MyMediaServer (Opcional/Adicional)
-echo -e "${GREEN}[6/5] Instalando MyMediaServer Adicional...${NC}"
+# 8. Instalar MyMediaServer
+echo -e "${GREEN}[6/6] Instalando MyMediaServer...${NC}"
 MYMEDIA_DIR="/opt/mymediaserver"
-if [ ! -d "$MYMEDIA_DIR" ]; then
-    mkdir -p $MYMEDIA_DIR
+if [ ! -d "$MYMEDIA_DIR/.git" ]; then
+    # Clonar el repositorio de MyMediaServer
+    echo -e "${GREEN}Clonando repositorio MyMediaServer...${NC}"
+    rm -rf $MYMEDIA_DIR
+    git clone https://github.com/pepitozoe79-lgtm/MyMediaServer.git $MYMEDIA_DIR
+
+    # Instalar dependencias
+    echo -e "${GREEN}Instalando dependencias de MyMediaServer...${NC}"
     cd $MYMEDIA_DIR
-    # Ejecutar el instalador oficial proporcionado
-    curl -fsSL https://raw.githubusercontent.com/pepitozoe79-lgtm/MyMediaServer/main/install.sh | bash
-    
-    # Corregir conflicto de puerto (NubeOS usa 3000, MyMediaServer usará 3001)
-    echo -e "${YELLOW}Ajustando puerto de MyMediaServer a 3001 para evitar conflicto...${NC}"
-    sed -i 's/Environment=NODE_ENV=production/Environment=NODE_ENV=production\nEnvironment=PORT=3001/' /etc/systemd/system/mymediaserver.service
-    
-    # Abrir puerto en UFW si existe
-    if command -v ufw > /dev/null; then
-        sudo ufw allow 3001/tcp
-    fi
-    
+    npm install --production
+
+    # Crear servicio systemd con puerto 3001 (evita conflicto con NubeOS en 3000)
+    echo -e "${YELLOW}Configurando servicio systemd en puerto 3001...${NC}"
+    cat <<MMSEOF > /etc/systemd/system/mymediaserver.service
+[Unit]
+Description=MyMediaServer - Servidor Multimedia Personal
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=$MYMEDIA_DIR
+ExecStart=/usr/bin/node $MYMEDIA_DIR/server.js
+Restart=always
+RestartSec=10
+Environment=NODE_ENV=production
+Environment=PORT=3001
+
+[Install]
+WantedBy=multi-user.target
+MMSEOF
+
     systemctl daemon-reload
-    systemctl restart mymediaserver
-    echo -e "${GREEN}MyMediaServer instalado correctamente en puerto 3001.${NC}"
+    systemctl enable mymediaserver.service
+    systemctl start mymediaserver.service
+
+    echo -e "${GREEN}✅ MyMediaServer instalado y ejecutándose en puerto 3001.${NC}"
 else
-    echo -e "${BLUE}MyMediaServer ya parece estar instalado.${NC}"
+    echo -e "${BLUE}MyMediaServer ya está instalado. Actualizando...${NC}"
+    cd $MYMEDIA_DIR && git pull origin main
+    npm install --production
+    systemctl restart mymediaserver
 fi
 
 # Habilitar e iniciar el nuevo servicio unificado
