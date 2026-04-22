@@ -78,6 +78,7 @@
       <Window appId="terminal" title="Terminal" :noPadding="true"><TerminalView /></Window>
       <Window appId="player" title="Reproductor de Video" :noPadding="true"><VideoPlayer /></Window>
       <Window appId="entertainment" title="EntertainmentOS" :noPadding="true"><EntertainmentOS /></Window>
+      <Window appId="mymediaserver" title="MyMediaServer" :noPadding="true"><MyMediaServer /></Window>
       
       <!-- System Status Widget -->
       <Transition name="fade">
@@ -197,7 +198,8 @@ import {
   Monitor,
   RefreshCw,
   Image as ImageIcon,
-  Clapperboard
+  Clapperboard,
+  Server
 } from 'lucide-vue-next';
 import Window from '../components/Window.vue';
 import DesktopIcon from '../components/DesktopIcon.vue';
@@ -209,6 +211,7 @@ import ControlPanel from './ControlPanel.vue';
 import TerminalView from './Terminal.vue';
 import VideoPlayer from './VideoPlayer.vue';
 import EntertainmentOS from './EntertainmentOS.vue';
+import MyMediaServer from './MyMediaServer.vue';
 import { useNotificationStore } from '../stores/notification';
 
 // State
@@ -276,6 +279,7 @@ const iconMap: Record<string, any> = {
   admin: Settings,
   terminal: Terminal,
   entertainment: Clapperboard,
+  mymediaserver: Server,
 };
 
 const getIconComponent = (appId: string) => {

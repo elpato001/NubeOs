@@ -144,6 +144,31 @@ systemctl disable nubeos-frontend 2>/dev/null || true
 rm -f /etc/systemd/system/nubeos-backend.service
 rm -f /etc/systemd/system/nubeos-frontend.service
 
+# 8. Instalar MyMediaServer (Opcional/Adicional)
+echo -e "${GREEN}[6/5] Instalando MyMediaServer Adicional...${NC}"
+MYMEDIA_DIR="/opt/mymediaserver"
+if [ ! -d "$MYMEDIA_DIR" ]; then
+    mkdir -p $MYMEDIA_DIR
+    cd $MYMEDIA_DIR
+    # Ejecutar el instalador oficial proporcionado
+    curl -fsSL https://raw.githubusercontent.com/pepitozoe79-lgtm/MyMediaServer/main/install.sh | bash
+    
+    # Corregir conflicto de puerto (NubeOS usa 3000, MyMediaServer usará 3001)
+    echo -e "${YELLOW}Ajustando puerto de MyMediaServer a 3001 para evitar conflicto...${NC}"
+    sed -i 's/Environment=NODE_ENV=production/Environment=NODE_ENV=production\nEnvironment=PORT=3001/' /etc/systemd/system/mymediaserver.service
+    
+    # Abrir puerto en UFW si existe
+    if command -v ufw > /dev/null; then
+        sudo ufw allow 3001/tcp
+    fi
+    
+    systemctl daemon-reload
+    systemctl restart mymediaserver
+    echo -e "${GREEN}MyMediaServer instalado correctamente en puerto 3001.${NC}"
+else
+    echo -e "${BLUE}MyMediaServer ya parece estar instalado.${NC}"
+fi
+
 # Habilitar e iniciar el nuevo servicio unificado
 systemctl daemon-reload
 systemctl enable nubeos
@@ -161,6 +186,7 @@ echo
 echo -e "NubeOS ahora está funcionando como un servicio."
 echo
 echo -e "NubeOS Dashboard: ${GREEN}http://$SERVER_IP:3000${NC}"
+echo -e "MyMediaServer:    ${GREEN}http://$SERVER_IP:3001${NC}"
 echo
 echo -e "Para comenzar, abre el ${BLUE}Dashboard${NC} en tu navegador y sigue los pasos"
 echo -e "del asistente para crear tu cuenta de administrador."
