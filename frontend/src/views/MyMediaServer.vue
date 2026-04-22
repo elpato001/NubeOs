@@ -10,21 +10,27 @@ const isLinux = computed(() => {
   return navigator.platform.toLowerCase().includes('linux');
 });
 
-const serverUrl = computed(() => {
-  // Use the NubeOS backend proxy to reach the media server
-  return "/proxy/mymediaserver/";
+// The iframe must load directly from the MyMediaServer port
+// because it serves its own HTML/CSS/JS assets with relative paths
+const iframeUrl = computed(() => {
+  const hostname = window.location.hostname;
+  return `http://${hostname}:3001`;
 });
+
+// Use the backend proxy only to CHECK if the server is reachable
+// This avoids CORS issues during the health check
+const checkUrl = '/proxy/mymediaserver/';
 
 const checkServer = async () => {
   try {
-    // Check if the proxy can reach the server
-    const response = await fetch(serverUrl.value, { cache: 'no-cache' });
+    const response = await fetch(checkUrl, { cache: 'no-cache' });
     
-    // If the proxy returns 502, it means the target server is down
+    // 502 means the proxy couldn't reach MyMediaServer
     if (response.status === 502) {
       throw new Error('Server unreachable via proxy');
     }
     
+    // Server is alive – show the iframe
     error.value = false;
   } catch (err) {
     console.warn('MyMediaServer unreachable:', err);
@@ -48,54 +54,57 @@ const retry = () => {
 onMounted(() => {
   checkServer();
   
-  // Timeout de seguridad para la carga del iframe
+  // Safety timeout
   setTimeout(() => {
     if (loading.value && !iframeLoaded.value) {
       error.value = true;
       loading.value = false;
     }
-  }, 7000);
+  }, 8000);
 });
 </script>
 
 <template>
   <div class="mymediaserver-container">
-    <!-- Overlay de Carga -->
+    <!-- Loading Overlay -->
     <div v-if="loading" class="loading-overlay">
       <div class="loader"></div>
       <p>Conectando a MyMediaServer...</p>
     </div>
 
-    <!-- Iframe de la aplicación -->
+    <!-- Iframe loads directly from port 3001 -->
     <iframe 
       v-if="!error"
-      :src="serverUrl" 
+      :src="iframeUrl" 
       class="server-iframe" 
       :style="{ opacity: loading ? 0 : 1 }"
       @load="handleLoad"
       frameborder="0"
+      allow="autoplay; fullscreen"
     ></iframe>
 
-    <!-- Pantalla de Error -->
+    <!-- Error Screen -->
     <div v-if="error" class="error-overlay">
       <ServerOff :size="48" color="#f87171" />
       <h3 class="error-title">Servidor no alcanzable</h3>
       
-      <p class="error-desc" v-if="!isLinux">
+      <p class="error-desc" v-if="isLinux">
         No se pudo conectar con MyMediaServer en el puerto 3001. 
-        Asegúrate de haber ejecutado el instalador para Windows.
+        Verifica el estado del servicio en tu servidor Linux.
       </p>
       <p class="error-desc" v-else>
         No se pudo conectar con MyMediaServer en el puerto 3001. 
-        Verifica el estado del servicio en tu servidor Linux.
+        Asegúrate de haber ejecutado el instalador para Windows.
       </p>
 
       <div class="instruction-box" v-if="isLinux">
         <h4>Comandos de solución (Linux):</h4>
         <p>1. Verifica si el servicio está activo:</p>
         <div class="code-snippet">sudo systemctl status mymediaserver</div>
-        <p class="mt-2">2. Si está detenido, inícialo:</p>
+        <p style="margin-top: 0.75rem">2. Si está detenido, inícialo:</p>
         <div class="code-snippet">sudo systemctl restart mymediaserver</div>
+        <p style="margin-top: 0.75rem">3. Si no está instalado:</p>
+        <div class="code-snippet">cd /opt/nubeos &amp;&amp; sudo bash install.sh</div>
       </div>
 
       <div class="instruction-box" v-else>
