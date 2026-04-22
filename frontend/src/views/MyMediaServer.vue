@@ -1,3 +1,7 @@
+<script setup lang="ts">
+import { ref, computed, onMounted } from 'vue';
+import { ServerOff } from 'lucide-vue-next';
+
 const loading = ref(true);
 const error = ref(false);
 const iframeLoaded = ref(false);
@@ -13,7 +17,7 @@ const serverUrl = computed(() => {
 
 const checkServer = async () => {
   try {
-    // Ping the server
+    // Intenta verificar si el servidor responde
     await fetch(serverUrl.value, { mode: 'no-cors', cache: 'no-cache' });
     error.value = false;
   } catch (err) {
@@ -38,23 +42,25 @@ const retry = () => {
 onMounted(() => {
   checkServer();
   
-  // Timeout for loading
+  // Timeout de seguridad para la carga del iframe
   setTimeout(() => {
     if (loading.value && !iframeLoaded.value) {
       error.value = true;
       loading.value = false;
     }
-  }, 7000); // Increased timeout a bit for slow server starts
+  }, 7000);
 });
 </script>
 
 <template>
   <div class="mymediaserver-container">
+    <!-- Overlay de Carga -->
     <div v-if="loading" class="loading-overlay">
       <div class="loader"></div>
       <p>Conectando a MyMediaServer...</p>
     </div>
 
+    <!-- Iframe de la aplicación -->
     <iframe 
       v-if="!error"
       :src="serverUrl" 
@@ -64,9 +70,11 @@ onMounted(() => {
       frameborder="0"
     ></iframe>
 
+    <!-- Pantalla de Error -->
     <div v-if="error" class="error-overlay">
       <ServerOff :size="48" color="#f87171" />
       <h3 class="error-title">Servidor no alcanzable</h3>
+      
       <p class="error-desc" v-if="!isLinux">
         No se pudo conectar con MyMediaServer en el puerto 3001. 
         Asegúrate de haber ejecutado el instalador para Windows.
@@ -94,46 +102,6 @@ onMounted(() => {
     </div>
   </div>
 </template>
-
-const checkServer = async () => {
-  try {
-    // Try to pings the server (simple fetch)
-    // Note: This might fail due to CORS, but if it fails with type "opaque" or similar, 
-    // it still means SOME response was received.
-    // If it throws a network error, current server is likely down.
-    await fetch(serverUrl.value, { mode: 'no-cors', cache: 'no-cache' });
-    error.value = false;
-  } catch (err) {
-    console.warn('MyMediaServer unreachable:', err);
-    error.value = true;
-    loading.value = false;
-  }
-};
-
-const handleLoad = () => {
-  loading.value = false;
-  iframeLoaded.value = true;
-};
-
-const retry = () => {
-  loading.value = true;
-  error.value = false;
-  iframeLoaded.value = false;
-  checkServer();
-};
-
-onMounted(() => {
-  checkServer();
-  
-  // Timeout for loading
-  setTimeout(() => {
-    if (loading.value && !iframeLoaded.value) {
-      error.value = true;
-      loading.value = false;
-    }
-  }, 5000);
-});
-</script>
 
 <style scoped>
 .mymediaserver-container {
