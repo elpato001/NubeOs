@@ -266,20 +266,26 @@
                </div>
             </div>
 
-            <!-- Level 3: Episodes Grid -->
-            <div v-if="activeSeriesLevel === 'episodes'" class="episodes-detailed-grid">
-               <div v-for="ep in selectedSeason.episodes" :key="'ep-'+ep.id" class="episode-card" @click="playMedia(ep)">
-                  <div class="episode-thumb-container">
-                     <img :src="ep.poster || selectedMedia.poster" class="episode-thumb" />
-                     <div class="episode-play-overlay"><Play :size="24" fill="currentColor" /></div>
-                     <div v-if="ep.progress" class="episode-progress">
-                        <div class="progress-fill" :style="{ width: (ep.progress / (ep.runtime || 3600) * 100) + '%' }"></div>
+            <!-- Level 3: Episodes Grid Section (Plex Style) -->
+            <div v-if="activeSeriesLevel === 'episodes'" class="episodes-section-plex animate-fade-in">
+               <h3 class="section-title-plex">Capítulos de la Temporada {{ selectedSeason?.number }}</h3>
+               <div class="episodes-grid-plex-vertical">
+                  <div v-for="ep in selectedSeason?.episodes" :key="'ep-'+ep.id" class="ep-item-plex" @click="playMedia(ep)">
+                     <div class="ep-thumb-plex">
+                        <img :src="ep.poster || selectedMedia?.poster" />
+                        <div class="ep-overlay-plex"><Play :size="24" fill="white" /></div>
+                        <div v-if="ep.progress" class="ep-progress-bar">
+                           <div class="fill" :style="{ width: (ep.progress / (ep.runtime * 60 || 3600) * 100) + '%' }"></div>
+                        </div>
                      </div>
-                  </div>
-                  <div class="episode-info">
-                     <div class="ep-num">Capítulo {{ ep.episode.toString().padStart(2, '0') }}</div>
-                     <div class="ep-title">{{ ep.title }}</div>
-                     <div class="ep-meta" v-if="ep.runtime">{{ Math.floor(ep.runtime / 60) }} min</div>
+                     <div class="ep-details-plex">
+                        <div class="ep-title-row">
+                           <span class="ep-num-tag">E{{ ep.episode || '0' }}</span>
+                           <span class="ep-name-tag">{{ ep.title }}</span>
+                        </div>
+                        <p class="ep-desc-tag">{{ ep.description || 'Sin descripción disponible para este episodio.' }}</p>
+                        <div class="ep-meta-tag" v-if="ep.runtime">{{ Math.floor(ep.runtime / 60) }} min</div>
+                     </div>
                   </div>
                </div>
             </div>
