@@ -3693,4 +3693,127 @@ video::-webkit-media-controls {
   outline: 3px solid #eab308;
   outline-offset: 2px;
 }
+
+/* --- PLEX STYLE EPISODES GRID --- */
+.episodes-section-plex {
+  padding: 0 20px 40px 20px;
+}
+
+.episodes-grid-plex-vertical {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  max-width: 1200px;
+}
+
+.ep-item-plex {
+  display: flex;
+  gap: 20px;
+  background: rgba(255,255,255,0.03);
+  padding: 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.2s;
+  border: 1px solid rgba(255,255,255,0.05);
+}
+
+.ep-item-plex:hover {
+  background: rgba(255,255,255,0.08);
+  transform: translateX(5px);
+}
+
+.ep-thumb-plex {
+  width: 240px;
+  aspect-ratio: 16/9;
+  flex-shrink: 0;
+  position: relative;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #111;
+}
+
+.ep-thumb-plex img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ep-overlay-plex {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.ep-item-plex:hover .ep-overlay-plex {
+  opacity: 1;
+}
+
+.ep-progress-bar {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 3px;
+  background: rgba(255,255,255,0.2);
+}
+
+.ep-progress-bar .fill {
+  height: 100%;
+  background: #eab308;
+}
+
+.ep-details-plex {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.ep-title-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.ep-num-tag {
+  color: #eab308;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.ep-name-tag {
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: #eee;
+}
+
+.ep-desc-tag {
+  font-size: 0.85rem;
+  color: #aaa;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.ep-meta-tag {
+  font-size: 0.75rem;
+  color: #666;
+  font-weight: 500;
+}
+
+@media (max-width: 768px) {
+  .ep-item-plex {
+    flex-direction: column;
+  }
+  .ep-thumb-plex {
+    width: 100%;
+  }
+}
 </style>
