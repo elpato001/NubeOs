@@ -116,16 +116,17 @@
             </div>
           </section>
 
-          <!-- Sections -->
-          <section class="eos-media-section" v-for="section in mediaSections" :key="section.title">
+          <!-- Dynamic Sections (Continue Watching, On Deck, Recently Added) -->
+          <section class="eos-media-section" v-for="section in dynamicSections" :key="section.title">
             <div class="eos-section-header">
               <h2>{{ section.title }}</h2>
             </div>
             <div class="eos-media-row" v-if="section.items.length > 0">
               <div
                 v-for="media in section.items"
-                :key="'sec-'+media.id"
+                :key="'dyn-'+media.id"
                 class="eos-media-card"
+                :class="{ 'is-episode': media.type === 'series' && media.episode }"
                 @click="openMediaDetail(media)"
               >
                 <div class="eos-card-poster">
@@ -133,16 +134,25 @@
                   <div class="eos-card-overlay">
                     <button class="eos-play-btn"><Play :size="24" /></button>
                   </div>
-                  <span v-if="media.is_new" class="eos-new-badge">NUEVO</span>
+                  <span v-if="media.is_new && !media.progress" class="eos-new-badge">NUEVO</span>
+                  
+                  <!-- Progress Bar for Continue Watching -->
+                  <div v-if="media.progress > 0" class="card-progress-bar">
+                    <div class="progress-fill" :style="{ width: Math.min((media.progress / (media.runtime * 60 || 7200)) * 100, 100) + '%' }"></div>
+                  </div>
                 </div>
                 <div class="eos-card-info">
-                  <div class="eos-card-title">{{ media.title }}</div>
-                  <div class="eos-card-meta">{{ media.year }} · {{ media.genre }}</div>
+                  <div class="eos-card-title" :title="media.title">{{ media.title }}</div>
+                  <div class="eos-card-meta">
+                    <template v-if="media.series_name && media.episode">
+                      T{{ media.season }} E{{ media.episode }} · {{ media.series_name }}
+                    </template>
+                    <template v-else>
+                      {{ media.year }} · {{ media.genre }}
+                    </template>
+                  </div>
                 </div>
               </div>
-            </div>
-            <div v-else class="eos-empty-section">
-               <p>No hay contenido en esta sección.</p>
             </div>
           </section>
         </template>
@@ -210,11 +220,11 @@
               <div v-if="seriesMedia.length === 0" class="eos-empty-grid">Sin series disponibles</div>
             </div>
 
-            <!-- Level 2: Plex-style Series Detail & Seasons -->
             <div v-if="activeSeriesLevel === 'seasons'" class="series-detailed-view animate-fade">
-               <div class="series-hero-banner">
+               <div class="series-hero-banner" :style="{ backgroundImage: `url(${selectedMedia.banner_path ? '/api/entertainment/banner/' + selectedMedia.id + '?token=' + token : selectedMedia.poster})` }">
+                  <div class="hero-overlay-cinematic"></div>
                   <div class="hero-left">
-                     <img v-if="selectedMedia" :src="selectedMedia.poster" class="hero-poster" />
+                     <img v-if="selectedMedia" :src="selectedMedia.poster" class="hero-poster shadow-2xl" />
                   </div>
                   <div class="hero-right">
                      <h1 class="hero-title">{{ selectedMedia.series_name }}</h1>
@@ -917,7 +927,8 @@
         <div v-if="selectedMedia" class="eos-modal-overlay" @click.self="selectedMedia = null">
           <div class="eos-modal">
             <button class="eos-modal-close" @click="selectedMedia = null"><X :size="20" /></button>
-            <div class="eos-modal-banner" :style="{ backgroundImage: `url(${selectedMedia.poster})` }">
+            <div class="eos-modal-banner" :style="{ backgroundImage: `url(${selectedMedia.banner_path ? '/api/entertainment/banner/' + selectedMedia.id + '?token=' + token : selectedMedia.poster})` }">
+              <div class="eos-modal-banner-overlay"></div>
               <div class="eos-modal-banner-content">
                 <h2>{{ selectedMedia.title }}</h2>
               </div>
@@ -947,6 +958,23 @@
                 <div class="meta-item" v-if="selectedMedia.set_name">
                   <span class="meta-label">Colección</span>
                   <span class="meta-value">📦 {{ selectedMedia.set_name }}</span>
+                </div>
+              </div>
+
+              <!-- CAST SECTION -->
+              <div class="eos-modal-cast" v-if="getCast(selectedMedia).length > 0">
+                <h3>Reparto Principal</h3>
+                <div class="cast-scroll">
+                  <div v-for="actor in getCast(selectedMedia)" :key="actor.name" class="cast-card">
+                    <div class="cast-avatar">
+                      <img v-if="actor.profilePath" :src="actor.profilePath" :alt="actor.name" />
+                      <User v-else :size="24" />
+                    </div>
+                    <div class="cast-info">
+                      <div class="actor-name">{{ actor.name }}</div>
+                      <div class="actor-char">{{ actor.character }}</div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -1024,27 +1052,121 @@
         </div>
       </Transition>
 
-      <!-- Embedded Player Overlay -->
+      <!-- Advanced Cinema Player Overlay -->
       <Transition name="player-slide">
-        <div v-if="showPlayer" class="eos-player-overlay">
+        <div 
+          v-if="showPlayer" 
+          class="eos-player-overlay"
+          @mousemove="handlePlayerMouseMove"
+          :class="{ 'hide-controls': !playerControlsVisible }"
+        >
+          <!-- Player Top Bar (Visible on Hover) -->
           <header class="player-top-bar">
             <button @click="closePlayer" class="player-back-btn">
               <ChevronLeft :size="24" />
-              <span>Volver a EntertainmentOS</span>
+              <div class="player-title-stack">
+                 <span class="p-title">{{ playerTitle }}</span>
+                 <span class="p-status" v-if="playerMediaId">Reproduciendo ahora en NubeOS</span>
+              </div>
             </button>
-            <div class="player-current-title">{{ playerTitle }}</div>
+            <div class="player-top-actions">
+              <button @click="togglePiP" class="icon-btn" title="Picture-in-Picture"><MonitorPlay :size="20" /></button>
+              <button @click="closePlayer" class="icon-btn" title="Cerrar"><X :size="20" /></button>
+            </div>
           </header>
           
-          <div class="player-video-wrapper">
+          <div class="player-video-wrapper" @click="togglePlay">
             <video 
               ref="videoRef"
               :src="playerSource"
-              controls
               autoplay
               class="eos-internal-video"
               @timeupdate="handleInternalTimeUpdate"
               @ended="handleInternalEnded"
-            ></video>
+              @loadedmetadata="onVideoLoaded"
+              @progress="updateBuffered"
+            >
+              <!-- Subtitles tracks will be injected here -->
+              <track v-for="sub in availableSubs" :key="sub.label" :src="sub.src" :label="sub.label" :srclang="sub.lang" kind="subtitles">
+            </video>
+
+            <!-- Center Play/Pause Indicator (Flashes on action) -->
+            <div class="player-center-action" v-if="showActionFeedback">
+              <component :is="isPaused ? Play : Pause" :size="64" />
+            </div>
+          </div>
+
+          <!-- Player Bottom Controls -->
+          <div class="player-controls-container">
+            <!-- Progress Bar -->
+            <div class="player-progress-area" @mousedown="startScrubbing">
+              <div class="progress-bg"></div>
+              <div class="progress-buffer" :style="{ width: bufferedPercent + '%' }"></div>
+              <div class="progress-active" :style="{ width: progressPercent + '%' }"></div>
+              <div class="progress-knob" :style="{ left: progressPercent + '%' }"></div>
+              <div class="progress-hover-time" :style="{ left: hoverProgressPercent + '%' }"></div>
+            </div>
+
+            <div class="player-controls-main">
+              <div class="controls-left">
+                <button @click="togglePlay" class="main-play-btn">
+                  <component :is="isPaused ? Play : Pause" :size="28" fill="currentColor" />
+                </button>
+                <button @click="skip(-10)" class="skip-btn"><RotateCcw :size="22" /><span>10</span></button>
+                <button @click="skip(10)" class="skip-btn"><RotateCcw :size="22" class="rotate-180" /><span>10</span></button>
+                
+                <div class="volume-control">
+                  <button @click="toggleMute">
+                    <component :is="isMuted ? VolumeX : Volume2" :size="20" />
+                  </button>
+                  <input type="range" v-model="playerVolume" min="0" max="1" step="0.1" class="volume-slider" />
+                </div>
+
+                <div class="player-time-display">
+                  {{ formatTime(currentTime) }} / {{ formatTime(duration) }}
+                </div>
+              </div>
+
+              <div class="controls-right">
+                <button v-if="hasNextEpisode" @click="playNextEpisode" class="icon-btn-text">
+                  <ArrowRight :size="20" /> Siguiente
+                </button>
+                <button @click="showQualityMenu = !showQualityMenu" class="icon-btn" :class="{ active: selectedQuality !== 'original' }">
+                  <Zap :size="20" />
+                </button>
+                <button @click="showSubMenu = !showSubMenu" class="icon-btn" :class="{ active: activeSub }">
+                  <FileText :size="20" />
+                </button>
+                <button @click="toggleFullscreen" class="icon-btn">
+                  <component :is="isFullscreen ? Minimize : Maximize" :size="20" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quality Menu -->
+          <div v-if="showQualityMenu" class="player-sub-menu quality-menu animate-slide-up">
+            <h4>Calidad de Video</h4>
+            <button v-for="q in ['original', '1080p', '720p', '480p']" 
+                    :key="q" 
+                    @click="setQuality(q)"
+                    :class="{ active: selectedQuality === q }">
+              {{ q === 'original' ? 'Calidad Original (Directo)' : q }}
+            </button>
+          </div>
+
+          <!-- Subtitles Menu -->
+          <div v-if="showSubMenu" class="player-sub-menu animate-slide-up">
+            <h4>Subtítulos</h4>
+            <button @click="setSub(null)" :class="{ active: !activeSub }">Desactivar</button>
+            <button 
+              v-for="sub in availableSubs" 
+              :key="sub.label" 
+              @click="setSub(sub)"
+              :class="{ active: activeSub?.label === sub.label }"
+            >
+              {{ sub.label }}
+            </button>
           </div>
         </div>
       </Transition>
@@ -1118,8 +1240,9 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import {
   Clapperboard, Home, Film, Tv, Music, Search, Bell, User, ChevronDown,
-  ChevronLeft, ChevronRight, Play, Info, Settings2, X, Plus, Star, Loader2, Trash2, Folder, MonitorPlay,
-  RotateCcw, ListMusic, FileText, Zap, CheckCircle2, AlertCircle, Download, Disc, Mic2
+  ChevronLeft, ChevronRight, Play, Pause, Info, Settings2, X, Plus, Star, Loader2, Trash2, Folder, MonitorPlay,
+  RotateCcw, ListMusic, FileText, Zap, CheckCircle2, AlertCircle, Download, Disc, Mic2,
+  Maximize, Minimize, Volume2, VolumeX, ArrowRight
 } from 'lucide-vue-next';
 import axios from 'axios';
 import { useDesktopStore } from '../stores/desktop';
@@ -1181,6 +1304,24 @@ const playerTitle = ref('');
 const playerMediaId = ref<number | null>(null);
 const videoRef = ref<HTMLVideoElement | null>(null);
 const lastSavedTime = ref(0);
+const playerControlsVisible = ref(true);
+const playerControlsTimer = ref<any>(null);
+const isPaused = ref(false);
+const isMuted = ref(false);
+const playerVolume = ref(1);
+const currentTime = ref(0);
+const duration = ref(0);
+const bufferedPercent = ref(0);
+const progressPercent = ref(0);
+const hoverProgressPercent = ref(0);
+const isFullscreen = ref(false);
+const showActionFeedback = ref(false);
+const showSubMenu = ref(false);
+const showQualityMenu = ref(false);
+const selectedQuality = ref('original');
+const availableSubs = ref<any[]>([]);
+const activeSub = ref<any>(null);
+const hasNextEpisode = ref(false);
 
 // Folder Browser State
 const showFolderPicker = ref(false);
@@ -1243,6 +1384,8 @@ const seriesMedia = computed(() => {
   const series = filteredMedia.value.filter(m => m.type === 'series' || m.type === 'tv');
   const unique: any[] = [];
   const seen = new Set();
+  
+  // Sort episodes to find the earliest/latest more easily if needed
   series.forEach(s => {
     const sName = s.series_name || s.title || 'Serie Desconocida';
     if (!seen.has(sName)) {
@@ -1250,16 +1393,51 @@ const seriesMedia = computed(() => {
       unique.push({ ...s, series_name: sName, title: sName, isSeriesGroup: true });
     }
   });
-  return unique;
+  
+  // Professional Sort: Alphabetical by series name
+  return unique.sort((a, b) => a.series_name.localeCompare(b.series_name));
 });
 
 const getEpisodes = (name: string) => 
-  name ? allMedia.value.filter(m => m.series_name === name).sort((a,b) => a.episode - b.episode) : [];
+  name ? allMedia.value.filter(m => m.series_name === name).sort((a,b) => (a.season||1) - (b.season||1) || a.episode - b.episode) : [];
 
-const mediaSections = computed(() => [
-  { title: 'Agregados Recientemente', items: allMedia.value.filter(m => m.is_new === 1).slice(0, 10) },
-  { title: 'Top Valoradas', items: allMedia.value.filter(m => (m.stars || 0) >= 4).slice(0, 10) }
-]);
+const dynamicSections = computed(() => {
+  const items = allMedia.value;
+  
+  // 1. Continue Watching (Progress between 5% and 95%)
+  const continueWatching = items.filter(m => {
+    if (!m.progress || m.is_finished) return false;
+    const duration = (m.runtime || 0) * 60 || 7200; // default 2h if no runtime
+    const perc = (m.progress / duration) * 100;
+    return perc > 1 && perc < 95;
+  }).sort((a, b) => new Date(b.last_watched).getTime() - new Date(a.last_watched).getTime());
+
+  // 2. On Deck (Next episode of series currently being watched)
+  const onDeck: any[] = [];
+  const inProgressSeriesNames = new Set(
+    items.filter(m => (m.type === 'series' || m.type === 'tv') && m.progress > 0)
+         .map(m => m.series_name)
+  );
+
+  inProgressSeriesNames.forEach(name => {
+    const episodes = items.filter(m => m.series_name === name)
+                          .sort((a,b) => (a.season||1) - (b.season||1) || a.episode - b.episode);
+    
+    // Find the first episode not finished
+    const nextEp = episodes.find(e => !e.is_finished);
+    if (nextEp) onDeck.push(nextEp);
+  });
+
+  // 3. Recently Added (By ID descending)
+  const recentlyAdded = [...items].sort((a, b) => b.id - a.id).slice(0, 15);
+
+  const sections = [];
+  if (continueWatching.length > 0) sections.push({ title: 'Continuar Viendo', items: continueWatching.slice(0, 10) });
+  if (onDeck.length > 0) sections.push({ title: 'On Deck', items: onDeck.slice(0, 10) });
+  sections.push({ title: 'Agregado Recientemente', items: recentlyAdded });
+  
+  return sections;
+});
 
 const musicTracks = computed(() => 
   filteredMedia.value
@@ -1339,6 +1517,13 @@ const enterSeries = (item: any) => {
 const enterSeason = (season: any) => {
   selectedSeason.value = season;
   activeSeriesLevel.value = 'episodes';
+};
+
+const getCast = (media: any) => {
+  if (!media || !media.actors) return [];
+  try {
+    return typeof media.actors === 'string' ? JSON.parse(media.actors) : media.actors;
+  } catch (e) { return []; }
 };
 
 const groupedMusic = computed(() => {
@@ -1579,10 +1764,30 @@ const playMedia = async (m: any) => {
   playerTitle.value = m.title;
   playerMediaId.value = m.id;
   showPlayer.value = true;
+  isPaused.value = false;
+  
+  // Reset player states
+  availableSubs.value = [];
+  activeSub.value = null;
   
   const startTime = m.progress || 0;
   lastSavedTime.value = startTime;
   
+  // Check for next episode
+  if (m.type === 'series') {
+     const eps = getEpisodes(m.series_name);
+     const currentIdx = eps.findIndex(e => e.id === m.id);
+     hasNextEpisode.value = currentIdx !== -1 && currentIdx < eps.length - 1;
+  } else {
+     hasNextEpisode.value = false;
+  }
+
+  // Fetch subtitles for this media
+  try {
+     const subRes = await axios.get(`/api/entertainment/media/${m.id}/subtitles`);
+     availableSubs.value = subRes.data; // Array of { label, src, lang }
+  } catch (err) {}
+
   await loadHlsScript();
 
   setTimeout(() => {
@@ -1593,19 +1798,153 @@ const playMedia = async (m: any) => {
       hls.value = null;
     }
 
-    // Normal stream might also be HLS depending on backend transcoding (currently it's direct file stream)
-    // For now we assume direct stream unless it's obviously m3u8
     videoRef.value.src = streamUrl;
+    videoRef.value.volume = playerVolume.value;
 
     videoRef.value.onloadedmetadata = () => {
       if (videoRef.value && startTime > 0) {
         videoRef.value.currentTime = startTime;
+        duration.value = videoRef.value.duration;
       }
       videoRef.value?.play();
     };
   }, 300);
 
   selectedMedia.value = null;
+};
+
+// Player Logic Functions
+const togglePlay = () => {
+  if (!videoRef.value) return;
+  if (videoRef.value.paused) {
+    videoRef.value.play();
+    isPaused.value = false;
+  } else {
+    videoRef.value.pause();
+    isPaused.value = true;
+  }
+  flashActionFeedback();
+};
+
+const flashActionFeedback = () => {
+  showActionFeedback.value = true;
+  setTimeout(() => showActionFeedback.value = false, 500);
+};
+
+const skip = (seconds: number) => {
+  if (!videoRef.value) return;
+  videoRef.value.currentTime += seconds;
+};
+
+const toggleMute = () => {
+  if (!videoRef.value) return;
+  videoRef.value.muted = !videoRef.value.muted;
+  isMuted.value = videoRef.value.muted;
+};
+
+const toggleFullscreen = () => {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen();
+    isFullscreen.value = true;
+  } else {
+    document.exitFullscreen();
+    isFullscreen.value = false;
+  }
+};
+
+const togglePiP = async () => {
+  if (!videoRef.value) return;
+  try {
+    if (document.pictureInPictureElement) {
+      await document.exitPictureInPicture();
+    } else {
+      await videoRef.value.requestPictureInPicture();
+    }
+  } catch (e) {}
+};
+
+const onVideoLoaded = () => {
+  if (videoRef.value) duration.value = videoRef.value.duration;
+};
+
+const updateBuffered = () => {
+  if (!videoRef.value || !videoRef.value.buffered.length) return;
+  const lastBuffer = videoRef.value.buffered.end(videoRef.value.buffered.length - 1);
+  bufferedPercent.value = (lastBuffer / duration.value) * 100;
+};
+
+const startScrubbing = (e: MouseEvent) => {
+  const bar = e.currentTarget as HTMLElement;
+  const scrub = (moveEvent: MouseEvent) => {
+    const rect = bar.getBoundingClientRect();
+    const pos = (moveEvent.clientX - rect.left) / rect.width;
+    if (videoRef.value) videoRef.value.currentTime = pos * duration.value;
+  };
+  scrub(e);
+  window.addEventListener('mousemove', scrub);
+  window.addEventListener('mouseup', () => window.removeEventListener('mousemove', scrub), { once: true });
+};
+
+const setSub = (sub: any) => {
+  activeSub.value = sub;
+  if (!videoRef.value) return;
+  for (let i = 0; i < videoRef.value.textTracks.length; i++) {
+    videoRef.value.textTracks[i].mode = (sub && videoRef.value.textTracks[i].label === sub.label) ? 'showing' : 'disabled';
+  }
+  showSubMenu.value = false;
+};
+
+const playNextEpisode = () => {
+  if (!playerMediaId.value) return;
+  const current = allMedia.value.find(m => m.id === playerMediaId.value);
+  if (!current || !current.series_name) return;
+  const eps = getEpisodes(current.series_name);
+  const currentIdx = eps.findIndex(e => e.id === playerMediaId.value);
+  if (currentIdx !== -1 && currentIdx < eps.length - 1) {
+     playMedia(eps[currentIdx + 1]);
+  }
+};
+
+const setQuality = (q: string) => {
+  selectedQuality.value = q;
+  showQualityMenu.value = false;
+  if (!videoRef.value || !playerMediaId.value) return;
+  
+  const token = localStorage.getItem('nubeos_token');
+  const currentTimeSave = videoRef.value.currentTime;
+  
+  // Update source with quality parameter
+  const streamUrl = `/api/entertainment/stream/${playerMediaId.value}?token=${token}&quality=${q}`;
+  playerSource.value = streamUrl;
+  
+  // Reload video
+  setTimeout(() => {
+    if (!videoRef.value) return;
+    videoRef.value.src = streamUrl;
+    videoRef.value.onloadedmetadata = () => {
+      if (videoRef.value) {
+        videoRef.value.currentTime = currentTimeSave;
+        videoRef.value.play();
+      }
+    };
+  }, 100);
+};
+
+const formatTime = (seconds: number) => {
+  if (isNaN(seconds)) return '00:00';
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60);
+  if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+};
+
+const handlePlayerMouseMove = () => {
+  playerControlsVisible.value = true;
+  if (playerControlsTimer.value) clearTimeout(playerControlsTimer.value);
+  playerControlsTimer.value = setTimeout(() => {
+    if (!isPaused.value) playerControlsVisible.value = false;
+  }, 3000);
 };
 
 const closePlayer = () => {
@@ -1636,7 +1975,13 @@ const saveInternalProgress = async (isFinished = false) => {
   } catch (err) {}
 };
 
-const handleInternalTimeUpdate = () => saveInternalProgress();
+const handleInternalTimeUpdate = () => {
+  if (videoRef.value) {
+    currentTime.value = videoRef.value.currentTime;
+    progressPercent.value = (currentTime.value / duration.value) * 100;
+  }
+  saveInternalProgress();
+};
 const handleInternalEnded = () => saveInternalProgress(true);
 
 const scanLibraries = async () => {
@@ -2379,4 +2724,460 @@ th, td { padding: 1rem; text-align: left; border-bottom: 1px solid rgba(255,255,
 
 .mt-6 { margin-top: 1.5rem; }
 .py-8 { padding: 2rem 0; }
+.eos-modal-banner {
+  position: relative;
+  height: 350px;
+  background-size: cover;
+  background-position: center;
+  display: flex;
+  align-items: flex-end;
+}
+
+.eos-modal-banner-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(0deg, rgba(15, 23, 42, 0.9) 0%, rgba(15, 23, 42, 0.4) 50%, rgba(15, 23, 42, 0.1) 100%);
+}
+
+.eos-modal-banner-content {
+  position: relative;
+  z-index: 2;
+  padding: 30px;
+  width: 100%;
+}
+
+.eos-modal-banner-content h2 {
+  font-size: 2.5rem;
+  font-weight: 800;
+  text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+}
+
+/* Cast Section Styles */
+.eos-modal-cast {
+  margin-top: 40px;
+}
+
+.eos-modal-cast h3 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-bottom: 20px;
+  color: #e2e8f0;
+}
+
+.cast-scroll {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  padding-bottom: 10px;
+  scrollbar-width: thin;
+}
+
+.cast-card {
+  flex: 0 0 100px;
+  text-align: center;
+}
+
+.cast-avatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  overflow: hidden;
+  margin: 0 auto 10px;
+  background: #334155;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cast-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.actor-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #f1f5f9;
+  line-height: 1.2;
+}
+
+.hero-overlay-cinematic {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(15, 23, 42, 1) 0%, rgba(15, 23, 42, 0.8) 40%, rgba(15, 23, 42, 0.4) 100%);
+  z-index: 1;
+}
+
+.series-hero-banner {
+  position: relative;
+  background-size: cover;
+  background-position: center;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.hero-left, .hero-right {
+  position: relative;
+  z-index: 2;
+}
+
+.hero-poster {
+  border-radius: 8px;
+  max-width: 200px;
+}
+
+.card-progress-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.2);
+  z-index: 10;
+}
+
+.progress-fill {
+  height: 100%;
+  background: #ef4444; /* Netflix/Plex Red */
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
+  transition: width 0.3s ease;
+}
+
+.eos-media-card.is-episode .eos-card-poster {
+  aspect-ratio: 16/9;
+}
+
+.eos-media-card.is-episode .eos-card-poster img {
+  object-fit: cover;
+}
+
+/* --- ADVANCED CINEMA PLAYER STYLES --- */
+.eos-player-overlay {
+  position: fixed;
+  inset: 0;
+  background: black;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  color: white;
+  overflow: hidden;
+  cursor: default;
+}
+
+.eos-player-overlay.hide-controls {
+  cursor: none;
+}
+
+.player-video-wrapper {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: black;
+}
+
+.eos-internal-video {
+  width: 100%;
+  height: 100%;
+  max-height: 100vh;
+}
+
+/* Hide native controls as we use our own */
+video::-webkit-media-controls {
+  display: none !important;
+}
+
+/* Custom Controls Layout */
+.player-top-bar,
+.player-controls-container {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  padding: 20px 40px;
+  transition: opacity 0.4s ease, transform 0.4s ease;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.8) 0%, transparent 100%);
+}
+
+.player-controls-container {
+  bottom: 0;
+  top: auto;
+  padding-bottom: 40px;
+  background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, transparent 100%);
+}
+
+.eos-player-overlay.hide-controls .player-top-bar {
+  opacity: 0;
+  transform: translateY(-20px);
+}
+
+.eos-player-overlay.hide-controls .player-controls-container {
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+/* Top Bar */
+.player-top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.player-back-btn {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.player-back-btn:hover {
+  transform: translateX(-5px);
+}
+
+.player-title-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.p-title {
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.p-status {
+  font-size: 0.8rem;
+  opacity: 0.6;
+}
+
+/* Progress Area */
+.player-progress-area {
+  position: relative;
+  height: 6px;
+  margin-bottom: 25px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+
+.player-progress-area:hover {
+  height: 10px;
+}
+
+.progress-bg {
+  position: absolute;
+  inset: 0;
+  background: rgba(255,255,255,0.2);
+  border-radius: 5px;
+}
+
+.progress-buffer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  background: rgba(255,255,255,0.2);
+  border-radius: 5px;
+  transition: width 0.3s;
+}
+
+.progress-active {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  background: #ef4444;
+  border-radius: 5px;
+  box-shadow: 0 0 15px rgba(239, 68, 68, 0.6);
+}
+
+.progress-knob {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  background: white;
+  border-radius: 50%;
+  transform: translateX(-50%);
+  box-shadow: 0 0 10px rgba(0,0,0,0.5);
+  display: none;
+}
+
+.player-progress-area:hover .progress-knob {
+  display: block;
+}
+
+/* Main Controls */
+.player-controls-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.controls-left, .controls-right {
+  display: flex;
+  align-items: center;
+  gap: 25px;
+}
+
+.main-play-btn {
+  background: white;
+  color: black;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.main-play-btn:hover {
+  transform: scale(1.1);
+}
+
+.skip-btn {
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+  opacity: 0.8;
+  transition: opacity 0.2s;
+}
+
+.skip-btn:hover {
+  opacity: 1;
+}
+
+.skip-btn span {
+  margin-top: -12px;
+}
+
+.rotate-180 {
+  transform: rotateY(180deg);
+}
+
+.volume-control {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.volume-slider {
+  width: 80px;
+  accent-color: white;
+}
+
+.player-time-display {
+  font-family: monospace;
+  font-size: 0.95rem;
+  opacity: 0.8;
+}
+
+.icon-btn-text {
+  background: rgba(255,255,255,0.1);
+  border: none;
+  color: white;
+  padding: 8px 16px;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.icon-btn-text:hover {
+  background: rgba(255,255,255,0.2);
+}
+
+/* Center Feedback */
+.player-center-action {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0,0,0,0.5);
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  animation: pulse-fade 0.5s ease-out forwards;
+}
+
+@keyframes pulse-fade {
+  0% { transform: translate(-50%, -50%) scale(0.8); opacity: 0; }
+  50% { opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(1.2); opacity: 0; }
+}
+
+/* Subtitles Menu */
+.player-sub-menu {
+  position: absolute;
+  bottom: 120px;
+  right: 40px;
+  background: rgba(15, 23, 42, 0.95);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 12px;
+  padding: 15px;
+  min-width: 200px;
+  z-index: 20;
+}
+
+.player-sub-menu h4 {
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  opacity: 0.5;
+  margin-bottom: 15px;
+  padding-left: 10px;
+}
+
+.player-sub-menu button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 10px 15px;
+  background: none;
+  border: none;
+  color: white;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.player-sub-menu button:hover {
+  background: rgba(255,255,255,0.1);
+}
+
+.player-sub-menu button.active {
+  background: #ef4444;
+  font-weight: 700;
+}
+
+.player-slide-enter-active, .player-slide-leave-active {
+  transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.5s;
+}
+.player-slide-enter-from, .player-slide-leave-to {
+  transform: scale(1.1);
+  opacity: 0;
+}
+
 </style>

@@ -159,7 +159,8 @@ const newColumns = [
   { name: 'studio', def: 'TEXT' },
   { name: 'country', def: 'TEXT' },
   { name: 'nfo_path', def: 'TEXT' },
-  { name: 'set_name', def: 'TEXT' }
+  { name: 'set_name', def: 'TEXT' },
+  { name: 'actors', def: 'TEXT' }
 ];
 newColumns.forEach(col => {
   try { db.exec(`ALTER TABLE eo_media ADD COLUMN ${col.name} ${col.def}`); } catch (e) {}

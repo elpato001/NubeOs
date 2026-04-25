@@ -266,18 +266,18 @@ const processFile = async (filePath, lib) => {
   if (existing) {
     db.prepare(`UPDATE eo_media SET title = ?, description = ?, rating = ?, poster_path = ?, banner_path = ?, genre = ?,
       tagline = ?, certification = ?, runtime = ?, trailer_url = ?, imdb_id = ?, tmdb_id = ?,
-      director = ?, writer = ?, studio = ?, country = ?, nfo_path = ?, set_name = ?
+      director = ?, writer = ?, studio = ?, country = ?, nfo_path = ?, set_name = ?, actors = ?
       WHERE id = ?`)
       .run(title, description, rating, posterPath || existing.poster_path, bannerPath, genre,
         tagline, certification, runtime, trailer_url, imdb_id, tmdb_id,
-        d, writer, s, country, nfo_path, set_name, existing.id);
+        d, writer, s, country, nfo_path, set_name, null, existing.id);
     return false;
   } else {
     db.prepare(`INSERT INTO eo_media (title, series_name, season, episode, type, file_path, genre, year, poster_path, banner_path, description, rating, is_new,
-      tagline, certification, runtime, trailer_url, imdb_id, tmdb_id, director, writer, studio, country, nfo_path, set_name) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      tagline, certification, runtime, trailer_url, imdb_id, tmdb_id, director, writer, studio, country, nfo_path, set_name, actors) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
       .run(title, seriesName, season, episode, type, filePath, genre, year, posterPath, bannerPath, description, rating,
-        tagline, certification, runtime, trailer_url, imdb_id, tmdb_id, d, writer, s, country, nfo_path, set_name);
+        tagline, certification, runtime, trailer_url, imdb_id, tmdb_id, d, writer, s, country, nfo_path, set_name, null);
     return true;
   }
 };
@@ -298,10 +298,13 @@ router.get('/catalog', authMiddleware, (req, res) => {
   }
 });
 
-// 2. Stream Media
+// 2. Stream Media (Support for Dynamic Transcoding)
+const transcodingService = require('../services/transcodingService');
+
 router.get('/stream/:id', authMiddleware, (req, res) => {
   try {
     const mediaId = req.params.id;
+    const quality = req.query.quality || 'original';
     const media = db.prepare('SELECT * FROM eo_media WHERE id = ?').get(mediaId);
     
     if (!media) return res.status(404).json({ error: 'Media no encontrada' });
@@ -309,11 +312,28 @@ router.get('/stream/:id', authMiddleware, (req, res) => {
     const filePath = media.file_path;
     if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Archivo de video no encontrado en el servidor' });
 
+    // Handle Transcoding
+    if (quality !== 'original') {
+      console.log(`🎬 Transcodificando ${media.title} a ${quality}...`);
+      const transcodeTask = transcodingService.transcode(filePath, quality);
+      
+      if (transcodeTask) {
+        res.setHeader('Content-Type', transcodeTask.contentType);
+        transcodeTask.stream.pipe(res);
+        
+        // Clean up FFmpeg when client disconnects
+        req.on('close', () => {
+          transcodeTask.process.kill();
+        });
+        return;
+      }
+    }
+
+    // Default: Direct File Streaming (with Range support)
     const stat = fs.statSync(filePath);
     const fileSize = stat.size;
     const range = req.headers.range;
 
-    // Detect MIME type based on extension
     const ext = path.extname(filePath).toLowerCase();
     const mimeTypes = {
       '.mp4': 'video/mp4',
@@ -734,7 +754,7 @@ router.post('/admin/media/identify', authMiddleware, async (req, res) => {
       UPDATE eo_media 
       SET title = ?, description = ?, genre = ?, year = ?, rating = ?, poster_path = ?, banner_path = ?,
           tagline = ?, certification = ?, runtime = ?, trailer_url = ?, imdb_id = ?, tmdb_id = ?,
-          director = ?, writer = ?, studio = ?, country = ?, set_name = ?
+          director = ?, writer = ?, studio = ?, country = ?, set_name = ?, actors = ?
       WHERE id = ?
     `).run(
       metadata.title, 
@@ -755,6 +775,7 @@ router.post('/admin/media/identify', authMiddleware, async (req, res) => {
       metadata.studio || media.studio,
       metadata.country,
       metadata.setName || metadata.set_name,
+      metadata.cast ? JSON.stringify(metadata.cast) : null,
       mediaId
     );
 
@@ -1098,6 +1119,74 @@ router.delete('/favorites', authMiddleware, (req, res) => {
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+// --- Subtitles Support ---
+router.get('/media/:id/subtitles', auth, async (req, res) => {
+  try {
+    const media = db.prepare('SELECT file_path FROM eo_media WHERE id = ?').get(req.params.id);
+    if (!media) return res.status(404).send('Media not found');
+
+    const videoDir = path.dirname(media.file_path);
+    const videoName = path.basename(media.file_path, path.extname(media.file_path));
+    
+    if (!fs.existsSync(videoDir)) return res.json([]);
+
+    const files = fs.readdirSync(videoDir);
+    const subs = [];
+
+    // Look for files with same name or common sub patterns
+    files.forEach(file => {
+      const ext = path.extname(file).toLowerCase();
+      if (ext === '.srt' || ext === '.vtt') {
+        // Basic language detection from filename (e.g. Movie.en.srt)
+        let lang = 'es';
+        let label = 'Español';
+        
+        if (file.toLowerCase().includes('.en.') || file.toLowerCase().includes('english')) {
+          lang = 'en'; label = 'English';
+        } else if (file.toLowerCase().includes('.fr.')) {
+          lang = 'fr'; label = 'Français';
+        }
+
+        subs.push({
+          label: label + (subs.length > 0 ? ` (${subs.length + 1})` : ''),
+          lang: lang,
+          src: `/api/entertainment/subtitles/${req.params.id}/${encodeURIComponent(file)}?token=${req.query.token || req.headers.authorization?.split(' ')[1]}`
+        });
+      }
+    });
+
+    res.json(subs);
+  } catch (err) {
+    res.status(500).send(err.message);
+  }
+});
+
+router.get('/subtitles/:id/:filename', (req, res) => {
+  try {
+    // Basic security: check token (optional here but good practice)
+    const media = db.prepare('SELECT file_path FROM eo_media WHERE id = ?').get(req.params.id);
+    if (!media) return res.status(404).send('Not found');
+
+    const videoDir = path.dirname(media.file_path);
+    const subPath = path.join(videoDir, decodeURIComponent(req.params.filename));
+
+    if (!fs.existsSync(subPath)) return res.status(404).send('Sub not found');
+
+    // If it's SRT, we should ideally convert to VTT, but modern browsers/players often handle it or we can do it on the fly
+    res.setHeader('Content-Type', 'text/vtt');
+    
+    let content = fs.readFileSync(subPath, 'utf8');
+    if (path.extname(subPath).toLowerCase() === '.srt') {
+      // Very basic SRT to VTT conversion
+      content = 'WEBVTT\n\n' + content.replace(/(\d+:\d+:\d+),(\d+)/g, '$1.$2');
+    }
+    
+    res.send(content);
+  } catch (err) {
+    res.status(500).send(err.message);
   }
 });
 

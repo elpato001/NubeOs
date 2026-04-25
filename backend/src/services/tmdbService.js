@@ -184,6 +184,16 @@ const getMediaDetails = async (tmdbId, type = 'movie') => {
       setName = data.belongs_to_collection.name;
     }
 
+    // Extract Cast (top 10 actors)
+    let cast = [];
+    if (data.credits?.cast) {
+      cast = data.credits.cast.slice(0, 10).map(actor => ({
+        name: actor.name,
+        character: actor.character,
+        profilePath: actor.profile_path ? `${IMAGE_BASE_URL}${actor.profile_path}` : null
+      }));
+    }
+
     return {
       tmdbId: data.id,
       title: data.title || data.name,
@@ -204,6 +214,7 @@ const getMediaDetails = async (tmdbId, type = 'movie') => {
       studio: (data.production_companies || []).map(c => c.name).join(', ') || null,
       country: (data.production_countries || []).map(c => c.name).join(', ') || null,
       setName: setName,
+      cast: cast, // Added Cast
       // Collection details for set poster
       collection: data.belongs_to_collection ? {
         id: data.belongs_to_collection.id,
