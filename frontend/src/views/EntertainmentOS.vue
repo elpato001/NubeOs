@@ -220,48 +220,51 @@
               <div v-if="seriesMedia.length === 0" class="eos-empty-grid">Sin series disponibles</div>
             </div>
 
-            <div v-if="activeSeriesLevel === 'seasons'" class="series-detailed-view animate-fade">
-               <div class="series-hero-banner" :style="{ backgroundImage: `url(${selectedMedia?.banner_path ? '/api/entertainment/banner/' + selectedMedia?.id + '?token=' + token : selectedMedia?.poster})` }">
-                  <div class="hero-overlay-cinematic"></div>
-                  <div class="hero-left">
-                     <img v-if="selectedMedia" :src="selectedMedia?.poster" class="hero-poster shadow-2xl" />
+               <!-- Plex Style Header -->
+               <div class="series-header-plex">
+                  <div class="header-poster-container">
+                    <img v-if="selectedMedia" :src="selectedMedia?.poster" class="header-poster-main" />
+                    <div class="poster-footer-info" v-if="selectedMedia">
+                       En progreso — T1 · E1
+                    </div>
                   </div>
-                  <div class="hero-right">
-                     <h1 class="hero-title">{{ selectedMedia?.series_name }}</h1>
-                     <div class="hero-meta">
-                        <span v-if="selectedMedia?.year" class="year-badge">{{ selectedMedia?.year }}</span>
-                        <span class="type-badge">{{ selectedMedia?.certification || 'TV-14' }}</span>
-                        <span class="rating">⭐ {{ selectedMedia?.rating || 'N/A' }}</span>
+                  <div class="header-details-main">
+                     <h1 class="header-title-main">{{ selectedMedia?.series_name }}</h1>
+                     <div class="header-rating">
+                        <Star v-for="i in 5" :key="i" :size="18" :fill="i <= 3 ? '#eab308' : 'none'" :color="i <= 3 ? '#eab308' : '#444'" />
                      </div>
-                     <div class="hero-actions">
-                        <button class="play-main-btn" @click="playMain(selectedMedia)"><Play :size="20" fill="currentColor" /> REPRODUCIR</button>
-                        <button class="icon-action-btn"><Plus :size="20" /></button>
-                        <button class="icon-action-btn" @click="toggleFavorite(selectedMedia)" :class="{ active: isFavorite(selectedMedia) }"><Star :size="20" :fill="isFavorite(selectedMedia) ? 'currentColor' : 'none'" /></button>
-                        <button class="icon-action-btn" @click="editMedia(selectedMedia)"><Settings2 :size="20" /></button>
-                     </div>
-                     <p class="hero-desc">{{ selectedMedia?.description || 'Sin descripción disponible.' }}</p>
-                     
-                     <div class="hero-extra">
-                        <div class="ex-item" v-if="selectedMedia?.studio"><span class="ex-label">ESTUDIO</span> <span class="ex-val">{{ selectedMedia?.studio }}</span></div>
-                        <div class="ex-item" v-if="selectedMedia?.genre"><span class="ex-label">GÉNERO</span> <span class="ex-val">{{ selectedMedia?.genre }}</span></div>
+                     <div class="header-actions-row">
+                        <button class="btn-play-plex" @click="playMain(selectedMedia)">
+                          <Play :size="20" fill="black" /> Reproducir
+                        </button>
+                        <button class="btn-circle-plex"><Check :size="20" /></button>
+                        <button class="btn-circle-plex" @click="editMedia(selectedMedia)"><Pencil :size="20" /></button>
+                        <button class="btn-circle-plex"><MoreHorizontal :size="20" /></button>
                      </div>
                   </div>
                </div>
 
-               <div class="seasons-section">
-                  <h3 class="section-title-small">Temporadas</h3>
-                  <div class="seasons-horizontal-grid">
-                     <div v-for="season in currentSeasons" :key="'sea-'+season.number" class="season-mini-card" @click="enterSeason(season)">
-                        <div class="season-mini-poster">
-                           <img :src="selectedMedia.poster" />
-                           <div class="season-ep-count-badge">{{ season.episodes.length }}</div>
+               <!-- Seasons Grid Section -->
+               <div class="seasons-section-plex">
+                  <h3 class="section-title-plex">Temporadas</h3>
+                  <div class="seasons-grid-plex">
+                     <div v-for="season in currentSeasons" 
+                          :key="'sea-'+season.number" 
+                          class="season-card-plex" 
+                          @click="enterSeason(season)"
+                          :class="{ active: selectedSeason?.number === season.number }"
+                      >
+                        <div class="season-poster-plex">
+                           <img :src="selectedMedia?.poster" />
+                           <div class="season-badge-plex">{{ season.number }}</div>
                         </div>
-                        <div class="season-mini-name">Temporada {{ season.number }}</div>
-                        <div class="season-mini-ep-text">{{ season.episodes.length }} episodios</div>
+                        <div class="season-info-plex">
+                           <div class="season-name-plex">Temporada {{ season.number }}</div>
+                           <div class="season-count-plex">{{ season.episodes.length }} episodio{{ season.episodes.length > 1 ? 's' : '' }}</div>
+                        </div>
                      </div>
                   </div>
                </div>
-            </div>
 
             <!-- Level 3: Episodes Grid -->
             <div v-if="activeSeriesLevel === 'episodes'" class="episodes-detailed-grid">
@@ -3571,4 +3574,167 @@ video::-webkit-media-controls {
 .ep-name-v { font-weight: 600; font-size: 1.1rem; }
 .ep-desc-v { font-size: 0.85rem; opacity: 0.6; margin-top: 8px; line-height: 1.4; }
 
+
+/* --- PLEX STYLE SERIES VIEW --- */
+.series-header-plex {
+  display: flex;
+  gap: 40px;
+  padding: 20px;
+  margin-bottom: 40px;
+}
+
+.header-poster-container {
+  width: 220px;
+  flex-shrink: 0;
+}
+
+.header-poster-main {
+  width: 100%;
+  border-radius: 4px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  border: 1px solid rgba(255,255,255,0.05);
+}
+
+.poster-footer-info {
+  margin-top: 15px;
+  font-size: 0.75rem;
+  color: #888;
+  text-align: center;
+  font-weight: 500;
+}
+
+.header-details-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  padding-top: 10px;
+}
+
+.header-title-main {
+  font-size: 2.2rem;
+  font-weight: 700;
+  margin-bottom: 10px;
+  color: #eee;
+}
+
+.header-rating {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 25px;
+}
+
+.header-actions-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.btn-play-plex {
+  background: #eab308;
+  color: black;
+  border: none;
+  padding: 10px 24px;
+  border-radius: 4px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: transform 0.1s, background 0.2s;
+}
+
+.btn-play-plex:hover {
+  background: #ca8a04;
+  transform: scale(1.05);
+}
+
+.btn-circle-plex {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-circle-plex:hover {
+  background: rgba(255,255,255,0.15);
+}
+
+.seasons-section-plex {
+  padding: 0 20px;
+}
+
+.section-title-plex {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 25px;
+  color: #eee;
+}
+
+.seasons-grid-plex {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 25px;
+}
+
+.season-card-plex {
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.season-card-plex:hover {
+  transform: translateY(-5px);
+}
+
+.season-poster-plex {
+  position: relative;
+  aspect-ratio: 2/3;
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+  margin-bottom: 12px;
+  border: 1px solid rgba(255,255,255,0.05);
+}
+
+.season-poster-plex img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.season-badge-plex {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(0,0,0,0.7);
+  color: white;
+  padding: 2px 6px;
+  border-radius: 2px;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.season-name-plex {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: #eee;
+  margin-bottom: 4px;
+}
+
+.season-count-plex {
+  font-size: 0.8rem;
+  color: #888;
+}
+
+.season-card-plex.active .season-poster-plex {
+  outline: 3px solid #eab308;
+  outline-offset: 2px;
+}
 </style>
