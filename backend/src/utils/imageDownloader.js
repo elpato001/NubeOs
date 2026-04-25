@@ -40,8 +40,9 @@ const downloadImageToMediaDir = async (urlOrPath, videoFilePath, imageType = 'po
     const response = await fetch(urlOrPath);
     if (!response.ok) throw new Error(`Download failed: ${response.statusText}`);
 
-    const fileStream = fs.createWriteStream(localPath);
-    await pipeline(response.body, fileStream);
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    await fs.promises.writeFile(localPath, buffer);
 
     console.log(`🖼️  Imagen guardada: ${imageFilename}`);
     return localPath.replace(/\\/g, '/');
@@ -77,8 +78,9 @@ const downloadImage = async (urlOrPath, filename, skipDownload = false) => {
     const response = await fetch(urlOrPath);
     if (!response.ok) throw new Error(`Download failed: ${response.statusText}`);
 
-    const fileStream = fs.createWriteStream(localPath);
-    await pipeline(response.body, fileStream);
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    await fs.promises.writeFile(localPath, buffer);
 
     return localPath.replace(/\\/g, '/');
   } catch (error) {

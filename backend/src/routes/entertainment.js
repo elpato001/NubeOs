@@ -849,7 +849,7 @@ router.post('/admin/media/identify', authMiddleware, async (req, res) => {
 router.post('/admin/media/bulk-identify', authMiddleware, async (req, res) => {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' });
   try {
-    const unidentified = db.prepare("SELECT * FROM eo_media WHERE tmdb_id IS NULL").all();
+    const unidentified = db.prepare("SELECT * FROM eo_media WHERE tmdb_id IS NULL OR poster_path IS NULL OR poster_path = ''").all();
     let identified = 0;
     let failed = 0;
 
