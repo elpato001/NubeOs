@@ -925,9 +925,9 @@
         </template>
       </div>
 
-      <!-- Detail Modal -->
+      <!-- Detail Modal (Movies Only) -->
       <Transition name="modal-fade">
-        <div v-if="selectedMedia" class="eos-modal-overlay" @click.self="selectedMedia = null">
+        <div v-if="selectedMedia && (selectedMedia.type === 'movie' || selectedMedia.type === 'movies')" class="eos-modal-overlay" @click.self="selectedMedia = null">
           <div class="eos-modal">
             <button class="eos-modal-close" @click="selectedMedia = null"><X :size="20" /></button>
             <div class="eos-modal-banner" :style="{ backgroundImage: `url(${selectedMedia?.banner_path ? '/api/entertainment/banner/' + selectedMedia.id + '?token=' + token : selectedMedia?.poster})` }">
@@ -940,7 +940,6 @@
               <p v-if="selectedMedia.tagline" class="eos-modal-tagline">{{ selectedMedia.tagline }}</p>
               <p class="eos-modal-desc">{{ selectedMedia.description || 'Sin descripción disponible.' }}</p>
               
-              <!-- Enhanced metadata info -->
               <div class="eos-modal-meta-grid" v-if="selectedMedia.director || selectedMedia.runtime || selectedMedia.certification">
                 <div class="meta-item" v-if="selectedMedia.director">
                   <span class="meta-label">Director</span>
@@ -957,10 +956,6 @@
                 <div class="meta-item" v-if="selectedMedia.studio">
                   <span class="meta-label">Estudio</span>
                   <span class="meta-value">{{ selectedMedia.studio }}</span>
-                </div>
-                <div class="meta-item" v-if="selectedMedia.set_name">
-                  <span class="meta-label">Colección</span>
-                  <span class="meta-value">📦 {{ selectedMedia.set_name }}</span>
                 </div>
               </div>
 
@@ -981,52 +976,7 @@
                 </div>
               </div>
 
-              <!-- SERIES EXPLORER (Seasons & Episodes Grid) -->
-              <div v-if="selectedMedia.isSeriesGroup" class="eos-series-explorer">
-                <!-- Season Selector (Horizontal Grid) -->
-                <div class="explorer-section">
-                  <div class="section-header-row">
-                    <h3>Temporadas</h3>
-                    <div class="season-badges">
-                      <button 
-                        v-for="sNum in getSeasonNumbers(selectedMedia.series_name)" 
-                        :key="'s-'+sNum"
-                        class="season-badge"
-                        :class="{ active: activeSeason === sNum }"
-                        @click="activeSeason = sNum"
-                      >
-                        T{{ sNum }}
-                      </button>
-                    </div>
-                  </div>
-
-                  <!-- Episodes Grid -->
-                  <div class="episodes-grid">
-                    <div 
-                      v-for="ep in getEpisodesBySeason(selectedMedia.series_name, activeSeason)" 
-                      :key="'ep-'+ep.id" 
-                      class="episode-card animate-fade-in"
-                      @click="playMedia(ep)"
-                    >
-                      <div class="ep-poster-wrapper">
-                        <img :src="ep.poster_path ? '/api/entertainment/poster/' + ep.id : '/entertainment/posters/default_episode.png'" class="ep-img" />
-                        <div class="ep-overlay">
-                          <Play :size="32" fill="white" />
-                        </div>
-                        <div class="ep-progress-mini" v-if="ep.progress">
-                           <div class="ep-progress-fill" :style="{ width: (ep.progress / (ep.runtime || 120) * 100) + '%' }"></div>
-                        </div>
-                      </div>
-                      <div class="ep-info">
-                        <span class="ep-number">E{{ ep.episode }}</span>
-                        <span class="ep-title">{{ ep.title }}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div v-else class="eos-modal-actions">
+              <div class="eos-modal-actions">
                 <button class="eos-btn-primary" @click="playMedia(selectedMedia)"><Play :size="18" /> Reproducir</button>
                 <button 
                   class="eos-btn-secondary" 
