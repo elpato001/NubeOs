@@ -13,7 +13,6 @@ const systemRoutes = require('./routes/system');
 const networkRoutes = require('./routes/network');
 const storageRoutes = require('./routes/storage');
 const entertainmentRoutes = require('./routes/entertainment');
-const installerRoutes = require('./routes/installer');
 const { authMiddleware } = require('./middleware/auth');
 const { attachTerminalWebSocket } = require('./services/terminalService');
 const http = require('http');
@@ -70,7 +69,6 @@ app.use('/api/system', systemRoutes);
 app.use('/api/network', networkRoutes);
 app.use('/api/storage', storageRoutes);
 app.use('/api/entertainment', entertainmentRoutes);
-app.use('/api/installer', installerRoutes);
 
 // Protected Sample Route
 app.get('/api/me', authMiddleware, (req, res) => {

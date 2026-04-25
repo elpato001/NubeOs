@@ -17,12 +17,6 @@ const router = createRouter({
       meta: { setup: true }
     },
     {
-      path: '/installer',
-      name: 'Installer',
-      component: () => import('../views/InstallationWizard.vue'),
-      meta: { installer: true }
-    },
-    {
       path: '/',
       component: () => import('../views/Dashboard.vue'),
       meta: { auth: true },
