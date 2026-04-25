@@ -1123,7 +1123,7 @@ router.delete('/favorites', authMiddleware, (req, res) => {
 });
 
 // --- Subtitles Support ---
-router.get('/media/:id/subtitles', auth, async (req, res) => {
+router.get('/media/:id/subtitles', authMiddleware, async (req, res) => {
   try {
     const media = db.prepare('SELECT file_path FROM eo_media WHERE id = ?').get(req.params.id);
     if (!media) return res.status(404).send('Media not found');
