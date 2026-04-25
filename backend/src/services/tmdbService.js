@@ -269,4 +269,33 @@ const getMediaImages = async (tmdbId, type = 'movie') => {
   }
 };
 
-module.exports = { searchMedia, searchTmdbRaw, searchMulti, getMediaDetails, getMediaImages };
+/**
+ * Get details for a specific episode of a TV show
+ */
+const getEpisodeDetails = async (tvShowId, seasonNumber, episodeNumber) => {
+  const apiKey = getApiKey();
+  if (!apiKey) return null;
+
+  try {
+    const response = await fetch(
+      `${BASE_URL}/tv/${tvShowId}/season/${seasonNumber}/episode/${episodeNumber}?api_key=${apiKey}&language=es-ES`
+    );
+    const data = await response.json();
+
+    if (!data.id) return null;
+
+    return {
+      title: data.name,
+      description: data.overview,
+      rating: (data.vote_average || 0).toFixed(1),
+      stillPath: data.still_path ? `${BACKDROP_BASE_URL}${data.still_path}` : null,
+      airDate: data.air_date,
+      runtime: data.runtime
+    };
+  } catch (error) {
+    console.error('TMDB Episode Details Error:', error.message);
+    return null;
+  }
+};
+
+module.exports = { searchMedia, searchTmdbRaw, searchMulti, getMediaDetails, getMediaImages, getEpisodeDetails };

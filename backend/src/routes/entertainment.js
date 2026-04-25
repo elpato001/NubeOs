@@ -246,15 +246,33 @@ const processFile = async (filePath, lib) => {
 
   // If no NFO or incomplete data, try TMDB
   if (!description) {
-    const tmdbData = await tmdbService.searchMedia(title, year, type);
-    if (tmdbData) {
-      title = tmdbData.title || title; 
-      description = tmdbData.description; 
-      rating = tmdbData.rating;
-      tmdb_id = tmdbData.tmdbId;
-      // Download images to the same folder as the video file (Skip download during scan)
-      posterPath = await downloadImageToMediaDir(tmdbData.posterPath, filePath, 'poster', true);
-      bannerPath = await downloadImageToMediaDir(tmdbData.bannerPath, filePath, 'fanart', true);
+    if (isSeries && season !== null && episode !== null && seriesName) {
+      // It's an episode: Search for the TV Show first to get its ID
+      const showData = await tmdbService.searchMedia(seriesName, null, 'series');
+      if (showData) {
+        const epData = await tmdbService.getEpisodeDetails(showData.tmdbId, season, episode);
+        if (epData) {
+          title = epData.title || title;
+          description = epData.description;
+          rating = epData.rating;
+          runtime = epData.runtime;
+          // Episodes use "thumb" naming convention for the screenshot
+          posterPath = await downloadImageToMediaDir(epData.stillPath, filePath, 'thumb');
+          // For episodes, banner is usually the show's banner
+          bannerPath = await downloadImageToMediaDir(showData.bannerPath, filePath, 'fanart');
+          tmdb_id = showData.tmdbId;
+        }
+      }
+    } else {
+      const tmdbData = await tmdbService.searchMedia(title, year, type);
+      if (tmdbData) {
+        title = tmdbData.title || title; 
+        description = tmdbData.description; 
+        rating = tmdbData.rating;
+        tmdb_id = tmdbData.tmdbId;
+        posterPath = await downloadImageToMediaDir(tmdbData.posterPath, filePath, 'poster');
+        bannerPath = await downloadImageToMediaDir(tmdbData.bannerPath, filePath, 'fanart');
+      }
     }
   }
   
@@ -886,9 +904,24 @@ router.post('/admin/media/bulk-identify', authMiddleware, async (req, res) => {
             }
           }
 
-          // Download images (Skip download during bulk identify)
-          const posterPath = await downloadImageToMediaDir(fullData.posterPath, currentFilePath, 'poster', true);
-          const bannerPath = await downloadImageToMediaDir(fullData.bannerPath, currentFilePath, 'fanart', true);
+          // Download images
+          let posterPath, bannerPath;
+
+          if (media.type === 'series' && media.season !== null && media.episode !== null) {
+            // Bulk identify episode thumb
+            const epData = await tmdbService.getEpisodeDetails(searchResult.tmdbId, media.season, media.episode);
+            posterPath = await downloadImageToMediaDir(epData?.stillPath, currentFilePath, 'thumb');
+            bannerPath = await downloadImageToMediaDir(fullData.bannerPath, currentFilePath, 'fanart');
+            if (epData) {
+              fullData.title = epData.title || fullData.title;
+              fullData.description = epData.description || fullData.description;
+              fullData.rating = epData.rating || fullData.rating;
+              fullData.runtime = epData.runtime || fullData.runtime;
+            }
+          } else {
+            posterPath = await downloadImageToMediaDir(fullData.posterPath, currentFilePath, 'poster');
+            bannerPath = await downloadImageToMediaDir(fullData.bannerPath, currentFilePath, 'fanart');
+          }
 
           updateData = {
             title: fullData.title,
