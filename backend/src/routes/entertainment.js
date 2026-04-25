@@ -252,9 +252,9 @@ const processFile = async (filePath, lib) => {
       description = tmdbData.description; 
       rating = tmdbData.rating;
       tmdb_id = tmdbData.tmdbId;
-      // Download images to the same folder as the video file
-      posterPath = await downloadImageToMediaDir(tmdbData.posterPath, filePath, 'poster');
-      bannerPath = await downloadImageToMediaDir(tmdbData.bannerPath, filePath, 'fanart');
+      // Download images to the same folder as the video file (Skip download during scan)
+      posterPath = await downloadImageToMediaDir(tmdbData.posterPath, filePath, 'poster', true);
+      bannerPath = await downloadImageToMediaDir(tmdbData.bannerPath, filePath, 'fanart', true);
     }
   }
   
@@ -379,7 +379,16 @@ router.get('/poster/:id', authMiddleware, (req, res) => {
     const mediaId = req.params.id;
     const media = db.prepare('SELECT poster_path FROM eo_media WHERE id = ?').get(mediaId);
     
-    if (!media || !media.poster_path || !fs.existsSync(media.poster_path)) {
+    if (!media || !media.poster_path) {
+      return res.redirect('/entertainment/posters/stellar_horizon.png');
+    }
+
+    // If it's a remote URL, redirect to it
+    if (media.poster_path.startsWith('http')) {
+      return res.redirect(media.poster_path);
+    }
+
+    if (!fs.existsSync(media.poster_path)) {
       return res.redirect('/entertainment/posters/stellar_horizon.png');
     }
 
@@ -399,7 +408,16 @@ router.get('/banner/:id', authMiddleware, (req, res) => {
     const mediaId = req.params.id;
     const media = db.prepare('SELECT banner_path FROM eo_media WHERE id = ?').get(mediaId);
     
-    if (!media || !media.banner_path || !fs.existsSync(media.banner_path)) {
+    if (!media || !media.banner_path) {
+      return res.redirect('/entertainment/posters/hero_banner.png');
+    }
+
+    // If it's a remote URL, redirect to it
+    if (media.banner_path.startsWith('http')) {
+      return res.redirect(media.banner_path);
+    }
+
+    if (!fs.existsSync(media.banner_path)) {
       return res.redirect('/entertainment/posters/hero_banner.png');
     }
 
@@ -868,9 +886,9 @@ router.post('/admin/media/bulk-identify', authMiddleware, async (req, res) => {
             }
           }
 
-          // Download images
-          const posterPath = await downloadImageToMediaDir(fullData.posterPath, currentFilePath, 'poster');
-          const bannerPath = await downloadImageToMediaDir(fullData.bannerPath, currentFilePath, 'fanart');
+          // Download images (Skip download during bulk identify)
+          const posterPath = await downloadImageToMediaDir(fullData.posterPath, currentFilePath, 'poster', true);
+          const bannerPath = await downloadImageToMediaDir(fullData.bannerPath, currentFilePath, 'fanart', true);
 
           updateData = {
             title: fullData.title,

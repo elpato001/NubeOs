@@ -10,25 +10,15 @@ if (!fs.existsSync(CACHE_DIR)) {
 
 /**
  * Downloads an image from a URL to the SAME directory as the video file,
- * following Kodi/MediaElch naming conventions:
- * 
- * Movies:
- *   MovieFile-poster.jpg    (poster)
- *   MovieFile-fanart.jpg    (backdrop/banner)
- * 
- * Episodes:
- *   EpisodeFile-thumb.jpg   (poster/thumb)
- * 
- * TV Shows (folder-level):
- *   poster.jpg              (show poster, in show root dir)
- *   fanart.jpg              (show backdrop, in show root dir)
+ * following Kodi/MediaElch naming conventions.
  * 
  * @param {string} urlOrPath - URL to download from, or already-local path
- * @param {string} videoFilePath - Full path to the video file (used to determine target directory and name)
+ * @param {string} videoFilePath - Full path to the video file
  * @param {string} imageType - Type of image: 'poster', 'fanart', 'thumb'
- * @returns {string|null} Local file path of the downloaded image
+ * @param {boolean} skipDownload - If true, return URL instead of downloading if not local
+ * @returns {string|null} Local file path or original URL
  */
-const downloadImageToMediaDir = async (urlOrPath, videoFilePath, imageType = 'poster') => {
+const downloadImageToMediaDir = async (urlOrPath, videoFilePath, imageType = 'poster', skipDownload = false) => {
   if (!urlOrPath) return null;
   if (!urlOrPath.startsWith('http')) return urlOrPath; // Already local
 
@@ -37,8 +27,6 @@ const downloadImageToMediaDir = async (urlOrPath, videoFilePath, imageType = 'po
     const videoDir = path.dirname(videoFilePath);
     const videoBaseName = path.parse(videoFilePath).name; // filename without extension
 
-    // Build the image filename following Kodi/MediaElch convention
-    // e.g. "Inception (2010)-poster.jpg" or "Breaking Bad S01E01-thumb.jpg"
     const imageFilename = `${videoBaseName}-${imageType}${extension}`;
     const localPath = path.join(videoDir, imageFilename);
 
@@ -46,6 +34,8 @@ const downloadImageToMediaDir = async (urlOrPath, videoFilePath, imageType = 'po
     if (fs.existsSync(localPath) && fs.statSync(localPath).size > 0) {
       return localPath.replace(/\\/g, '/');
     }
+
+    if (skipDownload) return urlOrPath;
 
     const response = await fetch(urlOrPath);
     if (!response.ok) throw new Error(`Download failed: ${response.statusText}`);
@@ -57,19 +47,19 @@ const downloadImageToMediaDir = async (urlOrPath, videoFilePath, imageType = 'po
     return localPath.replace(/\\/g, '/');
   } catch (error) {
     console.error('Error downloading image to media dir:', error.message);
-    return null;
+    return skipDownload ? urlOrPath : null;
   }
 };
 
 /**
  * Downloads an image to the central cache directory.
- * Used for set/collection posters and other images not tied to a specific video file.
  * 
  * @param {string} urlOrPath - URL to download from
- * @param {string} filename - Desired filename (without extension)
- * @returns {string|null} Local file path
+ * @param {string} filename - Desired filename
+ * @param {boolean} skipDownload - If true, return URL instead of downloading if not local
+ * @returns {string|null} Local file path or original URL
  */
-const downloadImage = async (urlOrPath, filename) => {
+const downloadImage = async (urlOrPath, filename, skipDownload = false) => {
   if (!urlOrPath) return null;
   if (!urlOrPath.startsWith('http')) return urlOrPath; // Already local
 
@@ -82,6 +72,8 @@ const downloadImage = async (urlOrPath, filename) => {
       return localPath.replace(/\\/g, '/');
     }
 
+    if (skipDownload) return urlOrPath;
+
     const response = await fetch(urlOrPath);
     if (!response.ok) throw new Error(`Download failed: ${response.statusText}`);
 
@@ -91,7 +83,7 @@ const downloadImage = async (urlOrPath, filename) => {
     return localPath.replace(/\\/g, '/');
   } catch (error) {
     console.error('Error downloading image:', error.message);
-    return null;
+    return skipDownload ? urlOrPath : null;
   }
 };
 
