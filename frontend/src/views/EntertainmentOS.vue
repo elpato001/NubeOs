@@ -978,12 +978,48 @@
                 </div>
               </div>
 
-              <div v-if="selectedMedia.isSeriesGroup" class="eos-episodes-list">
-                <h3>Episodios</h3>
-                <div v-for="ep in getEpisodes(selectedMedia.series_name)" :key="'ep-'+ep.id" class="eos-episode-item" @click="playMedia(ep)">
-                  <div class="eos-ep-num">T{{ ep.season }} E{{ ep.episode }}</div>
-                  <div class="eos-ep-title">{{ ep.title }}</div>
-                  <button class="eos-ep-play"><Play :size="14" /></button>
+              <!-- SERIES EXPLORER (Seasons & Episodes Grid) -->
+              <div v-if="selectedMedia.isSeriesGroup" class="eos-series-explorer">
+                <!-- Season Selector (Horizontal Grid) -->
+                <div class="explorer-section">
+                  <div class="section-header-row">
+                    <h3>Temporadas</h3>
+                    <div class="season-badges">
+                      <button 
+                        v-for="sNum in getSeasonNumbers(selectedMedia.series_name)" 
+                        :key="'s-'+sNum"
+                        class="season-badge"
+                        :class="{ active: activeSeason === sNum }"
+                        @click="activeSeason = sNum"
+                      >
+                        T{{ sNum }}
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Episodes Grid -->
+                  <div class="episodes-grid">
+                    <div 
+                      v-for="ep in getEpisodesBySeason(selectedMedia.series_name, activeSeason)" 
+                      :key="'ep-'+ep.id" 
+                      class="episode-card animate-fade-in"
+                      @click="playMedia(ep)"
+                    >
+                      <div class="ep-poster-wrapper">
+                        <img :src="ep.poster_path ? '/api/entertainment/poster/' + ep.id : '/entertainment/posters/default_episode.png'" class="ep-img" />
+                        <div class="ep-overlay">
+                          <Play :size="32" fill="white" />
+                        </div>
+                        <div class="ep-progress-mini" v-if="ep.progress">
+                           <div class="ep-progress-fill" :style="{ width: (ep.progress / (ep.runtime || 120) * 100) + '%' }"></div>
+                        </div>
+                      </div>
+                      <div class="ep-info">
+                        <span class="ep-number">E{{ ep.episode }}</span>
+                        <span class="ep-title">{{ ep.title }}</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -1322,6 +1358,7 @@ const selectedQuality = ref('original');
 const availableSubs = ref<any[]>([]);
 const activeSub = ref<any>(null);
 const hasNextEpisode = ref(false);
+const activeSeason = ref(1);
 
 // Folder Browser State
 const showFolderPicker = ref(false);
@@ -1813,6 +1850,16 @@ const playMedia = async (m: any) => {
   selectedMedia.value = null;
 };
 
+const getSeasonNumbers = (seriesName: string) => {
+  const eps = getEpisodes(seriesName);
+  const seasons = [...new Set(eps.map(e => e.season))].sort((a, b) => a - b);
+  return seasons;
+};
+
+const getEpisodesBySeason = (seriesName: string, season: number) => {
+  return getEpisodes(seriesName).filter(e => e.season === season);
+};
+
 // Player Logic Functions
 const togglePlay = () => {
   if (!videoRef.value) return;
@@ -2165,7 +2212,13 @@ const writeNfoSingle = async (mediaId: number) => {
   }
 };
 
-const openMediaDetail = (m: any) => selectedMedia.value = m;
+const openDetails = (m: any) => {
+  selectedMedia.value = m;
+  if (m.isSeriesGroup) {
+    const seasons = getSeasonNumbers(m.series_name);
+    if (seasons.length > 0) activeSeason.value = seasons[0];
+  }
+};
 
 // Folder Browsing
 const openFolderPicker = () => {
@@ -3178,6 +3231,135 @@ video::-webkit-media-controls {
 .player-slide-enter-from, .player-slide-leave-to {
   transform: scale(1.1);
   opacity: 0;
+}
+
+
+/* --- SERIES EXPLORER STYLES --- */
+.eos-series-explorer {
+  margin-top: 30px;
+}
+
+.section-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.season-badges {
+  display: flex;
+  gap: 10px;
+}
+
+.season-badge {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: white;
+  padding: 6px 15px;
+  border-radius: 20px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.season-badge:hover {
+  background: rgba(255,255,255,0.1);
+}
+
+.season-badge.active {
+  background: #ef4444;
+  border-color: #ef4444;
+  box-shadow: 0 0 15px rgba(239, 68, 68, 0.4);
+}
+
+.episodes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 20px;
+}
+
+.episode-card {
+  background: rgba(255,255,255,0.03);
+  border-radius: 10px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.2s, background 0.2s;
+}
+
+.episode-card:hover {
+  transform: translateY(-5px);
+  background: rgba(255,255,255,0.08);
+}
+
+.ep-poster-wrapper {
+  position: relative;
+  aspect-ratio: 16/9;
+  background: #0f172a;
+}
+
+.ep-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ep-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.episode-card:hover .ep-overlay {
+  opacity: 1;
+}
+
+.ep-progress-mini {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: rgba(255,255,255,0.2);
+}
+
+.ep-progress-fill {
+  height: 100%;
+  background: #ef4444;
+}
+
+.ep-info {
+  padding: 12px;
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+}
+
+.ep-number {
+  color: #ef4444;
+  font-weight: 800;
+  font-size: 0.9rem;
+}
+
+.ep-title {
+  font-weight: 500;
+  font-size: 0.9rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s ease-out forwards;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 </style>
