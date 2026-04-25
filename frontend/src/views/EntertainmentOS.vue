@@ -221,17 +221,17 @@
             </div>
 
             <div v-if="activeSeriesLevel === 'seasons'" class="series-detailed-view animate-fade">
-               <div class="series-hero-banner" :style="{ backgroundImage: `url(${selectedMedia.banner_path ? '/api/entertainment/banner/' + selectedMedia.id + '?token=' + token : selectedMedia.poster})` }">
+               <div class="series-hero-banner" :style="{ backgroundImage: `url(${selectedMedia?.banner_path ? '/api/entertainment/banner/' + selectedMedia?.id + '?token=' + token : selectedMedia?.poster})` }">
                   <div class="hero-overlay-cinematic"></div>
                   <div class="hero-left">
-                     <img v-if="selectedMedia" :src="selectedMedia.poster" class="hero-poster shadow-2xl" />
+                     <img v-if="selectedMedia" :src="selectedMedia?.poster" class="hero-poster shadow-2xl" />
                   </div>
                   <div class="hero-right">
-                     <h1 class="hero-title">{{ selectedMedia.series_name }}</h1>
+                     <h1 class="hero-title">{{ selectedMedia?.series_name }}</h1>
                      <div class="hero-meta">
-                        <span v-if="selectedMedia.year" class="year-badge">{{ selectedMedia.year }}</span>
-                        <span class="type-badge">{{ selectedMedia.certification || 'TV-14' }}</span>
-                        <span class="rating">⭐ {{ selectedMedia.rating || 'N/A' }}</span>
+                        <span v-if="selectedMedia?.year" class="year-badge">{{ selectedMedia?.year }}</span>
+                        <span class="type-badge">{{ selectedMedia?.certification || 'TV-14' }}</span>
+                        <span class="rating">⭐ {{ selectedMedia?.rating || 'N/A' }}</span>
                      </div>
                      <div class="hero-actions">
                         <button class="play-main-btn" @click="playMain(selectedMedia)"><Play :size="20" fill="currentColor" /> REPRODUCIR</button>
@@ -239,11 +239,11 @@
                         <button class="icon-action-btn" @click="toggleFavorite(selectedMedia)" :class="{ active: isFavorite(selectedMedia) }"><Star :size="20" :fill="isFavorite(selectedMedia) ? 'currentColor' : 'none'" /></button>
                         <button class="icon-action-btn" @click="editMedia(selectedMedia)"><Settings2 :size="20" /></button>
                      </div>
-                     <p class="hero-desc">{{ selectedMedia.description || 'Sin descripción disponible.' }}</p>
+                     <p class="hero-desc">{{ selectedMedia?.description || 'Sin descripción disponible.' }}</p>
                      
                      <div class="hero-extra">
-                        <div class="ex-item" v-if="selectedMedia.studio"><span class="ex-label">ESTUDIO</span> <span class="ex-val">{{ selectedMedia.studio }}</span></div>
-                        <div class="ex-item" v-if="selectedMedia.genre"><span class="ex-label">GÉNERO</span> <span class="ex-val">{{ selectedMedia.genre }}</span></div>
+                        <div class="ex-item" v-if="selectedMedia?.studio"><span class="ex-label">ESTUDIO</span> <span class="ex-val">{{ selectedMedia?.studio }}</span></div>
+                        <div class="ex-item" v-if="selectedMedia?.genre"><span class="ex-label">GÉNERO</span> <span class="ex-val">{{ selectedMedia?.genre }}</span></div>
                      </div>
                   </div>
                </div>
