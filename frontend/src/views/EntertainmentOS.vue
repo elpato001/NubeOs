@@ -220,51 +220,51 @@
               <div v-if="seriesMedia.length === 0" class="eos-empty-grid">Sin series disponibles</div>
             </div>
 
-               <!-- Plex Style Header -->
-               <div class="series-header-plex">
-                  <div class="header-poster-container">
-                    <img v-if="selectedMedia" :src="selectedMedia?.poster" class="header-poster-main" />
-                    <div class="poster-footer-info" v-if="selectedMedia">
-                       En progreso — T1 · E1
-                    </div>
+            <!-- Plex Style Header (Visible in Seasons and Episodes levels) -->
+            <div v-if="selectedMedia && activeSeriesLevel !== 'series'" class="series-header-plex animate-fade-in">
+               <div class="header-poster-container">
+                 <img v-if="selectedMedia" :src="selectedMedia?.poster" class="header-poster-main" />
+                 <div class="poster-footer-info" v-if="selectedMedia">
+                    En progreso — T1 · E1
+                 </div>
+               </div>
+               <div class="header-details-main">
+                  <h1 class="header-title-main">{{ selectedMedia?.series_name }}</h1>
+                  <div class="header-rating">
+                     <Star v-for="i in 5" :key="i" :size="18" :fill="i <= 3 ? '#eab308' : 'none'" :color="i <= 3 ? '#eab308' : '#444'" />
                   </div>
-                  <div class="header-details-main">
-                     <h1 class="header-title-main">{{ selectedMedia?.series_name }}</h1>
-                     <div class="header-rating">
-                        <Star v-for="i in 5" :key="i" :size="18" :fill="i <= 3 ? '#eab308' : 'none'" :color="i <= 3 ? '#eab308' : '#444'" />
-                     </div>
-                     <div class="header-actions-row">
-                        <button class="btn-play-plex" @click="playMain(selectedMedia)">
-                          <Play :size="20" fill="black" /> Reproducir
-                        </button>
-                        <button class="btn-circle-plex"><Check :size="20" /></button>
-                        <button class="btn-circle-plex" @click="editMedia(selectedMedia)"><Pencil :size="20" /></button>
-                        <button class="btn-circle-plex"><MoreHorizontal :size="20" /></button>
-                     </div>
+                  <div class="header-actions-row">
+                     <button class="btn-play-plex" @click="playMain(selectedMedia)">
+                       <Play :size="20" fill="black" /> Reproducir
+                     </button>
+                     <button class="btn-circle-plex"><Check :size="20" /></button>
+                     <button class="btn-circle-plex" @click="editMedia(selectedMedia)"><Pencil :size="20" /></button>
+                     <button class="btn-circle-plex"><MoreHorizontal :size="20" /></button>
                   </div>
                </div>
+            </div>
 
-               <!-- Seasons Grid Section -->
-               <div class="seasons-section-plex">
-                  <h3 class="section-title-plex">Temporadas</h3>
-                  <div class="seasons-grid-plex">
-                     <div v-for="season in currentSeasons" 
-                          :key="'sea-'+season.number" 
-                          class="season-card-plex" 
-                          @click="enterSeason(season)"
-                          :class="{ active: selectedSeason?.number === season.number }"
-                      >
-                        <div class="season-poster-plex">
-                           <img :src="selectedMedia?.poster" />
-                           <div class="season-badge-plex">{{ season.number }}</div>
-                        </div>
-                        <div class="season-info-plex">
-                           <div class="season-name-plex">Temporada {{ season.number }}</div>
-                           <div class="season-count-plex">{{ season.episodes.length }} episodio{{ season.episodes.length > 1 ? 's' : '' }}</div>
-                        </div>
+            <!-- Level 2: Seasons Grid Section -->
+            <div v-if="activeSeriesLevel === 'seasons'" class="seasons-section-plex animate-fade-in">
+               <h3 class="section-title-plex">Temporadas</h3>
+               <div class="seasons-grid-plex">
+                  <div v-for="season in currentSeasons" 
+                       :key="'sea-'+season.number" 
+                       class="season-card-plex" 
+                       @click="enterSeason(season)"
+                       :class="{ active: selectedSeason?.number === season.number }"
+                   >
+                     <div class="season-poster-plex">
+                        <img :src="selectedMedia?.poster" />
+                        <div class="season-badge-plex">{{ season.number }}</div>
+                     </div>
+                     <div class="season-info-plex">
+                        <div class="season-name-plex">Temporada {{ season.number }}</div>
+                        <div class="season-count-plex">{{ season.episodes.length }} episodio{{ season.episodes.length > 1 ? 's' : '' }}</div>
                      </div>
                   </div>
                </div>
+            </div>
 
             <!-- Level 3: Episodes Grid -->
             <div v-if="activeSeriesLevel === 'episodes'" class="episodes-detailed-grid">
