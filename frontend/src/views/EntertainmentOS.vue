@@ -927,7 +927,7 @@
         <div v-if="selectedMedia" class="eos-modal-overlay" @click.self="selectedMedia = null">
           <div class="eos-modal">
             <button class="eos-modal-close" @click="selectedMedia = null"><X :size="20" /></button>
-            <div class="eos-modal-banner" :style="{ backgroundImage: `url(${selectedMedia.banner_path ? '/api/entertainment/banner/' + selectedMedia.id + '?token=' + token : selectedMedia.poster})` }">
+            <div class="eos-modal-banner" :style="{ backgroundImage: `url(${selectedMedia?.banner_path ? '/api/entertainment/banner/' + selectedMedia.id + '?token=' + token : selectedMedia?.poster})` }">
               <div class="eos-modal-banner-overlay"></div>
               <div class="eos-modal-banner-content">
                 <h2>{{ selectedMedia.title }}</h2>
@@ -1359,6 +1359,7 @@ const availableSubs = ref<any[]>([]);
 const activeSub = ref<any>(null);
 const hasNextEpisode = ref(false);
 const activeSeason = ref(1);
+const selectedSeries = ref<any>(null);
 
 // Folder Browser State
 const showFolderPicker = ref(false);
@@ -1860,6 +1861,12 @@ const getEpisodesBySeason = (seriesName: string, season: number) => {
   return getEpisodes(seriesName).filter(e => e.season === season);
 };
 
+const openSeriesView = (s: any) => {
+  selectedSeries.value = s;
+  const seasons = getSeasonNumbers(s.series_name);
+  if (seasons.length > 0) activeSeason.value = seasons[0];
+};
+
 // Player Logic Functions
 const togglePlay = () => {
   if (!videoRef.value) return;
@@ -2212,12 +2219,15 @@ const writeNfoSingle = async (mediaId: number) => {
   }
 };
 
-const openDetails = (m: any) => {
-  selectedMedia.value = m;
-  if (m.isSeriesGroup) {
-    const seasons = getSeasonNumbers(m.series_name);
-    if (seasons.length > 0) activeSeason.value = seasons[0];
+const openMediaDetail = (m: any) => {
+  if (m.type === 'series' || m.series_name) {
+    // Navigate to deep series view instead of modal
+    activeNav.value = 'series';
+    enterSeries(m);
+    return;
   }
+  // Fast modal for movies and others
+  selectedMedia.value = m;
 };
 
 // Folder Browsing
@@ -3361,5 +3371,204 @@ video::-webkit-media-controls {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+
+/* --- FULL PAGE SERIES EXPLORER --- */
+.eos-full-series-page {
+  padding: 0;
+  margin: -30px; /* Offset parent padding if any */
+  min-height: 100vh;
+  background: #0f172a;
+}
+
+.series-hero-banner-full {
+  height: 500px;
+  position: relative;
+  background-size: cover;
+  background-position: center 20%;
+  padding: 40px;
+  display: flex;
+  align-items: flex-end;
+}
+
+.hero-content-full {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+}
+
+.back-nav-btn {
+  position: absolute;
+  top: -300px;
+  left: 0;
+  background: rgba(0,0,0,0.5);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: white;
+  padding: 10px 20px;
+  border-radius: 30px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background 0.2s;
+}
+
+.back-nav-btn:hover {
+  background: rgba(0,0,0,0.8);
+}
+
+.hero-main-info {
+  display: flex;
+  gap: 40px;
+  align-items: flex-end;
+}
+
+.hero-poster-lg {
+  width: 240px;
+  border-radius: 12px;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+}
+
+.hero-text-lg {
+  flex: 1;
+  padding-bottom: 20px;
+}
+
+.hero-title-lg {
+  font-size: 3.5rem;
+  font-weight: 900;
+  margin-bottom: 10px;
+  text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+}
+
+.hero-desc-lg {
+  font-size: 1.1rem;
+  max-width: 800px;
+  opacity: 0.8;
+  margin: 20px 0;
+  line-height: 1.6;
+}
+
+.explorer-inner-section {
+  padding: 40px;
+}
+
+.section-label {
+  font-size: 1.4rem;
+  font-weight: 700;
+  margin-bottom: 20px;
+  color: #94a3b8;
+}
+
+/* Cast Row */
+.cast-row-scroll {
+  display: flex;
+  gap: 15px;
+  overflow-x: auto;
+  padding-bottom: 15px;
+}
+
+.cast-pill {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255,255,255,0.05);
+  padding: 8px 15px;
+  border-radius: 40px;
+  flex-shrink: 0;
+}
+
+.cast-pill img {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.a-name { font-weight: 600; display: block; font-size: 0.9rem; }
+.a-char { font-size: 0.75rem; opacity: 0.5; display: block; }
+
+/* Season Chips */
+.season-chips {
+  display: flex;
+  gap: 10px;
+}
+
+.season-chip {
+  background: rgba(255,255,255,0.05);
+  border: none;
+  color: white;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.season-chip.active {
+  background: #ef4444;
+}
+
+/* Wide Episode Cards */
+.episodes-grid-full {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+  gap: 25px;
+  margin-top: 20px;
+}
+
+.ep-card-wide {
+  display: flex;
+  gap: 20px;
+  background: rgba(255,255,255,0.03);
+  padding: 15px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.ep-card-wide:hover {
+  background: rgba(255,255,255,0.08);
+}
+
+.ep-thumb {
+  width: 180px;
+  aspect-ratio: 16/9;
+  position: relative;
+  flex-shrink: 0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.ep-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ep-play-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.ep-card-wide:hover .ep-play-overlay { opacity: 1; }
+
+.ep-details {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.ep-num-v { color: #ef4444; font-weight: 800; margin-right: 10px; }
+.ep-name-v { font-weight: 600; font-size: 1.1rem; }
+.ep-desc-v { font-size: 0.85rem; opacity: 0.6; margin-top: 8px; line-height: 1.4; }
 
 </style>
