@@ -164,10 +164,30 @@ try {
   defaultLibs.forEach(lib => {
     const fullPath = path.join(multimediaBase, lib.folder);
     
-    // 1. Create directory if missing
-    if (!fs.existsSync(fullPath)) {
-      fs.mkdirSync(fullPath, { recursive: true });
-      console.log(`📁 Carpeta multimedia creada: ${fullPath}`);
+    // 1. Migration: Move from old path (/opt/data/multimedia) to new path if old exists
+    const oldPath = '/opt/data/multimedia';
+    if (fs.existsSync(oldPath) && oldPath !== multimediaBase) {
+      try {
+        const oldFiles = fs.readdirSync(oldPath);
+        if (oldFiles.length > 0) {
+          console.log(`🚚 Detectada ruta antigua con archivos en ${oldPath}. Migrando...`);
+          oldFiles.forEach(file => {
+            const src = path.join(oldPath, file);
+            const dest = path.join(multimediaBase, file);
+            if (!fs.existsSync(dest)) {
+              fs.renameSync(src, dest);
+              console.log(`   ✅ Movido: ${file}`);
+            }
+          });
+        }
+      } catch (err) {
+        console.warn(`⚠️ Error durante migración de carpetas: ${err.message}`);
+      }
+    }
+
+    // 2. Create directory if missing
+    if (!fs.existsSync(multimediaBase)) {
+      fs.mkdirSync(multimediaBase, { recursive: true });
     }
 
     // 2. Register in DB if missing
