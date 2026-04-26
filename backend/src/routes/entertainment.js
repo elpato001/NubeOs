@@ -890,12 +890,12 @@ router.post('/admin/media/identify', authMiddleware, async (req, res) => {
       bannerPath = await downloadImageToMediaDir(metadata.bannerPath, videoFilePath, 'fanart');
     }
 
-    // Update with ALL enhanced metadata
+    // Update with ALL enhanced metadata (INCLUDING TYPE)
     db.prepare(`
       UPDATE eo_media 
       SET title = ?, description = ?, genre = ?, year = ?, rating = ?, poster_path = ?, banner_path = ?,
           tagline = ?, certification = ?, runtime = ?, trailer_url = ?, imdb_id = ?, tmdb_id = ?,
-          director = ?, writer = ?, studio = ?, country = ?, set_name = ?, actors = ?
+          director = ?, writer = ?, studio = ?, country = ?, set_name = ?, actors = ?, type = ?
       WHERE id = ?
     `).run(
       metadata.title, 
@@ -917,6 +917,7 @@ router.post('/admin/media/identify', authMiddleware, async (req, res) => {
       metadata.country,
       metadata.setName || metadata.set_name,
       metadata.cast ? JSON.stringify(metadata.cast) : null,
+      type || media.type,
       mediaId
     );
 
@@ -930,22 +931,24 @@ router.post('/admin/media/identify', authMiddleware, async (req, res) => {
     }
 
     // If this movie belongs to a collection, upsert the set
-    if (tmdbData.collection && tmdbData.setName) {
+    if (metadata.collection && metadata.setName) {
       try {
-        const existingSet = db.prepare('SELECT id FROM eo_sets WHERE name = ?').get(tmdbData.setName);
+        const existingSet = db.prepare('SELECT id FROM eo_sets WHERE name = ?').get(metadata.setName);
         if (!existingSet) {
-          const setPosters = await downloadImage(tmdbData.collection.posterPath, `set_poster_${tmdbData.collection.id}`);
-          const setBanner = await downloadImage(tmdbData.collection.backdropPath, `set_banner_${tmdbData.collection.id}`);
+          const setPosters = await downloadImage(metadata.collection.posterPath, `set_poster_${metadata.collection.id}`);
+          const setBanner = await downloadImage(metadata.collection.backdropPath, `set_banner_${metadata.collection.id}`);
           db.prepare('INSERT OR IGNORE INTO eo_sets (name, tmdb_id, poster_path, banner_path) VALUES (?, ?, ?, ?)')
-            .run(tmdbData.setName, tmdbData.collection.id, setPosters, setBanner);
+            .run(metadata.setName, metadata.collection.id, setPosters, setBanner);
         }
       } catch (setErr) {
         console.warn('Set creation warning:', setErr.message);
       }
     }
 
-    res.json({ success: true, metadata: tmdbData });
+    console.log(`✅ Media identificada con éxito: ${metadata.title} (${type || media.type})`);
+    res.json({ success: true, metadata: metadata });
   } catch (error) {
+    console.error('❌ Error en identificación manual:', error.stack);
     res.status(500).json({ error: error.message });
   }
 });
