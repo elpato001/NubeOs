@@ -14,18 +14,27 @@ const NUBEOS_ROOT = path.resolve(process.cwd(), '..');
 
 // --- HELPERS MOVED UP FOR SCOPE ---
 const getAllFiles = (dirPath, arrayOfFiles) => {
-  if (!fs.existsSync(dirPath)) return [];
-  const files = fs.readdirSync(dirPath);
-  arrayOfFiles = arrayOfFiles || [];
-  files.forEach(file => {
-    const fullPath = path.join(dirPath, file);
-    if (fs.statSync(fullPath).isDirectory()) {
-      arrayOfFiles = getAllFiles(fullPath, arrayOfFiles);
-    } else {
-      arrayOfFiles.push(fullPath);
-    }
-  });
-  return arrayOfFiles;
+  try {
+    if (!fs.existsSync(dirPath)) return arrayOfFiles || [];
+    const files = fs.readdirSync(dirPath);
+    arrayOfFiles = arrayOfFiles || [];
+    files.forEach(function(file) {
+      const fullPath = path.join(dirPath, file);
+      try {
+        if (fs.statSync(fullPath).isDirectory()) {
+          arrayOfFiles = getAllFiles(fullPath, arrayOfFiles);
+        } else {
+          arrayOfFiles.push(fullPath);
+        }
+      } catch (e) {
+        console.error(`Error processing path ${fullPath}:`, e.message);
+      }
+    });
+    return arrayOfFiles;
+  } catch (err) {
+    console.error(`Error reading directory ${dirPath}:`, err.message);
+    return arrayOfFiles || [];
+  }
 };
 
 /**
@@ -559,6 +568,7 @@ router.get('/admin/diagnostic', (req, res) => {
       type: lib.type,
       path: lib.path,
       exists: fs.existsSync(lib.path),
+      rawContents: fs.existsSync(lib.path) ? fs.readdirSync(lib.path).slice(0, 10) : [],
       fileCount: fs.existsSync(lib.path) ? getAllFiles(lib.path).length : 0,
       isRelative: !path.isAbsolute(lib.path)
     }));
