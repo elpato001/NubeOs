@@ -547,6 +547,35 @@ router.delete('/admin/libraries/:id', authMiddleware, (req, res) => {
   }
 });
 
+// 6b. Admin - Diagnostic: show all resolved paths and library status
+router.get('/admin/diagnostic', authMiddleware, (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' });
+  try {
+    const libraries = db.prepare('SELECT * FROM eo_libraries').all();
+    const mediaCount = db.prepare('SELECT COUNT(*) as count FROM eo_media').get();
+    
+    const libDetails = libraries.map(lib => ({
+      id: lib.id,
+      name: lib.name,
+      type: lib.type,
+      path: lib.path,
+      exists: fs.existsSync(lib.path),
+      fileCount: fs.existsSync(lib.path) ? getAllFiles(lib.path).length : 0
+    }));
+
+    res.json({
+      cwd: process.cwd(),
+      projectRoot: path.resolve(process.cwd(), '..'),
+      dbPath: process.env.DB_PATH || 'data/db/nubeos.sqlite (relative)',
+      multimediaBase: path.join(path.resolve(process.cwd(), '..'), 'data', 'multimedia'),
+      totalMediaInDB: mediaCount.count,
+      libraries: libDetails
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // 7. Admin - Scan Libraries
 router.post('/admin/scan', authMiddleware, async (req, res) => {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' });
@@ -554,26 +583,34 @@ router.post('/admin/scan', authMiddleware, async (req, res) => {
     const libraries = db.prepare('SELECT * FROM eo_libraries').all();
     let newItems = 0;
     let totalFiles = 0;
+    const libraryResults = [];
 
     console.log(`🔍 Escaneo iniciado. ${libraries.length} librerías registradas.`);
 
     for (const lib of libraries) {
       const exists = fs.existsSync(lib.path);
       console.log(`📁 Librería: "${lib.name}" (${lib.type}) → ${lib.path} [${exists ? 'EXISTE' : '⚠️ NO EXISTE'}]`);
-      if (!exists) continue;
+      
+      if (!exists) {
+        libraryResults.push({ name: lib.name, path: lib.path, status: 'NO_EXISTE', files: 0 });
+        continue;
+      }
       
       const allFiles = getAllFiles(lib.path);
       console.log(`   📄 ${allFiles.length} archivos encontrados`);
       totalFiles += allFiles.length;
+      let libNewItems = 0;
       
       for (const filePath of allFiles) {
         const isNew = await processFile(filePath, lib);
-        if (isNew) newItems++;
+        if (isNew) { newItems++; libNewItems++; }
       }
+      
+      libraryResults.push({ name: lib.name, path: lib.path, status: 'OK', files: allFiles.length, newItems: libNewItems });
     }
     
     console.log(`✅ Escaneo completado: ${totalFiles} archivos procesados, ${newItems} nuevos.`);
-    res.json({ success: true, newItems, totalFiles });
+    res.json({ success: true, newItems, totalFiles, libraries: libraryResults });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
