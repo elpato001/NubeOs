@@ -1250,7 +1250,7 @@ import {
   Clapperboard, Home, Film, Tv, Music, Search, Bell, User, ChevronDown,
   ChevronLeft, ChevronRight, Play, Pause, Info, Settings2, X, Plus, Star, Loader2, Trash2, Folder, MonitorPlay,
   RotateCcw, ListMusic, FileText, Zap, CheckCircle2, AlertCircle, Download, Disc, Mic2,
-  Maximize, Minimize, Volume2, VolumeX, ArrowRight
+  Maximize, Minimize, Volume1, Volume2, VolumeX, ArrowRight
 } from 'lucide-vue-next';
 import axios from 'axios';
 import { useDesktopStore } from '../stores/desktop';
