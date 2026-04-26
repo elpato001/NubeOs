@@ -1104,36 +1104,49 @@
 
             <div class="player-controls-main">
               <div class="controls-left">
-                <button @click="togglePlay" class="main-play-btn">
-                  <component :is="isPaused ? Play : Pause" :size="28" fill="currentColor" />
+                <button @click="togglePlay" class="main-play-btn" :title="isPaused ? 'Reproducir' : 'Pausar'">
+                  <component :is="isPaused ? Play : Pause" :size="32" fill="currentColor" />
                 </button>
-                <button @click="skip(-10)" class="skip-btn"><RotateCcw :size="22" /><span>10</span></button>
-                <button @click="skip(10)" class="skip-btn"><RotateCcw :size="22" class="rotate-180" /><span>10</span></button>
-                
-                <div class="volume-control">
-                  <button @click="toggleMute">
-                    <component :is="isMuted ? VolumeX : Volume2" :size="20" />
+                <div class="skip-group">
+                  <button @click="skip(-10)" class="skip-btn-modern" title="Retroceder 10s">
+                    <RotateCcw :size="20" />
+                    <span class="skip-label">10</span>
                   </button>
-                  <input type="range" v-model="playerVolume" min="0" max="1" step="0.1" class="volume-slider" />
+                  <button @click="skip(10)" class="skip-btn-modern" title="Adelantar 10s">
+                    <RotateCcw :size="20" class="rotate-180" />
+                    <span class="skip-label">10</span>
+                  </button>
+                </div>
+                
+                <div class="volume-control-modern">
+                  <button @click="toggleMute" class="icon-btn-minimal">
+                    <component :is="isMuted || playerVolume === 0 ? VolumeX : playerVolume < 0.5 ? Volume1 : Volume2" :size="22" />
+                  </button>
+                  <div class="volume-slider-container">
+                    <input type="range" v-model="playerVolume" min="0" max="1" step="0.01" class="volume-slider-modern" />
+                  </div>
                 </div>
 
-                <div class="player-time-display">
-                  {{ formatTime(currentTime) }} / {{ formatTime(duration) }}
+                <div class="player-time-display-modern">
+                  <span class="current">{{ formatTime(currentTime) }}</span>
+                  <span class="separator">/</span>
+                  <span class="total">{{ formatTime(duration) }}</span>
                 </div>
               </div>
 
               <div class="controls-right">
-                <button v-if="hasNextEpisode" @click="playNextEpisode" class="icon-btn-text">
-                  <ArrowRight :size="20" /> Siguiente
+                <button v-if="hasNextEpisode" @click="playNextEpisode" class="next-btn-modern">
+                  <span>Siguiente episodio</span>
+                  <ArrowRight :size="18" />
                 </button>
-                <button @click="showQualityMenu = !showQualityMenu" class="icon-btn" :class="{ active: selectedQuality !== 'original' }">
-                  <Zap :size="20" />
+                <button @click="showQualityMenu = !showQualityMenu" class="icon-btn-modern" :class="{ active: selectedQuality !== 'original' }" title="Calidad">
+                  <Zap :size="22" />
                 </button>
-                <button @click="showSubMenu = !showSubMenu" class="icon-btn" :class="{ active: activeSub }">
-                  <FileText :size="20" />
+                <button @click="showSubMenu = !showSubMenu" class="icon-btn-modern" :class="{ active: activeSub }" title="Subtítulos">
+                  <FileText :size="22" />
                 </button>
-                <button @click="toggleFullscreen" class="icon-btn">
-                  <component :is="isFullscreen ? Minimize : Maximize" :size="20" />
+                <button @click="toggleFullscreen" class="icon-btn-modern" title="Pantalla completa">
+                  <component :is="isFullscreen ? Minimize : Maximize" :size="22" />
                 </button>
               </div>
             </div>
@@ -3034,96 +3047,205 @@ video::-webkit-media-controls {
   display: block;
 }
 
-/* Main Controls */
+/* Modern Player Controls */
+.player-controls-container {
+  background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.4) 60%, transparent 100%);
+  padding: 30px 40px;
+  backdrop-filter: blur(8px);
+  border-top: 1px solid rgba(255,255,255,0.05);
+}
+
 .player-controls-main {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-top: 15px;
 }
 
 .controls-left, .controls-right {
   display: flex;
   align-items: center;
-  gap: 25px;
+  gap: 20px;
 }
 
+/* Main Play Button */
 .main-play-btn {
-  background: white;
-  color: black;
-  width: 54px;
-  height: 54px;
+  background: #ef4444;
+  color: white;
+  width: 64px;
+  height: 64px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   border: none;
   cursor: pointer;
-  transition: transform 0.2s;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.4);
 }
 
 .main-play-btn:hover {
   transform: scale(1.1);
+  background: #f87171;
+  box-shadow: 0 0 30px rgba(239, 68, 68, 0.6);
 }
 
-.skip-btn {
+.main-play-btn:active {
+  transform: scale(0.95);
+}
+
+/* Skip Buttons */
+.skip-group {
+  display: flex;
+  gap: 12px;
+}
+
+.skip-btn-modern {
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: white;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.skip-btn-modern:hover {
+  background: rgba(255,255,255,0.2);
+  transform: translateY(-2px);
+}
+
+.skip-label {
+  font-size: 0.6rem;
+  font-weight: 800;
+  position: absolute;
+  top: 52%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+/* Volume Control */
+.volume-control-modern {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 10px;
+}
+
+.volume-slider-container {
+  width: 0;
+  overflow: hidden;
+  transition: width 0.3s ease;
+}
+
+.volume-control-modern:hover .volume-slider-container {
+  width: 100px;
+}
+
+.volume-slider-modern {
+  width: 100px;
+  height: 4px;
+  -webkit-appearance: none;
+  background: rgba(255,255,255,0.2);
+  border-radius: 2px;
+  outline: none;
+}
+
+.volume-slider-modern::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  background: white;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 0 10px rgba(0,0,0,0.5);
+}
+
+/* Time Display */
+.player-time-display-modern {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: white;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.player-time-display-modern .total {
+  opacity: 0.5;
+}
+
+.player-time-display-modern .separator {
+  opacity: 0.3;
+  margin: 0 2px;
+}
+
+/* Right Controls */
+.next-btn-modern {
+  background: white;
+  color: black;
+  padding: 8px 20px;
+  border-radius: 30px;
+  border: none;
+  font-weight: 700;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.next-btn-modern:hover {
+  background: #f1f5f9;
+  transform: translateX(5px);
+}
+
+.icon-btn-modern {
+  background: none;
+  border: none;
+  color: white;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  opacity: 0.7;
+}
+
+.icon-btn-modern:hover {
+  background: rgba(255,255,255,0.1);
+  opacity: 1;
+  transform: translateY(-2px);
+}
+
+.icon-btn-modern.active {
+  color: #ef4444;
+  opacity: 1;
+}
+
+.icon-btn-minimal {
   background: none;
   border: none;
   color: white;
   cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  font-size: 0.7rem;
-  font-weight: 700;
-  opacity: 0.8;
+  opacity: 0.7;
   transition: opacity 0.2s;
 }
 
-.skip-btn:hover {
+.icon-btn-minimal:hover {
   opacity: 1;
-}
-
-.skip-btn span {
-  margin-top: -12px;
-}
-
-.rotate-180 {
-  transform: rotateY(180deg);
-}
-
-.volume-control {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.volume-slider {
-  width: 80px;
-  accent-color: white;
-}
-
-.player-time-display {
-  font-family: monospace;
-  font-size: 0.95rem;
-  opacity: 0.8;
-}
-
-.icon-btn-text {
-  background: rgba(255,255,255,0.1);
-  border: none;
-  color: white;
-  padding: 8px 16px;
-  border-radius: 20px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.icon-btn-text:hover {
-  background: rgba(255,255,255,0.2);
 }
 
 /* Center Feedback */
