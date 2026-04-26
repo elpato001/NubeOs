@@ -1,8 +1,10 @@
 const path = require('path');
 const fs = require('fs');
 
-const DATA_DIR = path.resolve(__dirname, '../../../../data/users');
-const MULTIMEDIA_DIR = path.resolve(__dirname, '../../../../data/multimedia');
+// Resolve directories relative to the project root (one level above backend/)
+const projectRoot = path.resolve(process.cwd(), '..');
+const DATA_DIR = path.join(projectRoot, 'data', 'users');
+const MULTIMEDIA_DIR = path.join(projectRoot, 'data', 'multimedia');
 
 const getUserRoot = (username) => {
   const userPath = path.join(DATA_DIR, username);
