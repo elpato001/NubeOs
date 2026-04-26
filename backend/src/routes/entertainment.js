@@ -10,7 +10,7 @@ const musicService = require('../services/musicService');
 const nfoService = require('../services/nfoService');
 const { downloadImage, downloadImageToMediaDir } = require('../utils/imageDownloader');
 
-const NUBEOS_ROOT = path.resolve(__dirname, '../../../..');
+const NUBEOS_ROOT = path.resolve(process.cwd(), '..');
 
 // --- HELPERS MOVED UP FOR SCOPE ---
 const getAllFiles = (dirPath, arrayOfFiles) => {
@@ -553,16 +553,27 @@ router.post('/admin/scan', authMiddleware, async (req, res) => {
   try {
     const libraries = db.prepare('SELECT * FROM eo_libraries').all();
     let newItems = 0;
+    let totalFiles = 0;
+
+    console.log(`🔍 Escaneo iniciado. ${libraries.length} librerías registradas.`);
 
     for (const lib of libraries) {
-      if (!fs.existsSync(lib.path)) continue;
+      const exists = fs.existsSync(lib.path);
+      console.log(`📁 Librería: "${lib.name}" (${lib.type}) → ${lib.path} [${exists ? 'EXISTE' : '⚠️ NO EXISTE'}]`);
+      if (!exists) continue;
+      
       const allFiles = getAllFiles(lib.path);
+      console.log(`   📄 ${allFiles.length} archivos encontrados`);
+      totalFiles += allFiles.length;
+      
       for (const filePath of allFiles) {
         const isNew = await processFile(filePath, lib);
         if (isNew) newItems++;
       }
     }
-    res.json({ success: true, newItems });
+    
+    console.log(`✅ Escaneo completado: ${totalFiles} archivos procesados, ${newItems} nuevos.`);
+    res.json({ success: true, newItems, totalFiles });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

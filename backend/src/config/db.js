@@ -5,15 +5,16 @@ const dotenv = require('dotenv');
 
 dotenv.config();
 
-// Resolve DB path: target /opt/nubeos/data/db/nubeos.sqlite or relative for development
+// Resolve DB path
 let dbPath;
 const envDbPath = process.env.DB_PATH || 'data/db/nubeos.sqlite';
 
 if (path.isAbsolute(envDbPath)) {
+  // Production: absolute path like /opt/nubeos/data/db/nubeos.sqlite
   dbPath = envDbPath;
 } else {
-  // Standard project structure: backend/src/config/db.js -> ../../ is backend root
-  dbPath = path.resolve(__dirname, '../../', envDbPath);
+  // Relative paths resolve from process.cwd() (backend/ in production via systemd)
+  dbPath = path.resolve(process.cwd(), envDbPath);
 }
 
 // Ensure the database directory exists
@@ -23,6 +24,8 @@ if (!fs.existsSync(dbDir)) {
 }
 
 const db = new Database(dbPath);
+console.log(`📂 CWD: ${process.cwd()}`);
+console.log(`📂 DB Path: ${dbPath}`);
 
 // Initialize tables
 db.exec(`
@@ -147,7 +150,10 @@ newColumns.forEach(col => {
 });
 
 // --- Multimedia Structure Initialization ---
-const multimediaBase = path.resolve(__dirname, '../../../data/multimedia');
+// Resolve multimedia base relative to the project root (one level above backend/)
+const projectRoot = path.resolve(process.cwd(), '..');
+const multimediaBase = path.join(projectRoot, 'data', 'multimedia');
+console.log(`📂 Multimedia Base: ${multimediaBase}`);
 const defaultLibs = [
   { name: 'Películas', folder: 'Peliculas', type: 'movie' },
   { name: 'Series', folder: 'Series', type: 'series' },

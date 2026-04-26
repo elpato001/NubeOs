@@ -3,7 +3,8 @@ const path = require('path');
 const { pipeline } = require('stream/promises');
 
 // Central cache directory (for set posters and other non-media images)
-const CACHE_DIR = path.resolve(__dirname, '../../../data/entertainment/cache');
+const projectRoot = path.resolve(process.cwd(), '..');
+const CACHE_DIR = path.join(projectRoot, 'data', 'entertainment', 'cache');
 if (!fs.existsSync(CACHE_DIR)) {
   fs.mkdirSync(CACHE_DIR, { recursive: true });
 }
