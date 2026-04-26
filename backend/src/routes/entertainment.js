@@ -547,9 +547,8 @@ router.delete('/admin/libraries/:id', authMiddleware, (req, res) => {
   }
 });
 
-// 6b. Admin - Diagnostic: show all resolved paths and library status
-router.get('/admin/diagnostic', authMiddleware, (req, res) => {
-  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' });
+// 6b. Admin - Diagnostic: show all resolved paths and library status (TEMPORARILY PUBLIC FOR DEBUGGING)
+router.get('/admin/diagnostic', (req, res) => {
   try {
     const libraries = db.prepare('SELECT * FROM eo_libraries').all();
     const mediaCount = db.prepare('SELECT COUNT(*) as count FROM eo_media').get();
@@ -560,16 +559,33 @@ router.get('/admin/diagnostic', authMiddleware, (req, res) => {
       type: lib.type,
       path: lib.path,
       exists: fs.existsSync(lib.path),
-      fileCount: fs.existsSync(lib.path) ? getAllFiles(lib.path).length : 0
+      fileCount: fs.existsSync(lib.path) ? getAllFiles(lib.path).length : 0,
+      isRelative: !path.isAbsolute(lib.path)
+    }));
+
+    // Check some common paths
+    const possiblePaths = [
+      '/opt/nubeos/data/multimedia',
+      path.join(process.cwd(), '..', 'data', 'multimedia'),
+      path.join(process.cwd(), 'data', 'multimedia'),
+      '/data/multimedia'
+    ];
+
+    const pathAudit = possiblePaths.map(p => ({
+      path: p,
+      exists: fs.existsSync(p),
+      abs: path.resolve(p)
     }));
 
     res.json({
+      timestamp: new Date().toISOString(),
       cwd: process.cwd(),
       projectRoot: path.resolve(process.cwd(), '..'),
       dbPath: process.env.DB_PATH || 'data/db/nubeos.sqlite (relative)',
       multimediaBase: path.join(path.resolve(process.cwd(), '..'), 'data', 'multimedia'),
       totalMediaInDB: mediaCount.count,
-      libraries: libDetails
+      libraries: libDetails,
+      pathAudit: pathAudit
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
