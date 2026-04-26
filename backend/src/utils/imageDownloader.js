@@ -2,8 +2,8 @@ const fs = require('fs');
 const path = require('path');
 const { pipeline } = require('stream/promises');
 
-// Fallback cache directory (for set posters and other non-media images)
-const CACHE_DIR = path.resolve(__dirname, '../../../../data/entertainment/cache');
+// Central cache directory (for set posters and other non-media images)
+const CACHE_DIR = path.resolve(__dirname, '../../../data/entertainment/cache');
 if (!fs.existsSync(CACHE_DIR)) {
   fs.mkdirSync(CACHE_DIR, { recursive: true });
 }
@@ -32,7 +32,7 @@ const downloadImageToMediaDir = async (urlOrPath, videoFilePath, imageType = 'po
 
     // Skip download if file already exists and is not empty
     if (fs.existsSync(localPath) && fs.statSync(localPath).size > 0) {
-      return localPath.replace(/\\/g, '/');
+      return localPath;
     }
 
     if (skipDownload) return urlOrPath;
@@ -45,7 +45,7 @@ const downloadImageToMediaDir = async (urlOrPath, videoFilePath, imageType = 'po
     await fs.promises.writeFile(localPath, buffer);
 
     console.log(`🖼️  Imagen guardada: ${imageFilename}`);
-    return localPath.replace(/\\/g, '/');
+    return localPath;
   } catch (error) {
     console.error('Error downloading image to media dir:', error.message);
     return skipDownload ? urlOrPath : null;
@@ -70,7 +70,7 @@ const downloadImage = async (urlOrPath, filename, skipDownload = false) => {
     const localPath = path.join(CACHE_DIR, localFilename);
 
     if (fs.existsSync(localPath) && fs.statSync(localPath).size > 0) {
-      return localPath.replace(/\\/g, '/');
+      return localPath;
     }
 
     if (skipDownload) return urlOrPath;
@@ -82,7 +82,7 @@ const downloadImage = async (urlOrPath, filename, skipDownload = false) => {
     const buffer = Buffer.from(arrayBuffer);
     await fs.promises.writeFile(localPath, buffer);
 
-    return localPath.replace(/\\/g, '/');
+    return localPath;
   } catch (error) {
     console.error('Error downloading image:', error.message);
     return skipDownload ? urlOrPath : null;

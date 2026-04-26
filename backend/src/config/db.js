@@ -5,16 +5,15 @@ const dotenv = require('dotenv');
 
 dotenv.config();
 
-// Resolve DB path: support absolute paths (production) and relative paths (development)
+// Resolve DB path: target /opt/nubeos/data/db/nubeos.sqlite or relative for development
 let dbPath;
-const envDbPath = process.env.DB_PATH || '';
+const envDbPath = process.env.DB_PATH || 'data/db/nubeos.sqlite';
 
-if (envDbPath && path.isAbsolute(envDbPath)) {
-  // Production: absolute path like /opt/nubeos/data/db/nubeos.sqlite
+if (path.isAbsolute(envDbPath)) {
   dbPath = envDbPath;
 } else {
-  // Development: relative path from backend folder. Now pointing to /opt/data (Two levels above backend)
-  dbPath = path.resolve(__dirname, '../../../../', envDbPath || 'data/db/nubeos.sqlite');
+  // Standard project structure: backend/src/config/db.js -> ../../ is backend root
+  dbPath = path.resolve(__dirname, '../../', envDbPath);
 }
 
 // Ensure the database directory exists
@@ -121,25 +120,6 @@ db.exec(`
   );
 `);
 
-// Migration: Fix incorrect /backend/data and /nubeos/data paths in existing databases
-try {
-  // Fix /backend/data/ -> /data/
-  db.prepare("UPDATE eo_libraries SET path = REPLACE(path, '/backend/data/', '/data/') WHERE path LIKE '%/backend/data/%'").run();
-  db.prepare("UPDATE eo_media SET file_path = REPLACE(file_path, '/backend/data/', '/data/') WHERE file_path LIKE '%/backend/data/%'").run();
-  
-  // Fix /nubeos/data/ -> /data/
-  const result = db.prepare("UPDATE eo_libraries SET path = REPLACE(path, '/nubeos/data/', '/data/') WHERE path LIKE '%/nubeos/data/%'").run();
-  if (result.changes > 0) {
-    console.log(`🧹 Migración completada: ${result.changes} rutas de librería corregidas (nubeos removed).`);
-  }
-
-  const mediaResult = db.prepare("UPDATE eo_media SET file_path = REPLACE(file_path, '/nubeos/data/', '/data/') WHERE file_path LIKE '%/nubeos/data/%'").run();
-  if (mediaResult.changes > 0) {
-    console.log(`🧹 Migración completada: ${mediaResult.changes} rutas de medios corregidas (nubeos removed).`);
-  }
-} catch (e) {
-  console.warn('⚠️ Fallo en migración de rutas:', e.message);
-}
 
 // Migration: Ensure 'type' column exists in eo_libraries
 try {
@@ -167,7 +147,7 @@ newColumns.forEach(col => {
 });
 
 // --- Multimedia Structure Initialization ---
-const multimediaBase = path.resolve(__dirname, '../../../../data/multimedia');
+const multimediaBase = path.resolve(__dirname, '../../../data/multimedia');
 const defaultLibs = [
   { name: 'Películas', folder: 'Peliculas', type: 'movie' },
   { name: 'Series', folder: 'Series', type: 'series' },
@@ -176,7 +156,7 @@ const defaultLibs = [
 
 try {
   defaultLibs.forEach(lib => {
-    const fullPath = path.join(multimediaBase, lib.folder).replace(/\\/g, '/');
+    const fullPath = path.join(multimediaBase, lib.folder);
     
     // 1. Create directory if missing
     if (!fs.existsSync(fullPath)) {

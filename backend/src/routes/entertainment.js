@@ -111,8 +111,15 @@ const processFile = async (filePath, lib) => {
 
   let type = lib.type || (isAudio ? 'music' : 'movie');
 
-  const existing = db.prepare('SELECT id, poster_path, description FROM eo_media WHERE file_path = ?').get(filePath);
-  if (existing && existing.poster_path && existing.description) return false;
+  const existing = db.prepare('SELECT id, poster_path, banner_path, description, tmdb_id FROM eo_media WHERE file_path = ?').get(filePath);
+  
+  // Check if poster is a REAL local file (not an HTTP URL, not null, and actually exists on disk)
+  const hasLocalPoster = existing && existing.poster_path 
+    && !existing.poster_path.startsWith('http') 
+    && fs.existsSync(existing.poster_path);
+  
+  // Only skip if we have BOTH a real local poster AND a description
+  if (existing && hasLocalPoster && existing.description) return false;
 
   // Default values
   let title = fileNameNoExt;
@@ -244,35 +251,58 @@ const processFile = async (filePath, lib) => {
     if (p.genre) title = title; // keep genre from NFO
   }
 
-  // If no NFO or incomplete data, try TMDB
-  if (!description) {
-    if (isSeries && season !== null && episode !== null && seriesName) {
-      // It's an episode: Search for the TV Show first to get its ID
-      const showData = await tmdbService.searchMedia(seriesName, null, 'series');
-      if (showData) {
-        const epData = await tmdbService.getEpisodeDetails(showData.tmdbId, season, episode);
-        if (epData) {
-          title = epData.title || title;
-          description = epData.description;
-          rating = epData.rating;
-          runtime = epData.runtime;
-          // Episodes use "thumb" naming convention for the screenshot
-          posterPath = await downloadImageToMediaDir(epData.stillPath, filePath, 'thumb');
-          // For episodes, banner is usually the show's banner
-          bannerPath = await downloadImageToMediaDir(showData.bannerPath, filePath, 'fanart');
-          tmdb_id = showData.tmdbId;
+  // TMDB: Search for metadata AND images
+  // Always attempt if we don't have a local poster, even if we already have a description from NFO
+  const needsImages = !hasLocalPoster;
+  const needsDescription = !description;
+
+  if (needsImages || needsDescription) {
+    try {
+      if (isSeries && season !== null && episode !== null && seriesName) {
+        // It's an episode: Search for the TV Show first to get its ID
+        const showData = await tmdbService.searchMedia(seriesName, null, 'series');
+        if (showData) {
+          const epData = await tmdbService.getEpisodeDetails(showData.tmdbId, season, episode);
+          if (epData) {
+            if (needsDescription) {
+              title = epData.title || title;
+              description = epData.description;
+              rating = epData.rating;
+              runtime = epData.runtime;
+            }
+            tmdb_id = showData.tmdbId;
+            // Always attempt image download if we need images
+            if (needsImages) {
+              posterPath = await downloadImageToMediaDir(epData.stillPath || showData.posterPath, filePath, 'thumb');
+              bannerPath = await downloadImageToMediaDir(showData.bannerPath, filePath, 'fanart');
+            }
+          } else if (needsImages) {
+            // No episode data but we have show data - use show poster
+            posterPath = await downloadImageToMediaDir(showData.posterPath, filePath, 'poster');
+            bannerPath = await downloadImageToMediaDir(showData.bannerPath, filePath, 'fanart');
+          }
+          if (needsDescription && !description) {
+            description = showData.description;
+            rating = showData.rating;
+          }
+        }
+      } else if (type !== 'music') {
+        const tmdbData = await tmdbService.searchMedia(title, year, type);
+        if (tmdbData) {
+          if (needsDescription) {
+            title = tmdbData.title || title; 
+            description = tmdbData.description; 
+            rating = tmdbData.rating;
+          }
+          tmdb_id = tmdbData.tmdbId;
+          if (needsImages) {
+            posterPath = await downloadImageToMediaDir(tmdbData.posterPath, filePath, 'poster');
+            bannerPath = await downloadImageToMediaDir(tmdbData.bannerPath, filePath, 'fanart');
+          }
         }
       }
-    } else {
-      const tmdbData = await tmdbService.searchMedia(title, year, type);
-      if (tmdbData) {
-        title = tmdbData.title || title; 
-        description = tmdbData.description; 
-        rating = tmdbData.rating;
-        tmdb_id = tmdbData.tmdbId;
-        posterPath = await downloadImageToMediaDir(tmdbData.posterPath, filePath, 'poster');
-        bannerPath = await downloadImageToMediaDir(tmdbData.bannerPath, filePath, 'fanart');
-      }
+    } catch (tmdbError) {
+      console.error(`⚠️ Error buscando en TMDB para "${title}":`, tmdbError.message);
     }
   }
   
@@ -286,8 +316,8 @@ const processFile = async (filePath, lib) => {
       tagline = ?, certification = ?, runtime = ?, trailer_url = ?, imdb_id = ?, tmdb_id = ?,
       director = ?, writer = ?, studio = ?, country = ?, nfo_path = ?, set_name = ?, actors = ?
       WHERE id = ?`)
-      .run(title, description, rating, posterPath || existing.poster_path, bannerPath, genre,
-        tagline, certification, runtime, trailer_url, imdb_id, tmdb_id,
+      .run(title, description || existing.description, rating, posterPath || existing.poster_path, bannerPath || existing.banner_path, genre,
+        tagline, certification, runtime, trailer_url, imdb_id, tmdb_id || existing.tmdb_id,
         d, writer, s, country, nfo_path, set_name, null, existing.id);
     return false;
   } else {
@@ -299,6 +329,7 @@ const processFile = async (filePath, lib) => {
     return true;
   }
 };
+
 
 // 1. Get Catalog (Media + User Progress)
 router.get('/catalog', authMiddleware, (req, res) => {
@@ -849,7 +880,10 @@ router.post('/admin/media/identify', authMiddleware, async (req, res) => {
 router.post('/admin/media/bulk-identify', authMiddleware, async (req, res) => {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' });
   try {
-    const unidentified = db.prepare("SELECT * FROM eo_media WHERE tmdb_id IS NULL OR poster_path IS NULL OR poster_path = ''").all();
+    // Find media that needs identification: no tmdb_id, no poster, HTTP-only poster, or empty poster
+    const unidentified = db.prepare(
+      "SELECT * FROM eo_media WHERE tmdb_id IS NULL OR poster_path IS NULL OR poster_path = '' OR poster_path LIKE 'http%'"
+    ).all();
     let identified = 0;
     let failed = 0;
 
